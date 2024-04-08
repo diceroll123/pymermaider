@@ -49,8 +49,12 @@ fn main() {
             if let Err(e) = &parsed_file.result {
                 println!("Error in file {:?}: {:?}", path, e);
             }
-            let diagram = make_mermaid(vec![parsed_file]);
-            let wrote_file = diagram.write_to_file(path.file_name().unwrap().to_str().unwrap());
+
+            let title = path.file_name().unwrap().to_str().unwrap();
+            let mut diagram = make_mermaid(vec![parsed_file]);
+            diagram.title = title.to_string();
+
+            let wrote_file = diagram.write_to_file(title);
             if wrote_file {
                 written += 1;
             }
@@ -61,24 +65,23 @@ fn main() {
 
             if multiple_files {
                 for parsed_file in parsed_files.iter() {
-                    let diagram = make_mermaid(vec![parsed_file.clone()]);
-                    let wrote_file = diagram
-                        .write_to_file(parsed_file.filename.file_name().unwrap().to_str().unwrap());
+                    let title = parsed_file.filename.file_name().unwrap().to_str().unwrap();
+                    let mut diagram = make_mermaid(vec![parsed_file.clone()]);
+                    diagram.title = title.to_string();
+
+                    let wrote_file = diagram.write_to_file(title);
                     if wrote_file {
                         written += 1;
                     }
                 }
             } else {
-                let diagram = make_mermaid(parsed_files);
+                let canonical_path = path.canonicalize().unwrap();
+                let title = canonical_path.file_name().unwrap().to_str().unwrap();
 
-                let wrote_file = diagram.write_to_file(
-                    path.canonicalize()
-                        .unwrap()
-                        .file_name()
-                        .unwrap()
-                        .to_str()
-                        .unwrap(),
-                );
+                let mut diagram = make_mermaid(parsed_files);
+                diagram.title = title.to_string();
+
+                let wrote_file = diagram.write_to_file(title);
                 if wrote_file {
                     written += 1;
                 }
