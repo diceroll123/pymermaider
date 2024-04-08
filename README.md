@@ -66,6 +66,11 @@ classDiagram
 - Import resolution (might need to convert the parser to [Ruff](https://github.com/astral-sh/ruff/) for that...)
 - More language support, maybe?? 😳🤔
 
+## Known Issues
+
+- methods with `@overload` decorators can be confusing in the output
+- methods with property-setter decorators can be confusing in the output
+
 ## Contributing
 
 Contributions are more than welcome, just make a PR and we'll go from there!
