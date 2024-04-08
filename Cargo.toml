@@ -1,0 +1,13 @@
+[package]
+name = "pymermaider"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+clap = "2.34"
+log = "0.4.21"
+rustpython-parser = { git = "https://github.com/RustPython/Parser.git" }
+env_logger = { version = "0.9.0", default-features = false, features = ["atty", "termcolor"] }
+chrono = "0.4.37"
+itertools = "0.12.1"
+ignore = { version = "0.4.22", features = ["simd-accel"] }
