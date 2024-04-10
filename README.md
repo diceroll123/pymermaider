@@ -65,6 +65,7 @@ classDiagram
 - Better output file naming convention
 - Import resolution
 - More language support, maybe?? 😳🤔
+- Sort classes with relationships to be grouped together
 
 ## Known Issues
 
