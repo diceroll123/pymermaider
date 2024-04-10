@@ -7,14 +7,15 @@ extern crate env_logger;
 extern crate log;
 
 use crate::class_diagram::ClassDiagram;
+use ast::{Expr, Number};
 use clap::{App, Arg};
 use ignore::{types::TypesBuilder, WalkBuilder};
-use itertools::Itertools;
-use rustpython_parser::{
-    ast::{self, Expr, Ranged},
-    Parse,
-};
-use std::path::{Path, PathBuf};
+use ruff_python_ast as ast;
+use ruff_python_codegen::{Generator, Stylist};
+use ruff_python_parser::lexer::lex;
+use ruff_python_parser::{parse_suite, Mode};
+use ruff_source_file::Locator;
+use std::path::Path;
 
 const TAB: &str = "    ";
 
@@ -45,13 +46,8 @@ fn main() {
 
     if path.exists() {
         if path.is_file() {
-            let parsed_file = parse_python_file(path);
-            if let Err(e) = &parsed_file.result {
-                println!("Error in file {:?}: {:?}", path, e);
-            }
-
             let title = path.file_name().unwrap().to_str().unwrap();
-            let mut diagram = make_mermaid(vec![parsed_file]);
+            let mut diagram = make_mermaid(vec![path.to_str().unwrap().to_string()]);
             diagram.title = title.to_string();
 
             let wrote_file = diagram.write_to_file(title);
@@ -65,7 +61,11 @@ fn main() {
 
             if multiple_files {
                 for parsed_file in parsed_files.iter() {
-                    let title = parsed_file.filename.file_name().unwrap().to_str().unwrap();
+                    let title = Path::new(parsed_file)
+                        .file_name()
+                        .unwrap()
+                        .to_str()
+                        .unwrap();
                     let mut diagram = make_mermaid(vec![parsed_file.clone()]);
                     diagram.title = title.to_string();
 
@@ -93,17 +93,7 @@ fn main() {
     }
 }
 
-fn grab_annotations(source: &str, annotation: &Expr) -> String {
-    // not a great solution, but it works for now
-    // I'd like for this to unparse the expr instead
-    let range = annotation.range();
-    source[range]
-        .lines()
-        .map(|line| line.trim_start())
-        .join(" ")
-}
-
-fn stmt_mermaider(file: &ParsedFile, stmt: &ast::Stmt, indent_level: usize) -> String {
+fn stmt_mermaider(generator: Generator, stmt: &ast::Stmt, indent_level: usize) -> String {
     match stmt {
         ast::Stmt::AnnAssign(ast::StmtAnnAssign {
             target,
@@ -116,13 +106,13 @@ fn stmt_mermaider(file: &ParsedFile, stmt: &ast::Stmt, indent_level: usize) -> S
                 return res;
             }
 
-            let ast::Expr::Name(ast::ExprName { id: target, .. }) = target.as_ref() else {
+            let Expr::Name(ast::ExprName { id: target, .. }) = target.as_ref() else {
                 return res;
             };
 
             let target_name = target.to_string();
 
-            let annotation_name = grab_annotations(file.source.as_ref(), annotation.as_ref());
+            let annotation_name = generator.expr(annotation.as_ref());
 
             res.push_str(TAB.repeat(indent_level).as_str());
 
@@ -138,58 +128,57 @@ fn stmt_mermaider(file: &ParsedFile, stmt: &ast::Stmt, indent_level: usize) -> S
             res
         }
 
-        ast::Stmt::AsyncFunctionDef(ast::StmtAsyncFunctionDef {
+        ast::Stmt::FunctionDef(ast::StmtFunctionDef {
             name,
-            args,
-            returns,
-            ..
-        })
-        | ast::Stmt::FunctionDef(ast::StmtFunctionDef {
-            name,
-            args,
+            is_async,
+            parameters,
             returns,
             ..
         }) => {
-            let is_async = matches!(stmt, ast::Stmt::AsyncFunctionDef(_));
             let function_name = name.to_string();
 
             let is_private = function_name.starts_with('_');
 
             let mut arg_list = Vec::new();
 
-            if !args.as_ref().posonlyargs.is_empty() {
+            if !parameters.posonlyargs.is_empty() {
                 arg_list.extend(
-                    args.as_ref()
+                    parameters
                         .posonlyargs
                         .iter()
-                        .map(|arg| arg.def.arg.to_string()),
+                        .map(|arg| arg.parameter.name.to_string()),
                 );
 
                 arg_list.push("/".to_string());
             }
 
-            arg_list.extend(args.as_ref().args.iter().map(|arg| arg.def.arg.to_string()));
+            arg_list.extend(
+                parameters
+                    .args
+                    .iter()
+                    .map(|arg| arg.parameter.name.to_string()),
+            );
 
-            if args.as_ref().vararg.is_some() {
-                arg_list.push(format!("*{}", args.as_ref().vararg.as_ref().unwrap().arg));
+            if let Some(vararg) = &parameters.vararg {
+                arg_list.push(format!("*{}", vararg.name));
             }
 
-            if !args.as_ref().kwonlyargs.is_empty() {
+            if !parameters.kwonlyargs.is_empty() {
                 arg_list.push("*".to_string());
                 arg_list.extend(
-                    args.as_ref()
+                    parameters
                         .kwonlyargs
                         .iter()
-                        .map(|arg| arg.def.arg.to_string()),
+                        .map(|arg| arg.parameter.name.to_string()),
                 );
             }
 
-            if args.as_ref().kwarg.is_some() {
-                arg_list.push(format!("**{}", args.as_ref().kwarg.as_ref().unwrap().arg));
+            if let Some(kwarg) = &parameters.kwarg {
+                arg_list.push(format!("**{}", kwarg.name));
             }
 
             let returns = match returns {
-                Some(target) => grab_annotations(file.source.as_ref(), target.as_ref()),
+                Some(target) => generator.expr(target.as_ref()),
                 None => "".to_string(),
             };
 
@@ -198,7 +187,7 @@ fn stmt_mermaider(file: &ParsedFile, stmt: &ast::Stmt, indent_level: usize) -> S
             res.push_str(&format!(
                 "{} {}{}({}) {}\n",
                 if is_private { "-" } else { "+" },
-                if is_async { "async " } else { "" },
+                if *is_async { "async " } else { "" },
                 &function_name,
                 arg_list.join(", "),
                 returns,
@@ -210,32 +199,28 @@ fn stmt_mermaider(file: &ParsedFile, stmt: &ast::Stmt, indent_level: usize) -> S
             let mut res = String::new();
 
             let value_type = match value.as_ref() {
-                ast::Expr::BoolOp(_) => "bool",
-                ast::Expr::BinOp(_) | ast::Expr::UnaryOp(_) => "int",
-                ast::Expr::Lambda(_) => "Callable",
-                ast::Expr::DictComp(_) | ast::Expr::Dict(_) => "dict",
-                ast::Expr::Set(_) | ast::Expr::SetComp(_) => "set",
-                ast::Expr::FormattedValue(_) | ast::Expr::JoinedStr(_) => "str",
-                ast::Expr::Constant(_) => match value.as_ref() {
-                    ast::Expr::Constant(ast::ExprConstant { value, .. }) => match value {
-                        ast::Constant::None => "None",
-                        ast::Constant::Bool(_) => "bool",
-                        ast::Constant::Bytes(_) => "bytes",
-                        ast::Constant::Int(_) => "int",
-                        ast::Constant::Str(_) => "str",
-                        ast::Constant::Ellipsis => "...",
-                        ast::Constant::Float(_) => "float",
-                        _ => "",
-                    },
-                    _ => "",
+                Expr::BoolOp(_) => "bool",
+                Expr::BinOp(_) | Expr::UnaryOp(_) => "int",
+                Expr::Lambda(_) => "Callable",
+                Expr::DictComp(_) | ast::Expr::Dict(_) => "dict",
+                Expr::Set(_) | Expr::SetComp(_) => "set",
+                Expr::FString(_) | Expr::StringLiteral(_) => "str",
+                Expr::NoneLiteral(_) => "None",
+                Expr::BooleanLiteral(_) => "bool",
+                Expr::BytesLiteral(_) => "bytes",
+                Expr::EllipsisLiteral(_) => "...",
+                Expr::ListComp(_) | Expr::List(_) => "list",
+                Expr::Tuple(_) => "tuple",
+                Expr::NumberLiteral(inner) => match inner.value {
+                    Number::Int(_) => "int",
+                    Number::Float(_) => "float",
+                    Number::Complex { .. } => "complex",
                 },
-                ast::Expr::ListComp(_) | ast::Expr::List(_) => "list",
-                ast::Expr::Tuple(_) => "tuple",
                 _ => "",
             };
 
             for target in targets {
-                let ast::Expr::Name(ast::ExprName { id: target, .. }) = target else {
+                let Expr::Name(ast::ExprName { id: target, .. }) = target else {
                     continue;
                 };
 
@@ -259,7 +244,7 @@ fn stmt_mermaider(file: &ParsedFile, stmt: &ast::Stmt, indent_level: usize) -> S
 
 fn class_mermaider(
     class_diagram: &mut ClassDiagram,
-    file: &ParsedFile,
+    stylist: &Stylist,
     class: &ast::StmtClassDef,
     indent_level: usize,
 ) {
@@ -271,15 +256,16 @@ fn class_mermaider(
     res.push_str(&use_tab);
     res.push_str(&format!("class {} {{\n", &class_name));
     for stmt in class.body.iter() {
-        res.push_str(&stmt_mermaider(file, stmt, indent_level + 1));
+        let generator = Generator::from(stylist);
+        res.push_str(&stmt_mermaider(generator, stmt, indent_level + 1));
     }
     res.push_str(&use_tab);
     res.push('}');
 
     class_diagram.classes.push(res);
 
-    for base in class.bases.iter() {
-        let ast::Expr::Name(ast::ExprName { id: base, .. }) = base else {
+    for base in class.bases() {
+        let Expr::Name(ast::ExprName { id: base, .. }) = base else {
             continue;
         };
 
@@ -291,16 +277,24 @@ fn class_mermaider(
     }
 }
 
-fn make_mermaid(parsed_files: Vec<ParsedFile>) -> ClassDiagram {
+fn make_mermaid(parsed_files: Vec<String>) -> ClassDiagram {
     let mut class_diagram = ClassDiagram::new();
 
     for file in parsed_files.iter() {
-        if let Ok(stmts) = &file.result {
-            for stmt in stmts.iter() {
-                if let ast::Stmt::ClassDef(class) = stmt {
-                    // we only care about class definitions
-                    class_mermaider(&mut class_diagram, file, class, 1);
-                }
+        let source = match std::fs::read_to_string(file) {
+            Ok(content) => content,
+            Err(_) => continue,
+        };
+
+        let locator = Locator::new(&source);
+        let tokens: Vec<_> = lex(&source, Mode::Module).collect();
+        let stylist = Stylist::from_tokens(&tokens, &locator);
+        let python_ast = parse_suite(&source).unwrap();
+
+        for stmt in python_ast.iter() {
+            if let ast::Stmt::ClassDef(class) = stmt {
+                // we only care about class definitions
+                class_mermaider(&mut class_diagram, &stylist, class, 1);
             }
         }
     }
@@ -308,7 +302,7 @@ fn make_mermaid(parsed_files: Vec<ParsedFile>) -> ClassDiagram {
     class_diagram
 }
 
-fn parse_folder(path: &Path) -> std::io::Result<Vec<ParsedFile>> {
+fn parse_folder(path: &Path) -> std::io::Result<Vec<String>> {
     let mut parsed_files = vec![];
 
     let types = TypesBuilder::new()
@@ -325,11 +319,9 @@ fn parse_folder(path: &Path) -> std::io::Result<Vec<ParsedFile>> {
                     continue;
                 }
 
-                let parsed_file = parse_python_file(entry.path());
-                if let Err(y) = &parsed_file.result {
-                    error!("Error in file {:?} {:?}", entry.path(), y);
+                if let Some(filename) = entry.path().to_str() {
+                    parsed_files.push(filename.to_string());
                 }
-                parsed_files.push(parsed_file);
             }
             Err(err) => {
                 error!("Error walking path: {:?}", err);
@@ -339,32 +331,3 @@ fn parse_folder(path: &Path) -> std::io::Result<Vec<ParsedFile>> {
 
     Ok(parsed_files)
 }
-
-fn parse_python_file(filename: &Path) -> ParsedFile {
-    info!("Parsing file {:?}", filename);
-    match std::fs::read_to_string(filename) {
-        Err(e) => ParsedFile {
-            filename: Box::new(filename.to_path_buf()),
-            source: "".to_string(),
-            result: Err(e.to_string()),
-        },
-        Ok(source) => {
-            let result =
-                ast::Suite::parse(&source, &filename.to_string_lossy()).map_err(|e| e.to_string());
-            ParsedFile {
-                filename: Box::new(filename.to_path_buf()),
-                source,
-                result,
-            }
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-struct ParsedFile {
-    filename: Box<PathBuf>,
-    source: String,
-    result: ParseResult,
-}
-
-type ParseResult = Result<Vec<ast::Stmt>, String>;

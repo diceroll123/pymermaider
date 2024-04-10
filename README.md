@@ -63,7 +63,7 @@ classDiagram
 
 - Output directory option
 - Better output file naming convention
-- Import resolution (might need to convert the parser to [Ruff](https://github.com/astral-sh/ruff/) for that...)
+- Import resolution
 - More language support, maybe?? 😳🤔
 
 ## Known Issues
