@@ -1,4 +1,5 @@
 mod class_diagram;
+mod parameter_generator;
 
 #[macro_use]
 extern crate clap;
@@ -7,6 +8,7 @@ extern crate env_logger;
 extern crate log;
 
 use crate::class_diagram::ClassDiagram;
+use crate::parameter_generator::ParameterGenerator;
 use ast::{Expr, Number};
 use clap::{App, Arg};
 use ignore::{types::TypesBuilder, WalkBuilder};
@@ -139,43 +141,10 @@ fn stmt_mermaider(generator: Generator, stmt: &ast::Stmt, indent_level: usize) -
 
             let is_private = function_name.starts_with('_');
 
-            let mut arg_list = Vec::new();
+            let mut param_gen = ParameterGenerator::new();
+            param_gen.unparse_parameters(parameters);
 
-            if !parameters.posonlyargs.is_empty() {
-                arg_list.extend(
-                    parameters
-                        .posonlyargs
-                        .iter()
-                        .map(|arg| arg.parameter.name.to_string()),
-                );
-
-                arg_list.push("/".to_string());
-            }
-
-            arg_list.extend(
-                parameters
-                    .args
-                    .iter()
-                    .map(|arg| arg.parameter.name.to_string()),
-            );
-
-            if let Some(vararg) = &parameters.vararg {
-                arg_list.push(format!("*{}", vararg.name));
-            }
-
-            if !parameters.kwonlyargs.is_empty() {
-                arg_list.push("*".to_string());
-                arg_list.extend(
-                    parameters
-                        .kwonlyargs
-                        .iter()
-                        .map(|arg| arg.parameter.name.to_string()),
-                );
-            }
-
-            if let Some(kwarg) = &parameters.kwarg {
-                arg_list.push(format!("**{}", kwarg.name));
-            }
+            let params = param_gen.generate();
 
             let returns = match returns {
                 Some(target) => generator.expr(target.as_ref()),
@@ -189,7 +158,7 @@ fn stmt_mermaider(generator: Generator, stmt: &ast::Stmt, indent_level: usize) -
                 if is_private { "-" } else { "+" },
                 if *is_async { "async " } else { "" },
                 &function_name,
-                arg_list.join(", "),
+                params,
                 returns,
             ));
             res
