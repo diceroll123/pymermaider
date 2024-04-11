@@ -63,13 +63,12 @@ classDiagram
 
 - Output directory option
 - Better output file naming convention
-- Import resolution
+- Import resolution (sorta-kinda implemented now, but not good enough or even used yet)
 - More language support, maybe?? 😳🤔
 - Sort classes with relationships to be grouped together
 
 ## Known Issues
 
-- methods with `@overload` decorators can be confusing in the output
 - methods with property-setter decorators can be confusing in the output
 
 ## Contributing

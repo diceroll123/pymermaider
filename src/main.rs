@@ -18,7 +18,9 @@ use ruff_python_ast as ast;
 use ruff_python_codegen::Stylist;
 use ruff_python_parser::lexer::lex;
 use ruff_python_parser::{parse_suite, Mode};
-use ruff_python_semantic::analyze::visibility::{self, is_classmethod, is_staticmethod};
+use ruff_python_semantic::analyze::visibility::{
+    self, is_classmethod, is_overload, is_staticmethod,
+};
 use ruff_python_semantic::{Module, ModuleKind, SemanticModel};
 use ruff_source_file::Locator;
 use std::path::Path;
@@ -161,6 +163,8 @@ fn stmt_mermaider(checker: &Checker, stmt: &ast::Stmt, indent_level: usize) -> S
                 method_type = "@classmethod ";
             } else if is_staticmethod(decorator_list, checker.semantic()) {
                 method_type = "@staticmethod ";
+            } else if is_overload(decorator_list, checker.semantic()) {
+                method_type = "@overload ";
             }
 
             let mut res = String::new();
@@ -277,7 +281,8 @@ fn make_mermaid(parsed_files: Vec<String>) -> ClassDiagram {
             python_ast: &python_ast,
         };
         let semantic = SemanticModel::new(&[], Path::new(file), module);
-        let checker = Checker::new(&stylist, semantic);
+        let mut checker = Checker::new(&stylist, semantic);
+        checker.see_imports(&python_ast);
 
         for stmt in python_ast.iter() {
             if let ast::Stmt::ClassDef(class) = stmt {
