@@ -144,9 +144,7 @@ fn stmt_mermaider(checker: &Checker, stmt: &ast::Stmt, indent_level: usize) -> S
             decorator_list,
             ..
         }) => {
-            let function_name = name.to_string();
-
-            let is_private = function_name.starts_with('_');
+            let is_private = name.starts_with('_');
 
             let mut param_gen = ParameterGenerator::new();
             param_gen.unparse_parameters(parameters);
@@ -158,13 +156,15 @@ fn stmt_mermaider(checker: &Checker, stmt: &ast::Stmt, indent_level: usize) -> S
                 None => "".to_string(),
             };
 
-            let mut method_type = "";
+            let mut method_types = vec![];
             if is_classmethod(decorator_list, checker.semantic()) {
-                method_type = "@classmethod ";
+                method_types.push("@classmethod ");
             } else if is_staticmethod(decorator_list, checker.semantic()) {
-                method_type = "@staticmethod ";
-            } else if is_overload(decorator_list, checker.semantic()) {
-                method_type = "@overload ";
+                method_types.push("@staticmethod ");
+            }
+
+            if is_overload(decorator_list, checker.semantic()) {
+                method_types.push("@overload ");
             }
 
             let mut res = String::new();
@@ -172,9 +172,9 @@ fn stmt_mermaider(checker: &Checker, stmt: &ast::Stmt, indent_level: usize) -> S
             res.push_str(&format!(
                 "{} {}{}{}({}) {}\n",
                 if is_private { "-" } else { "+" },
-                method_type,
+                method_types.join(""),
                 if *is_async { "async " } else { "" },
-                &function_name,
+                &name,
                 params,
                 returns,
             ));
