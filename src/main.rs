@@ -1,3 +1,4 @@
+mod checker;
 mod class_diagram;
 mod parameter_generator;
 
@@ -10,12 +11,15 @@ extern crate log;
 use crate::class_diagram::ClassDiagram;
 use crate::parameter_generator::ParameterGenerator;
 use ast::{Expr, Number};
+use checker::Checker;
 use clap::{App, Arg};
 use ignore::{types::TypesBuilder, WalkBuilder};
 use ruff_python_ast as ast;
-use ruff_python_codegen::{Generator, Stylist};
+use ruff_python_codegen::Stylist;
 use ruff_python_parser::lexer::lex;
 use ruff_python_parser::{parse_suite, Mode};
+use ruff_python_semantic::analyze::visibility::{self, is_classmethod, is_staticmethod};
+use ruff_python_semantic::{Module, ModuleKind, SemanticModel};
 use ruff_source_file::Locator;
 use std::path::Path;
 
@@ -95,7 +99,7 @@ fn main() {
     }
 }
 
-fn stmt_mermaider(generator: Generator, stmt: &ast::Stmt, indent_level: usize) -> String {
+fn stmt_mermaider(checker: &Checker, stmt: &ast::Stmt, indent_level: usize) -> String {
     match stmt {
         ast::Stmt::AnnAssign(ast::StmtAnnAssign {
             target,
@@ -114,7 +118,7 @@ fn stmt_mermaider(generator: Generator, stmt: &ast::Stmt, indent_level: usize) -
 
             let target_name = target.to_string();
 
-            let annotation_name = generator.expr(annotation.as_ref());
+            let annotation_name = checker.generator().expr(annotation.as_ref());
 
             res.push_str(TAB.repeat(indent_level).as_str());
 
@@ -135,6 +139,7 @@ fn stmt_mermaider(generator: Generator, stmt: &ast::Stmt, indent_level: usize) -
             is_async,
             parameters,
             returns,
+            decorator_list,
             ..
         }) => {
             let function_name = name.to_string();
@@ -147,15 +152,23 @@ fn stmt_mermaider(generator: Generator, stmt: &ast::Stmt, indent_level: usize) -
             let params = param_gen.generate();
 
             let returns = match returns {
-                Some(target) => generator.expr(target.as_ref()),
+                Some(target) => checker.generator().expr(target.as_ref()),
                 None => "".to_string(),
             };
+
+            let mut method_type = "";
+            if is_classmethod(decorator_list, checker.semantic()) {
+                method_type = "@classmethod ";
+            } else if is_staticmethod(decorator_list, checker.semantic()) {
+                method_type = "@staticmethod ";
+            }
 
             let mut res = String::new();
             res.push_str(&TAB.repeat(indent_level));
             res.push_str(&format!(
-                "{} {}{}({}) {}\n",
+                "{} {}{}{}({}) {}\n",
                 if is_private { "-" } else { "+" },
+                method_type,
                 if *is_async { "async " } else { "" },
                 &function_name,
                 params,
@@ -213,7 +226,7 @@ fn stmt_mermaider(generator: Generator, stmt: &ast::Stmt, indent_level: usize) -
 
 fn class_mermaider(
     class_diagram: &mut ClassDiagram,
-    stylist: &Stylist,
+    checker: &Checker,
     class: &ast::StmtClassDef,
     indent_level: usize,
 ) {
@@ -225,8 +238,7 @@ fn class_mermaider(
     res.push_str(&use_tab);
     res.push_str(&format!("class {} {{\n", &class_name));
     for stmt in class.body.iter() {
-        let generator = Generator::from(stylist);
-        res.push_str(&stmt_mermaider(generator, stmt, indent_level + 1));
+        res.push_str(&stmt_mermaider(checker, stmt, indent_level + 1));
     }
     res.push_str(&use_tab);
     res.push('}');
@@ -259,11 +271,18 @@ fn make_mermaid(parsed_files: Vec<String>) -> ClassDiagram {
         let tokens: Vec<_> = lex(&source, Mode::Module).collect();
         let stylist = Stylist::from_tokens(&tokens, &locator);
         let python_ast = parse_suite(&source).unwrap();
+        let module = Module {
+            kind: ModuleKind::Module,
+            source: visibility::ModuleSource::File(Path::new(file)),
+            python_ast: &python_ast,
+        };
+        let semantic = SemanticModel::new(&[], Path::new(file), module);
+        let checker = Checker::new(&stylist, semantic);
 
         for stmt in python_ast.iter() {
             if let ast::Stmt::ClassDef(class) = stmt {
                 // we only care about class definitions
-                class_mermaider(&mut class_diagram, &stylist, class, 1);
+                class_mermaider(&mut class_diagram, &checker, class, 1);
             }
         }
     }

@@ -4,14 +4,16 @@ version = "0.1.0"
 edition = "2021"
 
 [dependencies]
-clap = "2.34"
-log = "0.4.21"
-env_logger = { version = "0.9.0", default-features = false, features = ["atty", "termcolor"] }
 chrono = "0.4.37"
-itertools = "0.12.1"
+clap = "2.34"
+env_logger = { version = "0.9.0", default-features = false, features = ["atty", "termcolor"] }
 ignore = { version = "0.4.22", features = ["simd-accel"] }
+itertools = "0.12.1"
+log = "0.4.21"
 ruff_python_ast = { git = "https://github.com/astral-sh/ruff.git" }
-ruff_python_parser = { git = "https://github.com/astral-sh/ruff.git" }
-ruff_text_size = { git = "https://github.com/astral-sh/ruff.git" }
 ruff_python_codegen = { git = "https://github.com/astral-sh/ruff.git" }
+ruff_python_parser = { git = "https://github.com/astral-sh/ruff.git" }
+ruff_python_semantic = { git = "https://github.com/astral-sh/ruff.git" }
+ruff_python_stdlib = { git = "https://github.com/astral-sh/ruff.git" }
 ruff_source_file = { git = "https://github.com/astral-sh/ruff.git" }
+ruff_text_size = { git = "https://github.com/astral-sh/ruff.git" }
