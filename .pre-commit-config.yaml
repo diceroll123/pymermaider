@@ -1,0 +1,16 @@
+repos:
+  - repo: local
+    hooks:
+      - id: cargo-clippy
+        name: Run cargo clippy
+        entry: cargo clippy --fix --allow-staged
+        language: system
+        types: [rust]
+        pass_filenames: false
+
+      - id: cargo-fmt
+        name: cargo fmt
+        entry: cargo fmt --
+        language: system
+        types: [rust]
+        pass_filenames: false
