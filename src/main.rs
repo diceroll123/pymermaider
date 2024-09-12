@@ -14,14 +14,12 @@ use ast::{Expr, Number};
 use checker::Checker;
 use clap::{App, Arg};
 use ignore::{types::TypesBuilder, WalkBuilder};
-use ruff_python_ast as ast;
+use ruff_linter::source_kind::SourceKind;
+use ruff_python_ast::{self as ast, PySourceType};
 use ruff_python_codegen::Stylist;
-use ruff_python_parser::lexer::lex;
-use ruff_python_parser::{parse_suite, Mode};
-use ruff_python_semantic::analyze::visibility::{
-    self, is_classmethod, is_overload, is_staticmethod,
-};
-use ruff_python_semantic::{Module, ModuleKind, SemanticModel};
+use ruff_python_parser::parse_unchecked_source;
+use ruff_python_semantic::analyze::visibility::{is_classmethod, is_overload, is_staticmethod};
+use ruff_python_semantic::{Module, ModuleKind, ModuleSource, SemanticModel};
 use ruff_source_file::Locator;
 use std::path::Path;
 
@@ -266,19 +264,27 @@ fn make_mermaid(parsed_files: Vec<String>) -> ClassDiagram {
     let mut class_diagram = ClassDiagram::new();
 
     for file in parsed_files.iter() {
+        let source_type = PySourceType::from(file);
+
         let source = match std::fs::read_to_string(file) {
             Ok(content) => content,
             Err(_) => continue,
         };
 
-        let locator = Locator::new(&source);
-        let tokens: Vec<_> = lex(&source, Mode::Module).collect();
-        let stylist = Stylist::from_tokens(&tokens, &locator);
-        let python_ast = parse_suite(&source).unwrap();
+        let source_kind = SourceKind::Python(source);
+
+        let locator = Locator::new(source_kind.source_code());
+
+        let parsed = parse_unchecked_source(source_kind.source_code(), source_type);
+
+        let stylist = Stylist::from_tokens(parsed.tokens(), &locator);
+
+        let python_ast = parsed.into_suite();
         let module = Module {
             kind: ModuleKind::Module,
-            source: visibility::ModuleSource::File(Path::new(file)),
+            source: ModuleSource::File(Path::new(file)),
             python_ast: &python_ast,
+            name: None,
         };
         let semantic = SemanticModel::new(&[], Path::new(file), module);
         let mut checker = Checker::new(&stylist, semantic);

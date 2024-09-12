@@ -7,7 +7,7 @@ use ruff_python_semantic::{
     BindingFlags, BindingId, BindingKind, FromImport, Import, SemanticModel, StarImport,
     SubmoduleImport,
 };
-use ruff_python_stdlib::builtins::{MAGIC_GLOBALS, PYTHON_BUILTINS};
+use ruff_python_stdlib::builtins::{python_builtins, MAGIC_GLOBALS};
 use ruff_text_size::TextRange;
 
 /// Slimmed down version of the `Checker` struct from the `ruff_python_semantic` crate.
@@ -24,7 +24,7 @@ impl<'a> Checker<'a> {
     }
 
     fn bind_builtins(&mut self) {
-        for builtin in PYTHON_BUILTINS.iter().chain(MAGIC_GLOBALS.iter()).copied() {
+        for builtin in python_builtins(u8::MAX, false).chain(MAGIC_GLOBALS.iter().copied()) {
             // Add the builtin to the scope.
             let binding_id = self.semantic.push_builtin();
             let scope = self.semantic.global_scope_mut();
@@ -194,7 +194,7 @@ impl<'a> Checker<'a> {
                     let level = *level;
 
                     // Mark the top-level module as "seen" by the semantic model.
-                    if level.map_or(true, |level| level == 0) {
+                    if level == 0 {
                         if let Some(module) = module.and_then(|module| module.split('.').next()) {
                             self.semantic.add_module(module);
                         }

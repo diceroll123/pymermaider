@@ -17,3 +17,4 @@ ruff_python_semantic = { git = "https://github.com/astral-sh/ruff.git" }
 ruff_python_stdlib = { git = "https://github.com/astral-sh/ruff.git" }
 ruff_source_file = { git = "https://github.com/astral-sh/ruff.git" }
 ruff_text_size = { git = "https://github.com/astral-sh/ruff.git" }
+ruff_linter = { git = "https://github.com/astral-sh/ruff.git" }
