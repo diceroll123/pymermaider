@@ -186,7 +186,7 @@ fn stmt_mermaider(checker: &Checker, stmt: &ast::Stmt, indent_level: usize) -> S
                 Expr::BoolOp(_) => "bool",
                 Expr::BinOp(_) | Expr::UnaryOp(_) => "int",
                 Expr::Lambda(_) => "Callable",
-                Expr::DictComp(_) | ast::Expr::Dict(_) => "dict",
+                Expr::DictComp(_) | Expr::Dict(_) => "dict",
                 Expr::Set(_) | Expr::SetComp(_) => "set",
                 Expr::FString(_) | Expr::StringLiteral(_) => "str",
                 Expr::NoneLiteral(_) => "None",
