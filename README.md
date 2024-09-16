@@ -15,19 +15,33 @@ Ensure you have Rust installed on your system. This project is not currently ava
 
 ## Usage
 
-```sh
-pymermaider [FLAGS] <path>
+```bash
+pymermaider [OPTIONS] <PATH>
 ```
 
-Where `<path>` is either a directory, or Python file (`.py` or `.pyi`). A directory will be recursively resolved.
+### Arguments
 
-### Current flags
+- `<PATH>`
+  The path to a file or directory to process.
 
-- `-m`, shorthand for `--multiple-files`. When used with a directory, each file will be made into their own markdown file.
+### Options
+
+- `-m, --multiple-files`
+  When processing a directory, this option will generate an individual Mermaid file for each file within the directory.
+
+- `-o, --output <OUTPUT>`
+  Specify the output directory for the generated Mermaid files. Defaults to `./output` if not provided.
+
+- `-h, --help`
+  Display help information for the command.
+
+- `-V, --version`
+  Show the current version of `pymermaider`.
+
+---
 
 NOTES:
 
-- Currently, all markdown files will be written to `./output/` with the name of the processed file.
 - Some codebases are so massive that processing the directory into one file will result in mermaid code that's too large to render. By default, it's 50,000 characters. This is a good reason for the `-m` flag. You can break class diagrams apart more easily into multiple renderings.
 
 ## Example
@@ -61,8 +75,8 @@ classDiagram
 
 ## Future Additions
 
-- Output directory option
-- Better output file naming convention
+- ~~Output directory option~~ ✅
+- ~~Better output file naming convention~~ ✅
 - Import resolution (sorta-kinda implemented now, but not good enough or even used yet)
 - More language support, maybe?? 😳🤔
 - Sort classes with relationships to be grouped together

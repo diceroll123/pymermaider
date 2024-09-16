@@ -31,9 +31,17 @@ struct Args {
     #[arg()]
     path: String,
 
-    /// Process each file individually, outputting a mermaid file for each file. Only used when path is a directory.
-    #[arg(short, long, default_value = "false")]
+    #[arg(
+        short,
+        long,
+        default_value = "false",
+        long_help = "Process each file individually, outputting a mermaid file for each file. Only used when path is a directory."
+    )]
     multiple_files: bool,
+
+    /// Output directory for mermaid files.
+    #[arg(short, long, default_value = "./output")]
+    output: String,
 }
 
 fn main() {
@@ -54,7 +62,7 @@ fn main() {
         let mut diagram = make_mermaid(vec![path.to_str().unwrap().to_string()]);
         diagram.path = path.file_name().unwrap().to_str().unwrap().to_owned();
 
-        let wrote_file = diagram.write_to_file();
+        let wrote_file = diagram.write_to_file(&args.output);
         if wrote_file {
             written += 1;
         }
@@ -80,7 +88,7 @@ fn main() {
                 let mut diagram = make_mermaid(vec![parsed_file.clone()]);
                 diagram.path = format!("{path_folder_name}/{title}");
 
-                let wrote_file = diagram.write_to_file();
+                let wrote_file = diagram.write_to_file(&args.output);
                 if wrote_file {
                     written += 1;
                 }
@@ -96,7 +104,7 @@ fn main() {
                 .unwrap()
                 .to_owned();
 
-            let wrote_file = diagram.write_to_file();
+            let wrote_file = diagram.write_to_file(&args.output);
             if wrote_file {
                 written += 1;
             }

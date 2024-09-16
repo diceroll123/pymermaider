@@ -50,13 +50,13 @@ impl ClassDiagram {
         res
     }
 
-    pub fn write_to_file(&self) -> bool {
+    pub fn write_to_file(&self, output_directory: &str) -> bool {
         if self.is_empty() {
             info!("No classes found for {0:?}.", self.path);
             return false;
         }
 
-        let path = format!("./output/{}.md", self.path);
+        let path = format!("{output_directory}/{0}.md", self.path);
         if let Some(parent_dir) = std::path::Path::new(&path).parent() {
             std::fs::create_dir_all(parent_dir).unwrap();
         }
