@@ -29,7 +29,7 @@ pymermaider [OPTIONS] <PATH>
 - `-m, --multiple-files`
   When processing a directory, this option will generate an individual Mermaid file for each file within the directory.
 
-- `-o, --output <OUTPUT>`
+- `-o, --output-dir <OUTPUT>`
   Specify the output directory for the generated Mermaid files. Defaults to `./output` if not provided.
 
 - `-h, --help`

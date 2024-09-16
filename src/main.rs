@@ -29,7 +29,7 @@ struct Args {
 
     /// Output directory for mermaid files.
     #[arg(short, long, default_value = "./output")]
-    output: String,
+    output_dir: String,
 }
 
 fn main() {
@@ -37,7 +37,7 @@ fn main() {
 
     let args = Args::parse();
 
-    let mut mermaider = Mermaider::new(args.path, args.output, args.multiple_files);
+    let mut mermaider = Mermaider::new(args.path, args.output_dir, args.multiple_files);
 
     mermaider.process();
 
