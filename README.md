@@ -40,7 +40,7 @@ pymermaider [OPTIONS] <PATH>
 
 ---
 
-NOTES:
+### NOTES:
 
 - Some codebases are so massive that processing the directory into one file will result in mermaid code that's too large to render. By default, it's 50,000 characters. This is a good reason for the `-m` flag. You can break class diagrams apart more easily into multiple renderings.
 
