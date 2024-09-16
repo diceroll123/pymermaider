@@ -66,6 +66,13 @@ fn main() {
 
         if multiple_files {
             for parsed_file in parsed_files.iter() {
+                let path_folder_name = Path::new(parsed_file)
+                    .parent()
+                    .unwrap()
+                    .file_name()
+                    .unwrap()
+                    .to_str()
+                    .unwrap();
                 let title = Path::new(parsed_file)
                     .file_name()
                     .unwrap()
@@ -74,7 +81,7 @@ fn main() {
                 let mut diagram = make_mermaid(vec![parsed_file.clone()]);
                 diagram.title = title.to_string();
 
-                let wrote_file = diagram.write_to_file(title);
+                let wrote_file = diagram.write_to_file(&format!("{path_folder_name}/{title}"));
                 if wrote_file {
                     written += 1;
                 }

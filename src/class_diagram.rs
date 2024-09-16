@@ -56,8 +56,10 @@ impl ClassDiagram {
             return false;
         }
 
-        let path = format!("./output/{filename}.md");
-        std::fs::create_dir_all("./output/").unwrap();
+        let path = format!("./output/{}.md", filename);
+        if let Some(parent_dir) = std::path::Path::new(&path).parent() {
+            std::fs::create_dir_all(parent_dir).unwrap();
+        }
         std::fs::write(&path, self.render()).unwrap();
         println!("Mermaid file written to: {:?}", path);
 
