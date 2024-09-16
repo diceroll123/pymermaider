@@ -80,6 +80,7 @@ classDiagram
 - Import resolution (sorta-kinda implemented now, but not good enough or even used yet)
 - More language support, maybe?? 😳🤔
 - Sort classes with relationships to be grouped together
+- Test suites!
 
 ## Known Issues
 
