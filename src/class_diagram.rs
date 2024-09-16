@@ -5,7 +5,7 @@ use itertools::Itertools;
 pub struct ClassDiagram {
     pub classes: Vec<String>,
     pub relationships: Vec<String>,
-    pub title: String,
+    pub path: String,
 }
 
 impl ClassDiagram {
@@ -13,7 +13,7 @@ impl ClassDiagram {
         Self {
             classes: vec![],
             relationships: vec![],
-            title: String::new(),
+            path: String::new(),
         }
     }
 
@@ -25,9 +25,9 @@ impl ClassDiagram {
         let mut res = String::new();
         res.push_str("```mermaid\n");
 
-        if !self.title.is_empty() {
+        if !self.path.is_empty() {
             res.push_str("---\n");
-            res.push_str(&format!("title: {}\n", self.title));
+            res.push_str(&format!("title: {}\n", self.path));
             res.push_str("---\n");
         }
 
@@ -50,13 +50,13 @@ impl ClassDiagram {
         res
     }
 
-    pub fn write_to_file(&self, filename: &str) -> bool {
+    pub fn write_to_file(&self) -> bool {
         if self.is_empty() {
-            info!("No classes found for {filename:?}.");
+            info!("No classes found for {0:?}.", self.path);
             return false;
         }
 
-        let path = format!("./output/{}.md", filename);
+        let path = format!("./output/{}.md", self.path);
         if let Some(parent_dir) = std::path::Path::new(&path).parent() {
             std::fs::create_dir_all(parent_dir).unwrap();
         }

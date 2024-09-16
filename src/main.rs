@@ -51,11 +51,10 @@ fn main() {
     }
 
     if path.is_file() {
-        let title = path.file_name().unwrap().to_str().unwrap();
         let mut diagram = make_mermaid(vec![path.to_str().unwrap().to_string()]);
-        diagram.title = title.to_string();
+        diagram.path = path.file_name().unwrap().to_str().unwrap().to_owned();
 
-        let wrote_file = diagram.write_to_file(title);
+        let wrote_file = diagram.write_to_file();
         if wrote_file {
             written += 1;
         }
@@ -79,21 +78,25 @@ fn main() {
                     .to_str()
                     .unwrap();
                 let mut diagram = make_mermaid(vec![parsed_file.clone()]);
-                diagram.title = title.to_string();
+                diagram.path = format!("{path_folder_name}/{title}");
 
-                let wrote_file = diagram.write_to_file(&format!("{path_folder_name}/{title}"));
+                let wrote_file = diagram.write_to_file();
                 if wrote_file {
                     written += 1;
                 }
             }
         } else {
             let canonical_path = path.canonicalize().unwrap();
-            let title = canonical_path.file_name().unwrap().to_str().unwrap();
 
             let mut diagram = make_mermaid(parsed_files);
-            diagram.title = title.to_string();
+            diagram.path = canonical_path
+                .file_name()
+                .unwrap()
+                .to_str()
+                .unwrap()
+                .to_owned();
 
-            let wrote_file = diagram.write_to_file(title);
+            let wrote_file = diagram.write_to_file();
             if wrote_file {
                 written += 1;
             }
