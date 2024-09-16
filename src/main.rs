@@ -2,7 +2,6 @@ mod checker;
 mod class_diagram;
 mod parameter_generator;
 
-#[macro_use]
 extern crate clap;
 extern crate env_logger;
 #[macro_use]
@@ -12,7 +11,7 @@ use crate::class_diagram::ClassDiagram;
 use crate::parameter_generator::ParameterGenerator;
 use ast::{Expr, Number};
 use checker::Checker;
-use clap::{App, Arg};
+use clap::Parser;
 use ignore::{types::TypesBuilder, WalkBuilder};
 use ruff_linter::source_kind::SourceKind;
 use ruff_python_ast::{self as ast, PySourceType};
@@ -25,30 +24,26 @@ use std::path::Path;
 
 const TAB: &str = "    ";
 
+#[derive(Parser, Debug)]
+#[command(version, about, long_about = None)]
+struct Args {
+    /// Path to a file or directory
+    #[arg()]
+    path: String,
+
+    /// Process each file individually, outputting a mermaid file for each file. Only used when path is a directory.
+    #[arg(short, long, default_value = "false")]
+    multiple_files: bool,
+}
+
 fn main() {
     env_logger::init();
-    let app = App::new("pymermaider")
-        .version(crate_version!())
-        .author(crate_authors!())
-        .about("Converts Python files into Mermaid class diagrams.")
-        .arg(
-            Arg::with_name("path")
-                .help("Path to a file or directory")
-                .required(true),
-        )
-        .arg(
-            Arg::with_name("multiple")
-                .short("m")
-                .long("multiple-files")
-                .help("Process each file individually, outputting a mermaid file for each file. Only used when path is a directory.")
-                .takes_value(false),
-        );
 
-    let matches = app.get_matches();
+    let args = Args::parse();
 
     let mut written: usize = 0;
 
-    let path = Path::new(matches.value_of("path").unwrap());
+    let path = Path::new(&args.path);
 
     if path.exists() {
         if path.is_file() {
@@ -63,7 +58,7 @@ fn main() {
         } else if path.is_dir() {
             let parsed_files = parse_folder(path).unwrap();
 
-            let multiple_files = matches.is_present("multiple");
+            let multiple_files = args.multiple_files;
 
             if multiple_files {
                 for parsed_file in parsed_files.iter() {
