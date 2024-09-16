@@ -45,41 +45,33 @@ fn main() {
 
     let path = Path::new(&args.path);
 
-    if path.exists() {
-        if path.is_file() {
-            let title = path.file_name().unwrap().to_str().unwrap();
-            let mut diagram = make_mermaid(vec![path.to_str().unwrap().to_string()]);
-            diagram.title = title.to_string();
+    if !path.exists() {
+        println!("{:?} does not exist.", path);
+        return;
+    }
 
-            let wrote_file = diagram.write_to_file(title);
-            if wrote_file {
-                written += 1;
-            }
-        } else if path.is_dir() {
-            let parsed_files = parse_folder(path).unwrap();
+    if path.is_file() {
+        let title = path.file_name().unwrap().to_str().unwrap();
+        let mut diagram = make_mermaid(vec![path.to_str().unwrap().to_string()]);
+        diagram.title = title.to_string();
 
-            let multiple_files = args.multiple_files;
+        let wrote_file = diagram.write_to_file(title);
+        if wrote_file {
+            written += 1;
+        }
+    } else if path.is_dir() {
+        let parsed_files = parse_folder(path).unwrap();
 
-            if multiple_files {
-                for parsed_file in parsed_files.iter() {
-                    let title = Path::new(parsed_file)
-                        .file_name()
-                        .unwrap()
-                        .to_str()
-                        .unwrap();
-                    let mut diagram = make_mermaid(vec![parsed_file.clone()]);
-                    diagram.title = title.to_string();
+        let multiple_files = args.multiple_files;
 
-                    let wrote_file = diagram.write_to_file(title);
-                    if wrote_file {
-                        written += 1;
-                    }
-                }
-            } else {
-                let canonical_path = path.canonicalize().unwrap();
-                let title = canonical_path.file_name().unwrap().to_str().unwrap();
-
-                let mut diagram = make_mermaid(parsed_files);
+        if multiple_files {
+            for parsed_file in parsed_files.iter() {
+                let title = Path::new(parsed_file)
+                    .file_name()
+                    .unwrap()
+                    .to_str()
+                    .unwrap();
+                let mut diagram = make_mermaid(vec![parsed_file.clone()]);
                 diagram.title = title.to_string();
 
                 let wrote_file = diagram.write_to_file(title);
@@ -87,11 +79,20 @@ fn main() {
                     written += 1;
                 }
             }
+        } else {
+            let canonical_path = path.canonicalize().unwrap();
+            let title = canonical_path.file_name().unwrap().to_str().unwrap();
+
+            let mut diagram = make_mermaid(parsed_files);
+            diagram.title = title.to_string();
+
+            let wrote_file = diagram.write_to_file(title);
+            if wrote_file {
+                written += 1;
+            }
         }
-        println!("{} files written.", written);
-    } else {
-        println!("{:?} does not exist.", path);
     }
+    println!("Files written: {}", written);
 }
 
 fn stmt_mermaider(checker: &Checker, stmt: &ast::Stmt, indent_level: usize) -> String {
