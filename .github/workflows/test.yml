@@ -47,3 +47,10 @@ jobs:
           uv venv
           uv pip install . -v
           uv run pymermaider --help
+
+  all-python-builds-pass:
+    needs: python-build-and-help
+    runs-on: ubuntu-latest
+    steps:
+      - name: Echo success
+        run: echo "All builds passed"
