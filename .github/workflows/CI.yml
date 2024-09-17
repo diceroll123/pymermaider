@@ -182,8 +182,6 @@ jobs:
       - musllinux-cross
       - windows
     steps:
-      - name: Checkout repository (no-op)
-        uses: actions/checkout@v4
       - name: Echo success
         run: echo "All builds passed"
 
