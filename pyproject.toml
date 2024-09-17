@@ -6,9 +6,27 @@ build-backend = "maturin"
 name = "pymermaider"
 version = "0.1.0"
 description = "Mermaid diagram generator for Python code."
+authors = [{ name = "diceroll123" }]
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.7"
+classifiers = [
+  "Environment :: Console",
+  "Intended Audience :: Developers",
+  "License :: OSI Approved :: MIT License",
+  "Operating System :: OS Independent",
+  "Programming Language :: Python",
+  "Programming Language :: Python :: 3.7",
+  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3.9",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Rust",
+  "Topic :: Software Development :: Libraries :: Python Modules",
+]
 
 [project.urls]
 Repository = "https://github.com/diceroll123/pymermaider"
