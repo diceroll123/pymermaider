@@ -9,7 +9,7 @@ env:
   CARGO_TERM_COLOR: always
 
 jobs:
-  build:
+  rust-build:
     runs-on: ubuntu-latest
 
     steps:
@@ -20,3 +20,29 @@ jobs:
         run: cargo build --verbose
       - name: Run tests
         run: cargo test --verbose
+
+  python-build-and-help:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version:
+          - "3.8"
+          - "3.9"
+          - "3.10"
+          - "3.11"
+          - "3.12"
+          - "3.13"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install uv
+        uses: astral-sh/setup-uv@v2
+        with:
+          version: "0.4.10"
+
+      - name: Set up Python ${{ matrix.python-version }}
+        run: |
+          uv python install ${{ matrix.python-version }}
+          uv venv
+          uv pip install . -v
+          uv run pymermaider --help
