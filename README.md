@@ -11,7 +11,15 @@
 
 ## Installation
 
-Ensure you have Rust installed on your system. This project is not currently available as a crate or binary, so it'll have to be compiled on your machine with `cargo build --release`. You'll find the executable in `./target/release/`
+pymermaider is [available on PYPI](https://pypi.org/project/pymermaider/):
+
+```bash
+# With pip.
+pip install pymermaider
+
+# With pipx.
+pipx install pymermaider
+```
 
 ## Usage
 
