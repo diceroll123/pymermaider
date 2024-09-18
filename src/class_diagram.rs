@@ -5,7 +5,9 @@ use crate::checker::Checker;
 use crate::parameter_generator::ParameterGenerator;
 use itertools::Itertools;
 use ruff_python_ast::{Expr, Number};
-use ruff_python_semantic::analyze::visibility::{is_classmethod, is_overload, is_staticmethod};
+use ruff_python_semantic::analyze::visibility::{
+    is_classmethod, is_overload, is_override, is_staticmethod,
+};
 
 const TAB: &str = "    ";
 
@@ -168,6 +170,10 @@ impl ClassDiagram {
 
                 if is_overload(decorator_list, checker.semantic()) {
                     method_types.push("@overload ");
+                }
+
+                if is_override(decorator_list, checker.semantic()) {
+                    method_types.push("@override ");
                 }
 
                 let mut res = String::new();
