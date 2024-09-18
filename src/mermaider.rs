@@ -259,7 +259,7 @@ impl Mermaider {
         class_diagram.classes.push(res);
 
         for base in class.bases() {
-            let Expr::Name(ast::ExprName { id: base, .. }) = base else {
+            let Some(base) = checker.semantic().resolve_qualified_name(base) else {
                 continue;
             };
 
