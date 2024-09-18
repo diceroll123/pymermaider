@@ -133,7 +133,7 @@ impl ClassDiagram {
 
                 res.push_str(&format!(
                     "{} {} {}\n",
-                    if is_private { "-" } else { "+" },
+                    if is_private { '-' } else { '+' },
                     annotation_name,
                     target_name,
                 ));
@@ -180,7 +180,7 @@ impl ClassDiagram {
                 res.push_str(&TAB.repeat(indent_level));
                 res.push_str(&format!(
                     "{} {}{}{}({}) {}\n",
-                    if is_private { "-" } else { "+" },
+                    if is_private { '-' } else { '+' },
                     method_types.join(""),
                     if *is_async { "async " } else { "" },
                     &name,
