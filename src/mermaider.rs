@@ -1,32 +1,14 @@
 use crate::checker;
 use crate::class_diagram::ClassDiagram;
-use crate::parameter_generator::ParameterGenerator;
-use ast::{Expr, Number};
 use checker::Checker;
 use ignore::{types::TypesBuilder, WalkBuilder};
 use ruff_linter::source_kind::SourceKind;
 use ruff_python_ast::{self as ast, PySourceType};
 use ruff_python_codegen::Stylist;
 use ruff_python_parser::parse_unchecked_source;
-use ruff_python_semantic::analyze::visibility::{is_classmethod, is_overload, is_staticmethod};
 use ruff_python_semantic::{Module, ModuleKind, ModuleSource, SemanticModel};
 use ruff_source_file::Locator;
 use std::path::Path;
-
-const TAB: &str = "    ";
-
-fn normalize_name(name: &str) -> String {
-    // make sure name is alphanumeric (including unicode), underscores, and dashes
-    // if it's not, then return it with backticks
-    if name
-        .chars()
-        .all(|c| c.is_alphanumeric() || c == '_' || c == '-')
-    {
-        name.to_string()
-    } else {
-        format!("`{}`", name)
-    }
-}
 
 pub struct Mermaider {
     path: String,
@@ -109,173 +91,6 @@ impl Mermaider {
         }
     }
 
-    fn stmt_mermaider(&self, checker: &Checker, stmt: &ast::Stmt, indent_level: usize) -> String {
-        match stmt {
-            ast::Stmt::AnnAssign(ast::StmtAnnAssign {
-                target,
-                annotation,
-                simple,
-                ..
-            }) => {
-                let mut res = String::new();
-                if !simple {
-                    return res;
-                }
-
-                let Expr::Name(ast::ExprName { id: target, .. }) = target.as_ref() else {
-                    return res;
-                };
-
-                let target_name = target.to_string();
-
-                let annotation_name = checker.generator().expr(annotation.as_ref());
-
-                res.push_str(TAB.repeat(indent_level).as_str());
-
-                let is_private = target_name.starts_with('_');
-
-                res.push_str(&format!(
-                    "{} {} {}\n",
-                    if is_private { "-" } else { "+" },
-                    annotation_name,
-                    target_name,
-                ));
-
-                res
-            }
-
-            ast::Stmt::FunctionDef(ast::StmtFunctionDef {
-                name,
-                is_async,
-                parameters,
-                returns,
-                decorator_list,
-                ..
-            }) => {
-                let is_private = name.starts_with('_');
-
-                let mut param_gen = ParameterGenerator::new();
-                param_gen.unparse_parameters(parameters);
-
-                let params = param_gen.generate();
-
-                let returns = match returns {
-                    Some(target) => checker.generator().expr(target.as_ref()),
-                    None => "".to_string(),
-                };
-
-                let mut method_types = vec![];
-                if is_classmethod(decorator_list, checker.semantic()) {
-                    method_types.push("@classmethod ");
-                } else if is_staticmethod(decorator_list, checker.semantic()) {
-                    method_types.push("@staticmethod ");
-                }
-
-                if is_overload(decorator_list, checker.semantic()) {
-                    method_types.push("@overload ");
-                }
-
-                let mut res = String::new();
-                res.push_str(&TAB.repeat(indent_level));
-                res.push_str(&format!(
-                    "{} {}{}{}({}) {}\n",
-                    if is_private { "-" } else { "+" },
-                    method_types.join(""),
-                    if *is_async { "async " } else { "" },
-                    &name,
-                    params,
-                    returns,
-                ));
-                res
-            }
-
-            ast::Stmt::Assign(ast::StmtAssign { targets, value, .. }) => {
-                let mut res = String::new();
-
-                let value_type = match value.as_ref() {
-                    Expr::BoolOp(_) => "bool",
-                    Expr::BinOp(_) | Expr::UnaryOp(_) => "int",
-                    Expr::Lambda(_) => "Callable",
-                    Expr::DictComp(_) | Expr::Dict(_) => "dict",
-                    Expr::Set(_) | Expr::SetComp(_) => "set",
-                    Expr::FString(_) | Expr::StringLiteral(_) => "str",
-                    Expr::NoneLiteral(_) => "None",
-                    Expr::BooleanLiteral(_) => "bool",
-                    Expr::BytesLiteral(_) => "bytes",
-                    Expr::EllipsisLiteral(_) => "...",
-                    Expr::ListComp(_) | Expr::List(_) => "list",
-                    Expr::Tuple(_) => "tuple",
-                    Expr::NumberLiteral(inner) => match inner.value {
-                        Number::Int(_) => "int",
-                        Number::Float(_) => "float",
-                        Number::Complex { .. } => "complex",
-                    },
-                    _ => "",
-                };
-
-                for target in targets {
-                    let Expr::Name(ast::ExprName { id: target, .. }) = target else {
-                        continue;
-                    };
-
-                    let target_name = target.to_string();
-
-                    res.push_str(&TAB.repeat(indent_level));
-                    res.push_str("+ ");
-                    if !value_type.is_empty() {
-                        res.push_str(value_type);
-                        res.push(' ');
-                    }
-                    res.push_str(&format!("{target_name}\n"));
-                }
-
-                res
-            }
-
-            _ => "".to_string(),
-        }
-    }
-
-    fn class_mermaider(
-        &self,
-        class_diagram: &mut ClassDiagram,
-        checker: &Checker,
-        class: &ast::StmtClassDef,
-        indent_level: usize,
-    ) {
-        let class_name = class.name.to_string();
-        let mut res = String::new();
-
-        let use_tab = TAB.repeat(indent_level);
-
-        res.push_str(&use_tab);
-        res.push_str(&format!("class {} {{\n", &class_name));
-        for stmt in class.body.iter() {
-            res.push_str(&self.stmt_mermaider(checker, stmt, indent_level + 1));
-        }
-        res.push_str(&use_tab);
-        res.push('}');
-
-        class_diagram.classes.push(res);
-
-        for base in class.bases() {
-            let Some(base) = checker.semantic().resolve_qualified_name(base) else {
-                continue;
-            };
-
-            let base_name = base.to_string();
-
-            let relationship = format!(
-                "{}{} --|> {}\n",
-                use_tab,
-                class_name,
-                normalize_name(&base_name)
-            );
-
-            class_diagram.relationships.push(relationship);
-        }
-    }
-
     fn make_mermaid(&self, parsed_files: Vec<String>) -> ClassDiagram {
         let mut class_diagram = ClassDiagram::new();
 
@@ -309,7 +124,7 @@ impl Mermaider {
             for stmt in python_ast.iter() {
                 if let ast::Stmt::ClassDef(class) = stmt {
                     // we only care about class definitions
-                    self.class_mermaider(&mut class_diagram, &checker, class, 1);
+                    class_diagram.add_class(&checker, class, 1);
                 }
             }
         }
