@@ -61,7 +61,7 @@ impl Mermaider {
             let mut diagram = self.make_mermaid(vec![path.to_str().unwrap().to_string()]);
             diagram.path = path.file_name().unwrap().to_str().unwrap().to_owned();
 
-            let wrote_file = diagram.write_to_file(&self.path);
+            let wrote_file = diagram.write_to_file(&self.output_directory);
             if wrote_file {
                 self.files_written += 1;
             }
