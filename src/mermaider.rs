@@ -15,6 +15,19 @@ use std::path::Path;
 
 const TAB: &str = "    ";
 
+fn normalize_name(name: &str) -> String {
+    // make sure name is alphanumeric (including unicode), underscores, and dashes
+    // if it's not, then return it with backticks
+    if name
+        .chars()
+        .all(|c| c.is_alphanumeric() || c == '_' || c == '-')
+    {
+        name.to_string()
+    } else {
+        format!("`{}`", name)
+    }
+}
+
 pub struct Mermaider {
     path: String,
     output_directory: String,
@@ -252,7 +265,12 @@ impl Mermaider {
 
             let base_name = base.to_string();
 
-            let relationship = format!("{}{} --|> {}\n", use_tab, class_name, base_name);
+            let relationship = format!(
+                "{}{} --|> {}\n",
+                use_tab,
+                class_name,
+                normalize_name(&base_name)
+            );
 
             class_diagram.relationships.push(relationship);
         }
