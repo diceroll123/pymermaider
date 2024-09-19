@@ -134,14 +134,23 @@ impl ClassDiagram {
             res.push_str(&label);
         }
 
-        res.push('{');
-        res.push('\n');
+        let processed_stmts: Vec<String> = class
+            .body
+            .iter()
+            .filter_map(|stmt| self.process_stmt(checker, stmt, indent_level + 1))
+            .collect();
 
-        for stmt in class.body.iter() {
-            res.push_str(&self.process_stmt(checker, stmt, indent_level + 1));
+        if !processed_stmts.is_empty() {
+            res.push('{');
+            res.push('\n');
+
+            for stmt in processed_stmts {
+                res.push_str(&stmt);
+            }
+
+            res.push_str(&use_tab);
+            res.push('}');
         }
-        res.push_str(&use_tab);
-        res.push('}');
 
         self.classes.push(res);
 
@@ -157,7 +166,12 @@ impl ClassDiagram {
         }
     }
 
-    fn process_stmt(&self, checker: &Checker, stmt: &ast::Stmt, indent_level: usize) -> String {
+    fn process_stmt(
+        &self,
+        checker: &Checker,
+        stmt: &ast::Stmt,
+        indent_level: usize,
+    ) -> Option<String> {
         match stmt {
             ast::Stmt::AnnAssign(ast::StmtAnnAssign {
                 target,
@@ -167,11 +181,11 @@ impl ClassDiagram {
             }) => {
                 let mut res = String::new();
                 if !simple {
-                    return res;
+                    return None;
                 }
 
                 let Expr::Name(ast::ExprName { id: target, .. }) = target.as_ref() else {
-                    return res;
+                    return None;
                 };
 
                 let target_name = target.to_string();
@@ -189,7 +203,7 @@ impl ClassDiagram {
                     target_name,
                 ));
 
-                res
+                Some(res)
             }
 
             ast::Stmt::FunctionDef(ast::StmtFunctionDef {
@@ -243,7 +257,7 @@ impl ClassDiagram {
                     params,
                     returns,
                 ));
-                res
+                Some(res)
             }
 
             ast::Stmt::Assign(ast::StmtAssign { targets, value, .. }) => {
@@ -286,10 +300,14 @@ impl ClassDiagram {
                     res.push_str(&format!("{target_name}\n"));
                 }
 
-                res
+                if res.is_empty() {
+                    None
+                } else {
+                    Some(res)
+                }
             }
 
-            _ => "".to_string(),
+            _ => None,
         }
     }
 
@@ -384,8 +402,7 @@ class Thing[T]: ...
 
         let expected_output = r#"```mermaid
 classDiagram
-    class Thing ["Thing[T]"]{
-    }
+    class Thing ["Thing[T]"]
 ```"#;
 
         test_diagram(source, expected_output);
@@ -399,8 +416,7 @@ class Thing[T, U, V]: ...
 
         let expected_output = r#"```mermaid
 classDiagram
-    class Thing ["Thing[T, U, V]"]{
-    }
+    class Thing ["Thing[T, U, V]"]
 ```
 "#;
 
@@ -418,8 +434,7 @@ class Thing: ...
 
         let expected_output = r#"```mermaid
 classDiagram
-    class Thing ["@final Thing"]{
-    }
+    class Thing ["@final Thing"]
 ```
 "#;
 
