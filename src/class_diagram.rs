@@ -441,6 +441,103 @@ classDiagram
         test_diagram(source, expected_output);
     }
 
+    #[test]
+    fn test_class_diagram_complex() {
+        // this tests async, classmethod, args, return type
+        let source = r#"
+class Thing:
+    @classmethod
+    async def foo(cls, first, /, *second, kwarg: bool = True, **unpack_this) -> dict[str, str]: ...
+"#;
+
+        let expected_output = r#"```mermaid
+classDiagram
+    class Thing {
+        + @classmethod async foo(cls, first, /, *second, kwarg, **unpack_this) dict[str, str]
+    }
+```
+"#;
+
+        test_diagram(source, expected_output);
+    }
+
+    #[test]
+    fn test_pydantic_example() {
+        let source = r#"
+from pydantic import BaseModel
+
+
+class ItemBase(BaseModel):
+    title: str
+    description: str | None = None
+
+
+class ItemCreate(ItemBase):
+    pass
+
+
+class Item(ItemBase):
+    id: int
+    owner_id: int
+
+    class Config:
+        orm_mode = True
+
+
+class UserBase(BaseModel):
+    email: str
+
+
+class UserCreate(UserBase):
+    password: str
+
+
+class User(UserBase):
+    id: int
+    is_active: bool
+    items: list[Item] = []
+
+    class Config:
+        orm_mode = True
+"#;
+
+        let expected_output = r#"```mermaid
+classDiagram
+    class ItemBase {
+        + str title
+        + str | None description
+    }
+
+    class ItemCreate
+
+    class Item {
+        + int id
+        + int owner_id
+    }
+
+    class UserBase {
+        + str email
+    }
+
+    class UserCreate {
+        + str password
+    }
+
+    class User {
+        + int id
+        + bool is_active
+        + list[Item] items
+    }
+
+    ItemBase --|> `pydantic.BaseModel`
+
+    UserBase --|> `pydantic.BaseModel`
+```
+"#;
+
+        test_diagram(source, expected_output);
+    }
+
     fn test_diagram(source: &str, expected_output: &str) {
         let mut diagram = ClassDiagram::new();
         let file = "test.py".to_string();
