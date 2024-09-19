@@ -1,32 +1,81 @@
 extern crate env_logger;
-
 use crate::ast;
 use crate::checker::Checker;
 use crate::parameter_generator::ParameterGenerator;
 use itertools::Itertools;
-use ruff_python_ast::{Expr, Number};
+use ruff_linter::source_kind::SourceKind;
+use ruff_python_ast::name::QualifiedName;
+use ruff_python_ast::{Expr, Number, PySourceType};
+use ruff_python_codegen::Stylist;
+use ruff_python_parser::parse_unchecked_source;
 use ruff_python_semantic::analyze::visibility::{
     is_classmethod, is_final, is_overload, is_override, is_staticmethod,
 };
+use ruff_python_semantic::{Module, ModuleKind, ModuleSource, SemanticModel};
+use ruff_source_file::Locator;
+use std::path::Path;
 
 const TAB: &str = "    ";
 
-fn normalize_name(name: &str) -> String {
-    // make sure name is alphanumeric (including unicode), underscores, and dashes
-    // if it's not, then return it with backticks
-    if name
-        .chars()
-        .all(|c| c.is_alphanumeric() || c == '_' || c == '-')
-    {
-        name.to_string()
-    } else {
-        format!("`{}`", name)
+trait QualifiedNameDiagramHelpers {
+    fn normalize_name(&self) -> String;
+}
+
+impl<'a> QualifiedNameDiagramHelpers for QualifiedName<'a> {
+    fn normalize_name(&self) -> String {
+        // make sure name is alphanumeric (including unicode), underscores, and dashes
+        // if it's not, then return it with backticks
+        let name = self.to_string();
+        if name
+            .chars()
+            .all(|c| c.is_alphanumeric() || c == '_' || c == '-')
+        {
+            name
+        } else {
+            format!("`{}`", name)
+        }
+    }
+}
+
+trait ClassDefDiagramHelpers {
+    fn label(&self, checker: &Checker) -> Option<String>;
+}
+
+impl ClassDefDiagramHelpers for ast::StmtClassDef {
+    fn label(&self, checker: &Checker) -> Option<String> {
+        let mut pre_name_labels = vec![];
+        let mut post_name_labels = vec![];
+
+        let is_final = is_final(&self.decorator_list, checker.semantic());
+
+        if is_final {
+            pre_name_labels.push("@final ");
+        }
+
+        if let Some(params) = &self.type_params {
+            post_name_labels.push(checker.locator().slice(params.as_ref()));
+        }
+
+        if pre_name_labels.is_empty() && post_name_labels.is_empty() {
+            return None;
+        }
+
+        let mut res = String::new();
+        res.push('[');
+        res.push('"');
+        res.push_str(&pre_name_labels.join(""));
+        res.push_str(&self.name);
+        res.push_str(&post_name_labels.join(""));
+        res.push('"');
+        res.push(']');
+
+        Some(res)
     }
 }
 
 pub struct ClassDiagram {
-    pub classes: Vec<String>,
-    pub relationships: Vec<String>,
+    classes: Vec<String>,
+    relationships: Vec<String>,
     pub path: String,
 }
 
@@ -79,7 +128,15 @@ impl ClassDiagram {
         let use_tab = TAB.repeat(indent_level);
 
         res.push_str(&use_tab);
-        res.push_str(&format!("class {} {{\n", &class_name));
+        res.push_str(&format!("class {} ", &class_name));
+
+        if let Some(label) = class.label(checker) {
+            res.push_str(&label);
+        }
+
+        res.push('{');
+        res.push('\n');
+
         for stmt in class.body.iter() {
             res.push_str(&self.process_stmt(checker, stmt, indent_level + 1));
         }
@@ -93,14 +150,8 @@ impl ClassDiagram {
                 continue;
             };
 
-            let base_name = base.to_string();
-
-            let relationship = format!(
-                "{}{} --|> {}\n",
-                use_tab,
-                class_name,
-                normalize_name(&base_name)
-            );
+            let relationship =
+                format!("{}{} --|> {}\n", use_tab, class_name, base.normalize_name());
 
             self.relationships.push(relationship);
         }
@@ -256,5 +307,138 @@ impl ClassDiagram {
         println!("Mermaid file written to: {:?}", path);
 
         true
+    }
+
+    pub fn add_to_diagram(&mut self, source: String, file: &String) {
+        let source_type = PySourceType::from(file);
+        let source_kind = SourceKind::Python(source);
+
+        let locator = Locator::new(source_kind.source_code());
+
+        let parsed = parse_unchecked_source(source_kind.source_code(), source_type);
+
+        let stylist = Stylist::from_tokens(parsed.tokens(), &locator);
+
+        let python_ast = parsed.into_suite();
+
+        let kind = if file.ends_with("__init__.py") {
+            ModuleKind::Package
+        } else {
+            ModuleKind::Module
+        };
+
+        let module = Module {
+            kind,
+            source: ModuleSource::File(Path::new(file)),
+            python_ast: &python_ast,
+            name: None,
+        };
+        let semantic = SemanticModel::new(&[], Path::new(file), module);
+        let mut checker = Checker::new(&stylist, &locator, semantic);
+        checker.see_imports(&python_ast);
+
+        for stmt in python_ast.iter() {
+            if let ast::Stmt::ClassDef(class) = stmt {
+                // we only care about class definitions
+                self.add_class(&checker, class, 1);
+            }
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_class_diagram_basic() {
+        let source = r#"
+class TestClass:
+    def __init__(self, x: int, y: int) -> None:
+        self.x = x
+        self.y = y
+    def add(self, x: int, y: int) -> int:
+        return x + y
+    def subtract(self, x: int, y: int) -> int:
+        return x - y
+"#;
+
+        let expected_output = r#"```mermaid
+classDiagram
+    class TestClass {
+        - __init__(self, x, y) None
+        + add(self, x, y) int
+        + subtract(self, x, y) int
+    }
+```
+"#;
+
+        test_diagram(source, expected_output);
+    }
+
+    #[test]
+    fn test_class_diagram_generic_class() {
+        let source = r#"
+class Thing[T]: ...
+"#;
+
+        let expected_output = r#"```mermaid
+classDiagram
+    class Thing ["Thing[T]"]{
+    }
+```"#;
+
+        test_diagram(source, expected_output);
+    }
+
+    #[test]
+    fn test_class_diagram_generic_class_multiple() {
+        let source = r#"
+class Thing[T, U, V]: ...
+"#;
+
+        let expected_output = r#"```mermaid
+classDiagram
+    class Thing ["Thing[T, U, V]"]{
+    }
+```
+"#;
+
+        test_diagram(source, expected_output);
+        // test_diagram_print(source);
+    }
+
+    #[test]
+    fn test_class_diagram_final() {
+        let source = r#"
+from typing import final
+@final
+class Thing: ...
+"#;
+
+        let expected_output = r#"```mermaid
+classDiagram
+    class Thing ["@final Thing"]{
+    }
+```
+"#;
+
+        test_diagram(source, expected_output);
+    }
+
+    fn test_diagram(source: &str, expected_output: &str) {
+        let mut diagram = ClassDiagram::new();
+        let file = "test.py".to_string();
+        diagram.add_to_diagram(source.to_string(), &file);
+        let output = diagram.render();
+        assert_eq!(output.trim(), expected_output.trim());
+    }
+
+    #[allow(dead_code)]
+    fn test_diagram_print(source: &str) {
+        // for making new tests and debugging :P
+        let mut diagram = ClassDiagram::new();
+        diagram.add_to_diagram(source.to_string(), &String::default());
+        println!("{}", diagram.render());
     }
 }

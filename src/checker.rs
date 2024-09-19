@@ -8,17 +8,27 @@ use ruff_python_semantic::{
     SubmoduleImport,
 };
 use ruff_python_stdlib::builtins::{python_builtins, MAGIC_GLOBALS};
+use ruff_source_file::Locator;
 use ruff_text_size::TextRange;
 
 /// Slimmed down version of the `Checker` struct from the `ruff_python_semantic` crate.
 pub struct Checker<'a> {
     stylist: &'a Stylist<'a>,
+    locator: &'a Locator<'a>,
     semantic: SemanticModel<'a>,
 }
 
 impl<'a> Checker<'a> {
-    pub fn new(stylist: &'a Stylist<'a>, semantic: SemanticModel<'a>) -> Self {
-        let mut checker = Self { stylist, semantic };
+    pub fn new(
+        stylist: &'a Stylist<'a>,
+        locator: &'a Locator<'a>,
+        semantic: SemanticModel<'a>,
+    ) -> Self {
+        let mut checker = Self {
+            stylist,
+            locator,
+            semantic,
+        };
         checker.bind_builtins();
         checker
     }
@@ -42,6 +52,10 @@ impl<'a> Checker<'a> {
 
     pub fn semantic(&self) -> &SemanticModel<'a> {
         &self.semantic
+    }
+
+    pub fn locator(&self) -> &Locator<'a> {
+        self.locator
     }
 
     fn f_string_quote_style(&self) -> Option<Quote> {

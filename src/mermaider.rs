@@ -1,13 +1,5 @@
-use crate::checker;
 use crate::class_diagram::ClassDiagram;
-use checker::Checker;
 use ignore::{types::TypesBuilder, WalkBuilder};
-use ruff_linter::source_kind::SourceKind;
-use ruff_python_ast::{self as ast, PySourceType};
-use ruff_python_codegen::Stylist;
-use ruff_python_parser::parse_unchecked_source;
-use ruff_python_semantic::{Module, ModuleKind, ModuleSource, SemanticModel};
-use ruff_source_file::Locator;
 use std::path::Path;
 
 pub struct Mermaider {
@@ -95,38 +87,12 @@ impl Mermaider {
         let mut class_diagram = ClassDiagram::new();
 
         for file in parsed_files.iter() {
-            let source_type = PySourceType::from(file);
-
             let source = match std::fs::read_to_string(file) {
                 Ok(content) => content,
                 Err(_) => continue,
             };
 
-            let source_kind = SourceKind::Python(source);
-
-            let locator = Locator::new(source_kind.source_code());
-
-            let parsed = parse_unchecked_source(source_kind.source_code(), source_type);
-
-            let stylist = Stylist::from_tokens(parsed.tokens(), &locator);
-
-            let python_ast = parsed.into_suite();
-            let module = Module {
-                kind: ModuleKind::Module,
-                source: ModuleSource::File(Path::new(file)),
-                python_ast: &python_ast,
-                name: None,
-            };
-            let semantic = SemanticModel::new(&[], Path::new(file), module);
-            let mut checker = Checker::new(&stylist, semantic);
-            checker.see_imports(&python_ast);
-
-            for stmt in python_ast.iter() {
-                if let ast::Stmt::ClassDef(class) = stmt {
-                    // we only care about class definitions
-                    class_diagram.add_class(&checker, class, 1);
-                }
-            }
+            class_diagram.add_to_diagram(source, file);
         }
 
         class_diagram
