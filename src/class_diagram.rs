@@ -6,7 +6,7 @@ use crate::parameter_generator::ParameterGenerator;
 use itertools::Itertools;
 use ruff_python_ast::{Expr, Number};
 use ruff_python_semantic::analyze::visibility::{
-    is_classmethod, is_overload, is_override, is_staticmethod,
+    is_classmethod, is_final, is_overload, is_override, is_staticmethod,
 };
 
 const TAB: &str = "    ";
@@ -162,6 +162,11 @@ impl ClassDiagram {
                 };
 
                 let mut method_types = vec![];
+
+                if is_final(decorator_list, checker.semantic()) {
+                    method_types.push("@final ");
+                }
+
                 if is_classmethod(decorator_list, checker.semantic()) {
                     method_types.push("@classmethod ");
                 } else if is_staticmethod(decorator_list, checker.semantic()) {
