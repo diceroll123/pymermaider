@@ -152,7 +152,7 @@ impl ClassDiagram {
             res.push('}');
         }
 
-        self.classes.push(res);
+        self.classes.push(res.trim_end().to_string());
 
         for base in class.bases() {
             let Some(base) = checker.semantic().resolve_qualified_name(base) else {
