@@ -455,5 +455,6 @@ classDiagram
         let mut diagram = ClassDiagram::new();
         diagram.add_to_diagram(source.to_string(), &String::default());
         println!("{}", diagram.render());
+        assert_eq!(1, 2);
     }
 }
