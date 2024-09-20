@@ -12,6 +12,7 @@ use ruff_python_semantic::analyze::visibility::{
     is_classmethod, is_final, is_overload, is_override, is_staticmethod,
 };
 use ruff_python_semantic::{Module, ModuleKind, ModuleSource, SemanticModel};
+use ruff_python_stdlib::typing::simple_magic_return_type;
 use ruff_source_file::Locator;
 use std::path::Path;
 
@@ -263,14 +264,21 @@ impl ClassDiagram {
                 let mut res = String::new();
                 res.push_str(&TAB.repeat(indent_level));
                 res.push_str(&format!(
-                    "{} {}{}{}({}) {}\n",
+                    "{} {}{}{}({})",
                     if is_private { '-' } else { '+' },
                     method_types.join(""),
                     if *is_async { "async " } else { "" },
                     &name,
                     params,
-                    returns,
                 ));
+
+                if !returns.is_empty() {
+                    res.push_str(&format!(" {}", returns));
+                } else if let Some(method) = simple_magic_return_type(name) {
+                    res.push_str(&format!(" {}", method));
+                }
+
+                res.push('\n');
                 Some(res)
             }
 
@@ -611,6 +619,25 @@ class Thing(object): ...
         let expected_output = r#"```mermaid
 classDiagram
     class Thing
+```"#;
+
+        test_diagram(source, expected_output);
+    }
+
+    #[test]
+    fn test_class_diagram_dundermagic_infer() {
+        let source = r#"
+class Thing:
+    def __complex__(self): ...
+    def __bytes__(self): ...
+"#;
+
+        let expected_output = r#"```mermaid
+classDiagram
+    class Thing {
+        - __complex__(self) complex
+        - __bytes__(self) bytes
+    }
 ```"#;
 
         test_diagram(source, expected_output);
