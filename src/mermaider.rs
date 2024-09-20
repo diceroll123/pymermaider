@@ -44,20 +44,13 @@ impl Mermaider {
 
             if self.multiple_files {
                 for parsed_file in parsed_files.iter() {
-                    let path_folder_name = Path::new(parsed_file)
-                        .parent()
-                        .unwrap()
-                        .file_name()
-                        .unwrap()
-                        .to_str()
-                        .unwrap();
-                    let title = Path::new(parsed_file)
-                        .file_name()
-                        .unwrap()
-                        .to_str()
-                        .unwrap();
                     let mut diagram = self.make_mermaid(vec![parsed_file.clone()]);
-                    diagram.path = format!("{path_folder_name}/{title}");
+
+                    let relative_path = path.strip_prefix(&self.path).unwrap();
+                    let diagram_path =
+                        relative_path.join(Path::new(parsed_file).strip_prefix(path).unwrap());
+
+                    diagram.path = diagram_path.to_string_lossy().to_string();
 
                     let wrote_file = diagram.write_to_file(&self.output_directory);
                     if wrote_file {
