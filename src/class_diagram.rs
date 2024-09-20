@@ -138,6 +138,7 @@ impl ClassDiagram {
             .body
             .iter()
             .filter_map(|stmt| self.process_stmt(checker, stmt, indent_level + 1))
+            .unique()
             .collect();
 
         if !processed_stmts.is_empty() {
@@ -559,6 +560,32 @@ classDiagram
     UserCreate --|> UserBase
 
     User --|> UserBase
+```
+"#;
+
+        test_diagram(source, expected_output);
+    }
+
+    #[test]
+    fn test_class_diagram_unique_overloads() {
+        let source = r#"
+from typing import overload
+class Thing:
+    @overload
+    def __init__(self, x: int, y: int) -> None: ...
+
+    @overload
+    def __init__(self, x: str, y: str) -> None: ...
+
+    def __init__(self, x: int | str, y: int | str) -> None: ...
+"#;
+
+        let expected_output = r#"```mermaid
+classDiagram
+    class Thing {
+        - @overload __init__(self, x, y) None
+        - __init__(self, x, y) None
+    }
 ```
 "#;
 
