@@ -157,14 +157,24 @@ impl ClassDiagram {
 
         for base in class.bases() {
             let base_name = match checker.semantic().resolve_qualified_name(base) {
-                Some(base_name) => base_name.normalize_name(),
+                Some(base_name) => base_name,
                 None => {
                     let name = checker.locator().slice(base);
-                    QualifiedName::user_defined(name).normalize_name()
+                    QualifiedName::user_defined(name)
                 }
             };
 
-            let relationship = format!("{}{} --|> {}\n", use_tab, class_name, base_name);
+            // skip "object" base class, it's implied
+            if matches!(base_name.segments(), ["" | "builtins", "object"]) {
+                continue;
+            }
+
+            let relationship = format!(
+                "{}{} --|> {}\n",
+                use_tab,
+                class_name,
+                base_name.normalize_name()
+            );
 
             self.relationships.push(relationship);
         }
@@ -588,6 +598,20 @@ classDiagram
     }
 ```
 "#;
+
+        test_diagram(source, expected_output);
+    }
+
+    #[test]
+    fn test_class_diagram_object_base() {
+        let source = r#"
+class Thing(object): ...
+"#;
+
+        let expected_output = r#"```mermaid
+classDiagram
+    class Thing
+```"#;
 
         test_diagram(source, expected_output);
     }
