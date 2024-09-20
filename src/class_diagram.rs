@@ -157,12 +157,35 @@ impl ClassDiagram {
         self.classes.push(res.trim_end().to_string());
 
         for base in class.bases() {
-            let base_name = match checker.semantic().resolve_qualified_name(base) {
-                Some(base_name) => base_name,
-                None => {
+            let base_name = match base {
+                ast::Expr::Name(_) => checker.semantic().resolve_qualified_name(base),
+                ast::Expr::Subscript(_) => {
                     let name = checker.locator().slice(base);
-                    QualifiedName::user_defined(name)
+                    Some(QualifiedName::user_defined(name))
                 }
+                ast::Expr::Call(ast::ExprCall { func, .. }) => {
+                    let Some(qualified_name) = checker.semantic().resolve_qualified_name(func)
+                    else {
+                        continue;
+                    };
+
+                    match qualified_name.segments() {
+                        ["collections", "namedtuple"] | ["typing", "NamedTuple"] => continue, // skip "namedtuple" base class
+                        _ => {
+                            let name = checker.locator().slice(base);
+                            Some(QualifiedName::user_defined(name))
+                        }
+                    }
+                }
+                _ => {
+                    let name = checker.locator().slice(base);
+                    Some(QualifiedName::user_defined(name))
+                }
+            };
+
+            let Some(base_name) = base_name else {
+                // if we can't resolve the base name, then skip it
+                continue;
             };
 
             // skip "object" base class, it's implied
@@ -638,6 +661,21 @@ classDiagram
         - __complex__(self) complex
         - __bytes__(self) bytes
     }
+```"#;
+
+        test_diagram(source, expected_output);
+    }
+
+    #[test]
+    fn test_class_diagram_collections_namedtuple() {
+        let source = r#"
+from collections import namedtuple
+class Thing(namedtuple("Thing", ["x", "y"])): ...
+"#;
+
+        let expected_output = r#"```mermaid
+classDiagram
+    class Thing
 ```"#;
 
         test_diagram(source, expected_output);
