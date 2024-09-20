@@ -155,12 +155,15 @@ impl ClassDiagram {
         self.classes.push(res.trim_end().to_string());
 
         for base in class.bases() {
-            let Some(base) = checker.semantic().resolve_qualified_name(base) else {
-                continue;
+            let base_name = match checker.semantic().resolve_qualified_name(base) {
+                Some(base_name) => base_name.normalize_name(),
+                None => {
+                    let name = checker.locator().slice(base);
+                    QualifiedName::user_defined(name).normalize_name()
+                }
             };
 
-            let relationship =
-                format!("{}{} --|> {}\n", use_tab, class_name, base.normalize_name());
+            let relationship = format!("{}{} --|> {}\n", use_tab, class_name, base_name);
 
             self.relationships.push(relationship);
         }
@@ -409,6 +412,22 @@ classDiagram
     }
 
     #[test]
+    fn test_class_diagram_generic_inner_class() {
+        let source = r#"
+class Thing(Inner[T]): ...
+"#;
+
+        let expected_output = r#"```mermaid
+classDiagram
+    class Thing
+
+    Thing --|> `Inner[T]`
+```"#;
+
+        test_diagram(source, expected_output);
+    }
+
+    #[test]
     fn test_class_diagram_generic_class_multiple() {
         let source = r#"
 class Thing[T, U, V]: ...
@@ -531,7 +550,15 @@ classDiagram
 
     ItemBase --|> `pydantic.BaseModel`
 
+    ItemCreate --|> ItemBase
+
+    Item --|> ItemBase
+
     UserBase --|> `pydantic.BaseModel`
+
+    UserCreate --|> UserBase
+
+    User --|> UserBase
 ```
 "#;
 
