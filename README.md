@@ -7,7 +7,6 @@
 
 `pymermaider` is a tool written in Rust designed to generate [mermaid.js](https://github.com/mermaid-js/mermaid) class diagrams from Python code. By analyzing Python code, `pymermaider` automatically generates mermaid.js-compatible diagrams that represent the class structures, including classes, methods, attributes, and their relationships. This tool aims to simplify the documentation process for Python projects, making it easier to visualize class hierarchies and relationships.
 
-
 ## Features
 
 - **Automatic Class Diagram Generation**: Generate detailed class diagrams from Python codebases with minimal configuration.
@@ -49,6 +48,19 @@ pymermaider [OPTIONS] <PATH>
 
 - `-V, --version`
   Show the current version of `pymermaider`.
+
+### File Selection:
+
+- `--exclude <FILE_PATTERN>`: Excludes specific files and/or directories from being analyzed.
+- `--extend-exclude <FILE_PATTERN>`: Similar to `--exclude`, but adds additional files and directories to exclude on top of those already specified.
+
+#### Example for `--extend-exclude`:
+
+```bash
+pymermaider /path/to/dir --extend-exclude "**/tests/*,**/docs/*"
+```
+
+This command will exclude any folders within the subdirectories of `/path/to/dir` that are named `tests` or `docs`.
 
 ---
 

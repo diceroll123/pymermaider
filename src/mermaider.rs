@@ -1,18 +1,18 @@
-use crate::class_diagram::ClassDiagram;
+use crate::{class_diagram::ClassDiagram, settings::FileResolverSettings};
+
+use globset::Candidate;
 use ignore::{types::TypesBuilder, WalkBuilder};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 pub struct Mermaider {
-    path: String,
-    output_directory: String,
+    file_settings: FileResolverSettings,
     multiple_files: bool,
     files_written: usize,
 }
 impl Mermaider {
-    pub fn new(path: String, output_directory: String, multiple_files: bool) -> Self {
+    pub fn new(file_settings: FileResolverSettings, multiple_files: bool) -> Self {
         Self {
-            path,
-            output_directory,
+            file_settings,
             multiple_files,
             files_written: 0,
         }
@@ -24,7 +24,8 @@ impl Mermaider {
     }
 
     pub fn process(&mut self) {
-        let path = Path::new(&self.path);
+        let path = &self.file_settings.project_root;
+        let output_directory = &self.file_settings.output_directory;
 
         if !path.exists() {
             println!("{:?} does not exist.", path);
@@ -32,10 +33,10 @@ impl Mermaider {
         }
 
         if path.is_file() {
-            let mut diagram = self.make_mermaid(vec![path.to_str().unwrap().to_string()]);
-            diagram.path = path.file_name().unwrap().to_str().unwrap().to_owned();
+            let mut diagram = self.make_mermaid(vec![path.to_path_buf()]);
+            diagram.path = path.to_string_lossy().to_string();
 
-            let wrote_file = diagram.write_to_file(&self.output_directory);
+            let wrote_file = diagram.write_to_file(output_directory);
             if wrote_file {
                 self.files_written += 1;
             }
@@ -46,13 +47,11 @@ impl Mermaider {
                 for parsed_file in parsed_files.iter() {
                     let mut diagram = self.make_mermaid(vec![parsed_file.clone()]);
 
-                    let relative_path = path.strip_prefix(&self.path).unwrap();
-                    let diagram_path =
-                        relative_path.join(Path::new(parsed_file).strip_prefix(path).unwrap());
+                    let diagram_path = Path::new(parsed_file).strip_prefix(path).unwrap();
 
                     diagram.path = diagram_path.to_string_lossy().to_string();
 
-                    let wrote_file = diagram.write_to_file(&self.output_directory);
+                    let wrote_file = diagram.write_to_file(output_directory);
                     if wrote_file {
                         self.files_written += 1;
                     }
@@ -68,7 +67,7 @@ impl Mermaider {
                     .unwrap()
                     .to_owned();
 
-                let wrote_file = diagram.write_to_file(&self.output_directory);
+                let wrote_file = diagram.write_to_file(output_directory);
                 if wrote_file {
                     self.files_written += 1;
                 }
@@ -76,7 +75,7 @@ impl Mermaider {
         }
     }
 
-    fn make_mermaid(&self, parsed_files: Vec<String>) -> ClassDiagram {
+    fn make_mermaid(&self, parsed_files: Vec<PathBuf>) -> ClassDiagram {
         let mut class_diagram = ClassDiagram::new();
 
         for file in parsed_files.iter() {
@@ -91,26 +90,42 @@ impl Mermaider {
         class_diagram
     }
 
-    fn parse_folder(&self, path: &Path) -> std::io::Result<Vec<String>> {
+    fn parse_folder(&self, path: &PathBuf) -> std::io::Result<Vec<PathBuf>> {
         let mut parsed_files = vec![];
 
         let types = TypesBuilder::new()
             .add_defaults()
             .select("python")
             .build()
-            .unwrap();
+            .expect("Failed to build Python types");
 
         for result in WalkBuilder::new(path).types(types).build() {
             match result {
                 Ok(entry) => {
-                    if entry.path().is_dir() {
+                    let path = entry.path();
+                    debug!("Parsing path: {:?}", path);
+
+                    let path_candidate = Candidate::new(path);
+
+                    if self
+                        .file_settings
+                        .exclude
+                        .is_match_candidate(&path_candidate)
+                        || self
+                            .file_settings
+                            .extend_exclude
+                            .is_match_candidate(&path_candidate)
+                    {
+                        debug!("Skipping excluded path: {:?}", path);
+                        continue;
+                    }
+
+                    if path.is_dir() {
                         // we're only doing files here
                         continue;
                     }
 
-                    if let Some(filename) = entry.path().to_str() {
-                        parsed_files.push(filename.to_string());
-                    }
+                    parsed_files.push(path.to_path_buf());
                 }
                 Err(err) => {
                     error!("Error walking path: {:?}", err);

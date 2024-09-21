@@ -14,7 +14,7 @@ use ruff_python_semantic::analyze::visibility::{
 use ruff_python_semantic::{Module, ModuleKind, ModuleSource, SemanticModel};
 use ruff_python_stdlib::typing::simple_magic_return_type;
 use ruff_source_file::Locator;
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 const TAB: &str = "    ";
 
@@ -333,13 +333,13 @@ impl ClassDiagram {
         }
     }
 
-    pub fn write_to_file(&self, output_directory: &str) -> bool {
+    pub fn write_to_file(&self, output_directory: &Path) -> bool {
         if self.is_empty() {
             info!("No classes found for {0:?}.", self.path);
             return false;
         }
 
-        let path = format!("{output_directory}/{0}.md", self.path);
+        let path = format!("{0}/{1}.md", output_directory.to_string_lossy(), self.path);
         if let Some(parent_dir) = std::path::Path::new(&path).parent() {
             std::fs::create_dir_all(parent_dir).unwrap();
         }
@@ -349,7 +349,7 @@ impl ClassDiagram {
         true
     }
 
-    pub fn add_to_diagram(&mut self, source: String, file: &String) {
+    pub fn add_to_diagram(&mut self, source: String, file: &PathBuf) {
         let source_type = PySourceType::from(file);
         let source_kind = SourceKind::Python(source);
 
@@ -645,8 +645,7 @@ classDiagram
 
     fn test_diagram(source: &str, expected_output: &str) {
         let mut diagram = ClassDiagram::new();
-        let file = "test.py".to_string();
-        diagram.add_to_diagram(source.to_string(), &file);
+        diagram.add_to_diagram(source.to_string(), &PathBuf::from("test.py"));
         let output = diagram.render();
         assert_eq!(output.trim(), expected_output.trim());
     }
@@ -655,7 +654,7 @@ classDiagram
     fn test_diagram_print(source: &str) {
         // for making new tests and debugging :P
         let mut diagram = ClassDiagram::new();
-        diagram.add_to_diagram(source.to_string(), &String::default());
+        diagram.add_to_diagram(source.to_string(), &PathBuf::from("test.py"));
         println!("{}", diagram.render());
         assert_eq!(1, 2);
     }
