@@ -136,3 +136,82 @@ impl Mermaider {
         Ok(parsed_files)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use ruff_linter::fs;
+    use std::io::Write;
+
+    use crate::settings::DEFAULT_EXCLUDES;
+
+    use super::*;
+    use anyhow::Result;
+    use ruff_linter::settings::types::{FilePattern, FilePatternSet};
+    use tempfile::{Builder, TempDir};
+
+    #[ctor::ctor]
+    fn init_logger() {
+        let _ = env_logger::builder().is_test(true).try_init();
+    }
+
+    #[test]
+    fn test_single_file() -> Result<()> {
+        let temp_project_dir = TempDir::new()?;
+        let mut test_file = std::fs::File::create(temp_project_dir.path().join("test.py"))?;
+        test_file.write_all(b"class Test: ...")?;
+
+        let temp_output_dir = TempDir::new()?;
+
+        let settings = FileResolverSettings {
+            exclude: FilePatternSet::try_from_iter(DEFAULT_EXCLUDES.to_vec()).unwrap(),
+            extend_exclude: FilePatternSet::default(),
+            project_root: temp_project_dir.path().to_path_buf(),
+            output_directory: temp_output_dir.path().to_path_buf(),
+        };
+
+        let mut mermaider = Mermaider::new(settings, true);
+
+        mermaider.process();
+
+        assert_eq!(mermaider.get_written_files(), 1);
+
+        Ok(())
+    }
+
+    #[test]
+    fn test_exclude_files() -> Result<()> {
+        let temp_project_dir = TempDir::new()?;
+        let mut test_file = std::fs::File::create(temp_project_dir.path().join("test.py"))?;
+        test_file.write_all(b"class Test: ...")?;
+
+        let temp_output_dir = TempDir::new()?;
+
+        let temp_excluded_dir = Builder::new()
+            .prefix("exclude-me-")
+            .tempdir_in(temp_project_dir.path())?;
+
+        let mut excluded_file =
+            std::fs::File::create(temp_excluded_dir.path().join("exclusion_test.py"))?;
+        excluded_file.write_all(b"class ExclusionTest: ...")?;
+
+        let absolute = fs::normalize_path_to("exclude-me-*", &temp_project_dir);
+
+        let settings = FileResolverSettings {
+            exclude: FilePatternSet::try_from_iter(DEFAULT_EXCLUDES.to_vec()).unwrap(),
+            extend_exclude: FilePatternSet::try_from_iter(vec![FilePattern::User(
+                "exclude-me-*".to_owned(),
+                absolute,
+            )])?,
+            project_root: temp_project_dir.path().to_path_buf(),
+            output_directory: temp_output_dir.path().to_path_buf(),
+        };
+
+        let mut mermaider = Mermaider::new(settings, true);
+
+        mermaider.process();
+
+        assert_eq!(mermaider.get_written_files(), 1);
+
+        Ok(())
+    }
+}

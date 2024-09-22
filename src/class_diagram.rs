@@ -658,6 +658,24 @@ classDiagram
         test_diagram(source, expected_output);
     }
 
+    #[test]
+    fn test_notimplemented() {
+        let source = r#"
+class Thing:
+    def do_thing(self):
+        raise NotImplementedError
+"#;
+
+        let expected_output = r#"```mermaid
+classDiagram
+    class Thing {
+        + do_thing(self)
+    }
+```"#;
+
+        test_diagram(source, expected_output);
+    }
+
     fn test_diagram(source: &str, expected_output: &str) {
         let mut diagram = ClassDiagram::new();
         diagram.add_to_diagram(source.to_string(), &PathBuf::from("test.py"));
