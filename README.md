@@ -3,6 +3,7 @@
 [![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![image](https://img.shields.io/pypi/v/pymermaider.svg)](https://pypi.python.org/pypi/pymermaider)
 [![image](https://img.shields.io/pypi/l/pymermaider.svg)](https://github.com/diceroll123/pymermaider/blob/master/LICENSE)
+[![Actions status](https://github.com/diceroll123/pymermaider/workflows/CI/badge.svg)](https://github.com/diceroll123/pymermaider/actions)
 [![image](https://img.shields.io/pypi/pyversions/pymermaider.svg)](https://pypi.python.org/pypi/pymermaider)
 
 `pymermaider` is a tool written in Rust designed to generate [mermaid.js](https://github.com/mermaid-js/mermaid) class diagrams from Python code. By analyzing Python code, `pymermaider` automatically generates mermaid.js-compatible diagrams that represent the class structures, including classes, methods, attributes, and their relationships. This tool aims to simplify the documentation process for Python projects, making it easier to visualize class hierarchies and relationships.
