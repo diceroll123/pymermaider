@@ -480,6 +480,21 @@ classDiagram
     }
 
     #[test]
+    fn test_class_diagram_ellipsis() {
+        let source = r#"
+class Thing: ...
+"#;
+
+        let expected_output = r#"```mermaid
+classDiagram
+    class Thing
+```
+"#;
+
+        test_diagram(source, expected_output);
+    }
+
+    #[test]
     fn test_class_diagram_complex() {
         // this tests async, classmethod, args, return type
         let source = r#"
