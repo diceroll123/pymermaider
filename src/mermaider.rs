@@ -107,6 +107,11 @@ impl Mermaider {
 
                     let path_candidate = Candidate::new(path);
 
+                    if path.is_dir() {
+                        // we're only doing files here
+                        continue;
+                    }
+
                     if self
                         .file_settings
                         .exclude
@@ -117,11 +122,6 @@ impl Mermaider {
                             .is_match_candidate(&path_candidate)
                     {
                         debug!("Skipping excluded path: {:?}", path);
-                        continue;
-                    }
-
-                    if path.is_dir() {
-                        // we're only doing files here
                         continue;
                     }
 
