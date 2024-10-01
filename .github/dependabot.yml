@@ -5,3 +5,8 @@ updates:
     directory: "/"
     schedule:
       interval: "weekly"
+    commit-message:
+      prefix: "dependabot"
+    pull-request-branch-name:
+      separator: "-"
+    open-pull-requests-limit: 10
