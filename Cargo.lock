@@ -889,7 +889,7 @@ dependencies = [
  "ruff_python_codegen",
  "ruff_python_parser",
  "ruff_python_semantic",
- "ruff_python_stdlib",
+ "ruff_python_stdlib 0.0.0 (git+https://github.com/astral-sh/ruff.git?tag=0.6.9)",
  "ruff_source_file",
  "ruff_text_size",
  "tempfile",
@@ -1081,7 +1081,7 @@ dependencies = [
  "ruff_python_literal",
  "ruff_python_parser",
  "ruff_python_semantic",
- "ruff_python_stdlib",
+ "ruff_python_stdlib 0.0.0 (git+https://github.com/astral-sh/ruff.git?tag=0.6.8)",
  "ruff_python_trivia",
  "ruff_source_file",
  "ruff_text_size",
@@ -1219,7 +1219,7 @@ dependencies = [
  "ruff_macros",
  "ruff_python_ast",
  "ruff_python_parser",
- "ruff_python_stdlib",
+ "ruff_python_stdlib 0.0.0 (git+https://github.com/astral-sh/ruff.git?tag=0.6.8)",
  "ruff_source_file",
  "ruff_text_size",
  "rustc-hash",
@@ -1229,6 +1229,14 @@ dependencies = [
 name = "ruff_python_stdlib"
 version = "0.0.0"
 source = "git+https://github.com/astral-sh/ruff.git?tag=0.6.8#ae39ce56c0cc1f8ac15f980c0b457b16b67c1f2a"
+dependencies = [
+ "unicode-ident",
+]
+
+[[package]]
+name = "ruff_python_stdlib"
+version = "0.0.0"
+source = "git+https://github.com/astral-sh/ruff.git?tag=0.6.9#975be9c1c6cc8f8f4e52bdad8123d151192c7123"
 dependencies = [
  "unicode-ident",
 ]
@@ -1832,7 +1840,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
