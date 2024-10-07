@@ -12,7 +12,7 @@ log = "0.4.22"
 ruff_python_ast = { git = "https://github.com/astral-sh/ruff.git", tag="0.6.8" }
 ruff_python_codegen = { git = "https://github.com/astral-sh/ruff.git", tag="0.6.8" }
 ruff_python_parser = { git = "https://github.com/astral-sh/ruff.git", tag="0.6.8" }
-ruff_python_semantic = { git = "https://github.com/astral-sh/ruff.git", tag="0.6.8" }
+ruff_python_semantic = { git = "https://github.com/astral-sh/ruff.git", tag="0.6.9" }
 ruff_python_stdlib = { git = "https://github.com/astral-sh/ruff.git", tag="0.6.8" }
 ruff_source_file = { git = "https://github.com/astral-sh/ruff.git", tag="0.6.8" }
 ruff_text_size = { git = "https://github.com/astral-sh/ruff.git", tag="0.6.8" }
