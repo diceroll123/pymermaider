@@ -22,7 +22,7 @@ trait QualifiedNameDiagramHelpers {
     fn normalize_name(&self) -> String;
 }
 
-impl<'a> QualifiedNameDiagramHelpers for QualifiedName<'a> {
+impl QualifiedNameDiagramHelpers for QualifiedName<'_> {
     fn normalize_name(&self) -> String {
         // make sure name is alphanumeric (including unicode), underscores, and dashes
         // if it's not, then return it with backticks
