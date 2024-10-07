@@ -891,7 +891,7 @@ dependencies = [
  "ruff_python_semantic",
  "ruff_python_stdlib",
  "ruff_source_file",
- "ruff_text_size",
+ "ruff_text_size 0.0.0 (git+https://github.com/astral-sh/ruff.git?tag=0.6.9)",
  "tempfile",
 ]
 
@@ -1030,7 +1030,7 @@ dependencies = [
  "anyhow",
  "is-macro",
  "log",
- "ruff_text_size",
+ "ruff_text_size 0.0.0 (git+https://github.com/astral-sh/ruff.git?tag=0.6.8)",
  "serde",
 ]
 
@@ -1084,7 +1084,7 @@ dependencies = [
  "ruff_python_stdlib",
  "ruff_python_trivia",
  "ruff_source_file",
- "ruff_text_size",
+ "ruff_text_size 0.0.0 (git+https://github.com/astral-sh/ruff.git?tag=0.6.8)",
  "rustc-hash",
  "serde",
  "serde_json",
@@ -1124,7 +1124,7 @@ dependencies = [
  "rand",
  "ruff_diagnostics",
  "ruff_source_file",
- "ruff_text_size",
+ "ruff_text_size 0.0.0 (git+https://github.com/astral-sh/ruff.git?tag=0.6.8)",
  "serde",
  "serde_json",
  "serde_with",
@@ -1147,7 +1147,7 @@ dependencies = [
  "ruff_macros",
  "ruff_python_trivia",
  "ruff_source_file",
- "ruff_text_size",
+ "ruff_text_size 0.0.0 (git+https://github.com/astral-sh/ruff.git?tag=0.6.8)",
  "rustc-hash",
  "serde",
 ]
@@ -1162,7 +1162,7 @@ dependencies = [
  "ruff_python_literal",
  "ruff_python_parser",
  "ruff_source_file",
- "ruff_text_size",
+ "ruff_text_size 0.0.0 (git+https://github.com/astral-sh/ruff.git?tag=0.6.8)",
 ]
 
 [[package]]
@@ -1174,7 +1174,7 @@ dependencies = [
  "ruff_python_parser",
  "ruff_python_trivia",
  "ruff_source_file",
- "ruff_text_size",
+ "ruff_text_size 0.0.0 (git+https://github.com/astral-sh/ruff.git?tag=0.6.8)",
 ]
 
 [[package]]
@@ -1199,7 +1199,7 @@ dependencies = [
  "memchr",
  "ruff_python_ast",
  "ruff_python_trivia",
- "ruff_text_size",
+ "ruff_text_size 0.0.0 (git+https://github.com/astral-sh/ruff.git?tag=0.6.8)",
  "rustc-hash",
  "static_assertions",
  "unicode-ident",
@@ -1221,7 +1221,7 @@ dependencies = [
  "ruff_python_parser",
  "ruff_python_stdlib",
  "ruff_source_file",
- "ruff_text_size",
+ "ruff_text_size 0.0.0 (git+https://github.com/astral-sh/ruff.git?tag=0.6.8)",
  "rustc-hash",
 ]
 
@@ -1240,7 +1240,7 @@ source = "git+https://github.com/astral-sh/ruff.git?tag=0.6.8#ae39ce56c0cc1f8ac1
 dependencies = [
  "itertools",
  "ruff_source_file",
- "ruff_text_size",
+ "ruff_text_size 0.0.0 (git+https://github.com/astral-sh/ruff.git?tag=0.6.8)",
  "unicode-ident",
 ]
 
@@ -1251,7 +1251,7 @@ source = "git+https://github.com/astral-sh/ruff.git?tag=0.6.8#ae39ce56c0cc1f8ac1
 dependencies = [
  "memchr",
  "once_cell",
- "ruff_text_size",
+ "ruff_text_size 0.0.0 (git+https://github.com/astral-sh/ruff.git?tag=0.6.8)",
  "serde",
 ]
 
@@ -1262,6 +1262,11 @@ source = "git+https://github.com/astral-sh/ruff.git?tag=0.6.8#ae39ce56c0cc1f8ac1
 dependencies = [
  "serde",
 ]
+
+[[package]]
+name = "ruff_text_size"
+version = "0.0.0"
+source = "git+https://github.com/astral-sh/ruff.git?tag=0.6.9#975be9c1c6cc8f8f4e52bdad8123d151192c7123"
 
 [[package]]
 name = "rust-stemmers"
@@ -1832,7 +1837,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.59.0",
+ "windows-sys 0.52.0",
 ]
 
 [[package]]
