@@ -10,3 +10,7 @@ updates:
     pull-request-branch-name:
       separator: "-"
     open-pull-requests-limit: 10
+    groups:
+      ruff-dependencies:
+        patterns:
+          - "ruff_*"
