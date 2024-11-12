@@ -4,6 +4,7 @@ use crate::checker::Checker;
 use crate::parameter_generator::ParameterGenerator;
 use itertools::Itertools;
 use ruff_linter::source_kind::SourceKind;
+use ruff_linter::Locator;
 use ruff_python_ast::name::QualifiedName;
 use ruff_python_ast::{Expr, Number, PySourceType};
 use ruff_python_codegen::Stylist;
@@ -13,7 +14,6 @@ use ruff_python_semantic::analyze::visibility::{
 };
 use ruff_python_semantic::{Module, ModuleKind, ModuleSource, SemanticModel};
 use ruff_python_stdlib::typing::simple_magic_return_type;
-use ruff_linter::Locator;
 use std::path::{Path, PathBuf};
 
 const TAB: &str = "    ";
@@ -357,7 +357,7 @@ impl ClassDiagram {
 
         let parsed = parse_unchecked_source(source_kind.source_code(), source_type);
 
-        let stylist = Stylist::from_tokens(parsed.tokens(), &locator);
+        let stylist = Stylist::from_tokens(parsed.tokens(), source_kind.source_code());
 
         let python_ast = parsed.into_suite();
 
