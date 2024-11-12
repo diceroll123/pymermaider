@@ -1,6 +1,7 @@
 use crate::ast;
 use ast::{helpers::collect_import_from_member, identifier::Identifier, name::QualifiedName};
 use itertools::Itertools;
+use ruff_linter::Locator;
 use ruff_python_ast::str::Quote;
 use ruff_python_codegen::{Generator, Stylist};
 use ruff_python_semantic::{
@@ -8,7 +9,6 @@ use ruff_python_semantic::{
     SubmoduleImport,
 };
 use ruff_python_stdlib::builtins::{python_builtins, MAGIC_GLOBALS};
-use ruff_linter::Locator;
 use ruff_text_size::TextRange;
 
 /// Slimmed down version of the `Checker` struct from the `ruff_python_semantic` crate.
