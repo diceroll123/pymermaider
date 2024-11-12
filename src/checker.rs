@@ -8,7 +8,7 @@ use ruff_python_semantic::{
     SubmoduleImport,
 };
 use ruff_python_stdlib::builtins::{python_builtins, MAGIC_GLOBALS};
-use ruff_source_file::Locator;
+use ruff_linter::Locator;
 use ruff_text_size::TextRange;
 
 /// Slimmed down version of the `Checker` struct from the `ruff_python_semantic` crate.

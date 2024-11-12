@@ -13,7 +13,7 @@ use ruff_python_semantic::analyze::visibility::{
 };
 use ruff_python_semantic::{Module, ModuleKind, ModuleSource, SemanticModel};
 use ruff_python_stdlib::typing::simple_magic_return_type;
-use ruff_source_file::Locator;
+use ruff_linter::Locator;
 use std::path::{Path, PathBuf};
 
 const TAB: &str = "    ";
