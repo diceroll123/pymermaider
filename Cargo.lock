@@ -597,6 +597,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "itertools"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b192c782037fadd9cfa75548310488aabdbf3d2da73885b31bd0abd03351285"
+dependencies = [
+ "either",
+]
+
+[[package]]
 name = "itoa"
 version = "1.0.11"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -790,7 +799,7 @@ checksum = "8c2feee999fa547bacab06a4881bacc74688858b92fa8ef1e206c748b0a76048"
 dependencies = [
  "boxcar",
  "indexmap",
- "itertools",
+ "itertools 0.13.0",
  "once_cell",
  "pep440_rs",
  "regex",
@@ -876,7 +885,7 @@ dependencies = [
  "env_logger",
  "globset",
  "ignore",
- "itertools",
+ "itertools 0.14.0",
  "log",
  "ruff_linter",
  "ruff_python_ast",
@@ -1012,7 +1021,7 @@ dependencies = [
  "filetime",
  "glob",
  "globset",
- "itertools",
+ "itertools 0.13.0",
  "regex",
  "seahash",
 ]
@@ -1054,7 +1063,7 @@ dependencies = [
  "imperative",
  "is-macro",
  "is-wsl",
- "itertools",
+ "itertools 0.13.0",
  "libcst",
  "log",
  "memchr",
@@ -1101,7 +1110,7 @@ name = "ruff_macros"
 version = "0.0.0"
 source = "git+https://github.com/astral-sh/ruff.git?tag=0.8.6#6b907c1305702158a6b8b27a29a4d5adde7a478c"
 dependencies = [
- "itertools",
+ "itertools 0.13.0",
  "proc-macro2",
  "quote",
  "ruff_python_trivia",
@@ -1114,7 +1123,7 @@ version = "0.0.0"
 source = "git+https://github.com/astral-sh/ruff.git?tag=0.8.6#6b907c1305702158a6b8b27a29a4d5adde7a478c"
 dependencies = [
  "anyhow",
- "itertools",
+ "itertools 0.13.0",
  "rand",
  "ruff_diagnostics",
  "ruff_source_file",
@@ -1135,7 +1144,7 @@ dependencies = [
  "bitflags",
  "compact_str",
  "is-macro",
- "itertools",
+ "itertools 0.13.0",
  "memchr",
  "ruff_cache",
  "ruff_macros",
@@ -1176,7 +1185,7 @@ version = "0.0.0"
 source = "git+https://github.com/astral-sh/ruff.git?tag=0.8.6#6b907c1305702158a6b8b27a29a4d5adde7a478c"
 dependencies = [
  "bitflags",
- "itertools",
+ "itertools 0.13.0",
  "ruff_python_ast",
  "unic-ucd-category",
 ]
@@ -1232,7 +1241,7 @@ name = "ruff_python_trivia"
 version = "0.0.0"
 source = "git+https://github.com/astral-sh/ruff.git?tag=0.8.6#6b907c1305702158a6b8b27a29a4d5adde7a478c"
 dependencies = [
- "itertools",
+ "itertools 0.13.0",
  "ruff_source_file",
  "ruff_text_size",
  "unicode-ident",
@@ -1464,7 +1473,7 @@ dependencies = [
  "fastrand",
  "once_cell",
  "rustix",
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
@@ -1834,7 +1843,7 @@ version = "0.1.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cf221c93e13a30d793f7645a0e7762c55d169dbb0a49671918a2319d289b10bb"
 dependencies = [
- "windows-sys 0.52.0",
+ "windows-sys 0.59.0",
 ]
 
 [[package]]
