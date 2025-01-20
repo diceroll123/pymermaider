@@ -8,7 +8,7 @@ clap = { version = "4.5.26", features = ["derive"] }
 env_logger = { version = "0.11.6", default-features = false, features = ["auto-color", "color"] }
 ignore = { version = "0.4.22", features = ["simd-accel"] }
 itertools = "0.14.0"
-log = "0.4.22"
+log = "0.4.25"
 ruff_python_ast = { git = "https://github.com/astral-sh/ruff.git", tag="0.9.1" }
 ruff_python_codegen = { git = "https://github.com/astral-sh/ruff.git", tag="0.9.1" }
 ruff_python_parser = { git = "https://github.com/astral-sh/ruff.git", tag="0.9.1" }
