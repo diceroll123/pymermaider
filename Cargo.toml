@@ -22,7 +22,7 @@ globset = "0.4.15"
 [dev-dependencies]
 tempfile = "3.17.0"
 anyhow = "1.0.95"
-ctor = "0.2.9"
+ctor = "0.3.4"
 
 [profile.release]
 lto = "fat"
