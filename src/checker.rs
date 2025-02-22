@@ -2,7 +2,6 @@ use crate::ast;
 use ast::{helpers::collect_import_from_member, identifier::Identifier, name::QualifiedName};
 use itertools::Itertools;
 use ruff_linter::Locator;
-use ruff_python_ast::str::Quote;
 use ruff_python_codegen::{Generator, Stylist};
 use ruff_python_semantic::{
     BindingFlags, BindingId, BindingKind, FromImport, Import, SemanticModel, StarImport,
@@ -43,11 +42,7 @@ impl<'a> Checker<'a> {
     }
 
     pub fn generator(&self) -> Generator {
-        Generator::new(
-            self.stylist.indentation(),
-            self.f_string_quote_style().unwrap_or(self.stylist.quote()),
-            self.stylist.line_ending(),
-        )
+        Generator::new(self.stylist.indentation(), self.stylist.line_ending())
     }
 
     pub fn semantic(&self) -> &SemanticModel<'a> {
@@ -56,19 +51,6 @@ impl<'a> Checker<'a> {
 
     pub fn locator(&self) -> &Locator<'a> {
         self.locator
-    }
-
-    fn f_string_quote_style(&self) -> Option<Quote> {
-        if !self.semantic.in_f_string() {
-            return None;
-        }
-
-        // Find the quote character used to start the containing f-string.
-        let ast::ExprFString { value, .. } = self
-            .semantic
-            .current_expressions()
-            .find_map(|expr| expr.as_f_string_expr())?;
-        Some(value.iter().next()?.quote_style().opposite())
     }
 
     fn add_binding(
