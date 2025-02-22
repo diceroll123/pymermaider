@@ -58,6 +58,8 @@ jobs:
           - target: aarch64-pc-windows-msvc
     steps:
       - uses: actions/checkout@v4
+      - name: "Configure Git to support long paths"
+        run: git config --system core.longpaths true
       - name: "Build wheels - windows"
         uses: PyO3/maturin-action@v1
         with:
