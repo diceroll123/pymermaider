@@ -17,7 +17,7 @@ ruff_python_stdlib = { git = "https://github.com/astral-sh/ruff.git", tag="0.9.9
 ruff_source_file = { git = "https://github.com/astral-sh/ruff.git", tag="0.9.9" }
 ruff_text_size = { git = "https://github.com/astral-sh/ruff.git", tag="0.9.9" }
 ruff_linter = { git = "https://github.com/astral-sh/ruff.git", tag="0.9.9" }
-globset = "0.4.15"
+globset = "0.4.16"
 
 [dev-dependencies]
 tempfile = "3.17.0"
