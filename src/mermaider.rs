@@ -139,7 +139,7 @@ impl Mermaider {
 
 #[cfg(test)]
 mod tests {
-    use ruff_linter::fs;
+    use ruff_linter::settings::types::GlobPath;
     use std::io::Write;
 
     use crate::settings::DEFAULT_EXCLUDES;
@@ -194,7 +194,7 @@ mod tests {
             std::fs::File::create(temp_excluded_dir.path().join("exclusion_test.py"))?;
         excluded_file.write_all(b"class ExclusionTest: ...")?;
 
-        let absolute = fs::normalize_path_to("exclude-me-*", &temp_project_dir);
+        let absolute = GlobPath::normalize("exclude-me-*", &temp_project_dir);
 
         let settings = FileResolverSettings {
             exclude: FilePatternSet::try_from_iter(DEFAULT_EXCLUDES.to_vec()).unwrap(),

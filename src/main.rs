@@ -13,10 +13,7 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use mermaider::Mermaider;
-use ruff_linter::{
-    fs,
-    settings::types::{FilePattern, FilePatternSet},
-};
+use ruff_linter::settings::types::{FilePattern, FilePatternSet, GlobPath};
 use ruff_python_ast::{self as ast};
 use settings::{FileResolverSettings, DEFAULT_EXCLUDES};
 
@@ -73,7 +70,7 @@ fn main() {
                     paths
                         .into_iter()
                         .map(|pattern| {
-                            let absolute = fs::normalize_path_to(&pattern, &project_root);
+                            let absolute = GlobPath::normalize(&pattern, &project_root);
                             FilePattern::User(pattern, absolute)
                         })
                         .collect::<Vec<_>>()
@@ -87,7 +84,7 @@ fn main() {
                     paths
                         .into_iter()
                         .map(|pattern| {
-                            let absolute = fs::normalize_path_to(&pattern, &project_root);
+                            let absolute = GlobPath::normalize(&pattern, &project_root);
                             FilePattern::User(pattern, absolute)
                         })
                         .collect::<Vec<_>>()
