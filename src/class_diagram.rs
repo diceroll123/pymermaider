@@ -42,33 +42,26 @@ impl QualifiedNameDiagramHelpers for QualifiedName<'_> {
 
 trait ClassDefDiagramHelpers {
     fn is_abstract(&self, semantic: &SemanticModel) -> bool;
+    fn is_final(&self, semantic: &SemanticModel) -> bool;
     fn is_enum(&self, semantic: &SemanticModel) -> bool;
     fn label(&self, checker: &Checker) -> Option<String>;
 }
 
 impl ClassDefDiagramHelpers for ast::StmtClassDef {
     fn label(&self, checker: &Checker) -> Option<String> {
-        let mut pre_name_labels = vec![];
         let mut post_name_labels = vec![];
-
-        let is_final = is_final(&self.decorator_list, checker.semantic());
-
-        if is_final {
-            pre_name_labels.push("@final ");
-        }
 
         if let Some(params) = &self.type_params {
             post_name_labels.push(checker.locator().slice(params.as_ref()));
         }
 
-        if pre_name_labels.is_empty() && post_name_labels.is_empty() {
+        if post_name_labels.is_empty() {
             return None;
         }
 
         let mut res = String::new();
         res.push('[');
         res.push('"');
-        res.push_str(&pre_name_labels.join(""));
         res.push_str(&self.name);
         res.push_str(&post_name_labels.join(""));
         res.push('"');
@@ -91,6 +84,10 @@ impl ClassDefDiagramHelpers for ast::StmtClassDef {
 
     fn is_enum(&self, semantic: &SemanticModel) -> bool {
         is_enumeration(self, semantic)
+    }
+
+    fn is_final(&self, semantic: &SemanticModel) -> bool {
+        is_final(&self.decorator_list, semantic)
     }
 }
 
@@ -166,6 +163,8 @@ impl ClassDiagram {
             "<<abstract>>"
         } else if class.is_enum(checker.semantic()) {
             "<<enumeration>>"
+        } else if class.is_final(checker.semantic()) {
+            "<<final>>"
         } else {
             ""
         };
@@ -528,7 +527,9 @@ class Thing: ...
 
         let expected_output = r#"```mermaid
 classDiagram
-    class Thing ["@final Thing"]
+    class Thing {
+        <<final>>
+    }
 ```
 "#;
 
