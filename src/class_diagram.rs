@@ -278,6 +278,8 @@ impl ClassDiagram {
             }) => {
                 let is_private = name.starts_with('_');
 
+                let is_static = is_staticmethod(decorator_list, checker.semantic());
+
                 let mut param_gen = ParameterGenerator::new();
                 param_gen.unparse_parameters(parameters);
 
@@ -296,7 +298,7 @@ impl ClassDiagram {
 
                 if is_classmethod(decorator_list, checker.semantic()) {
                     method_types.push("@classmethod ");
-                } else if is_staticmethod(decorator_list, checker.semantic()) {
+                } else if is_static {
                     method_types.push("@staticmethod ");
                 }
 
@@ -325,8 +327,11 @@ impl ClassDiagram {
                     res.push_str(&format!(" {}", method));
                 }
 
+                // Mermaid diagrams don't support multiple of these classifiers at this time
                 if is_abstract(decorator_list, checker.semantic()) {
                     res.push('*');
+                } else if is_static {
+                    res.push('$');
                 }
 
                 res.push('\n');
@@ -765,6 +770,24 @@ classDiagram
         + int RED
         + int GREEN
         + int BLUE
+    }
+```"#;
+
+        test_diagram(source, expected_output);
+    }
+
+    #[test]
+    fn test_staticmethod() {
+        let source = r#"
+class Thing:
+    @staticmethod
+    def static_method(x: int, y: int) -> int:
+        return x + y
+"#;
+        let expected_output = r#"```mermaid
+classDiagram
+    class Thing {
+        + @staticmethod static_method(x, y) int$
     }
 ```"#;
 
