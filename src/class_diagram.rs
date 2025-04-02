@@ -2,15 +2,16 @@ extern crate env_logger;
 use crate::ast;
 use crate::checker::Checker;
 use crate::parameter_generator::ParameterGenerator;
+use crate::utils::is_abc_class;
 use itertools::Itertools;
 use ruff_linter::source_kind::SourceKind;
 use ruff_linter::Locator;
 use ruff_python_ast::name::QualifiedName;
-use ruff_python_ast::{Expr, Number, PySourceType};
+use ruff_python_ast::{Arguments, Expr, Number, PySourceType};
 use ruff_python_codegen::Stylist;
 use ruff_python_parser::parse_unchecked_source;
 use ruff_python_semantic::analyze::visibility::{
-    is_classmethod, is_final, is_overload, is_override, is_staticmethod,
+    is_abstract, is_classmethod, is_final, is_overload, is_override, is_staticmethod,
 };
 use ruff_python_semantic::{Module, ModuleKind, ModuleSource, SemanticModel};
 use ruff_python_stdlib::typing::simple_magic_return_type;
@@ -40,6 +41,7 @@ impl QualifiedNameDiagramHelpers for QualifiedName<'_> {
 
 trait ClassDefDiagramHelpers {
     fn label(&self, checker: &Checker) -> Option<String>;
+    fn is_abstract(&self, semantic: &SemanticModel) -> bool;
 }
 
 impl ClassDefDiagramHelpers for ast::StmtClassDef {
@@ -71,6 +73,18 @@ impl ClassDefDiagramHelpers for ast::StmtClassDef {
         res.push(']');
 
         Some(res)
+    }
+
+    fn is_abstract(&self, semantic: &SemanticModel) -> bool {
+        let Some(Arguments { args, keywords, .. }) = self.arguments.as_deref() else {
+            return false;
+        };
+
+        if args.len() + keywords.len() != 1 {
+            return false;
+        }
+
+        is_abc_class(args, keywords, semantic)
     }
 }
 
@@ -142,9 +156,22 @@ impl ClassDiagram {
             .unique()
             .collect();
 
-        if !processed_stmts.is_empty() {
+        let class_annotation = if class.is_abstract(checker.semantic()) {
+            "<<abstract>>"
+        } else {
+            ""
+        };
+
+        if !processed_stmts.is_empty() || !class_annotation.is_empty() {
             res.push('{');
             res.push('\n');
+
+            if !class_annotation.is_empty() {
+                res.push_str(&use_tab);
+                res.push_str(&use_tab);
+                res.push_str(class_annotation);
+                res.push('\n');
+            }
 
             for stmt in processed_stmts {
                 res.push_str(&stmt);
@@ -167,6 +194,13 @@ impl ClassDiagram {
 
             // skip "object" base class, it's implied
             if matches!(base_name.segments(), ["" | "builtins", "object"]) {
+                continue;
+            }
+
+            // skip ABCs, they're marked as abstract
+            if matches!(base_name.segments(), ["abc", "ABC" | "ABCMeta"])
+                && class.is_abstract(checker.semantic())
+            {
                 continue;
             }
 
@@ -276,6 +310,10 @@ impl ClassDiagram {
                     res.push_str(&format!(" {}", returns));
                 } else if let Some(method) = simple_magic_return_type(name) {
                     res.push_str(&format!(" {}", method));
+                }
+
+                if is_abstract(decorator_list, checker.semantic()) {
+                    res.push('*');
                 }
 
                 res.push('\n');
@@ -670,6 +708,27 @@ class Thing:
 classDiagram
     class Thing {
         + do_thing(self)
+    }
+```"#;
+
+        test_diagram(source, expected_output);
+    }
+
+    #[test]
+    fn test_abstract_base_class() {
+        let source = r#"
+from abc import ABC, abstractmethod
+class Thing(ABC):
+    @abstractmethod
+    def do_thing(self) -> None:
+        """Must be implemented by subclasses"""
+        pass
+"#;
+        let expected_output = r#"```mermaid
+classDiagram
+    class Thing {
+        <<abstract>>
+        + do_thing(self) None*
     }
 ```"#;
 
