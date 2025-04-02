@@ -10,6 +10,7 @@ use ruff_python_ast::name::QualifiedName;
 use ruff_python_ast::{Arguments, Expr, Number, PySourceType};
 use ruff_python_codegen::Stylist;
 use ruff_python_parser::parse_unchecked_source;
+use ruff_python_semantic::analyze::class::is_enumeration;
 use ruff_python_semantic::analyze::visibility::{
     is_abstract, is_classmethod, is_final, is_overload, is_override, is_staticmethod,
 };
@@ -40,8 +41,9 @@ impl QualifiedNameDiagramHelpers for QualifiedName<'_> {
 }
 
 trait ClassDefDiagramHelpers {
-    fn label(&self, checker: &Checker) -> Option<String>;
     fn is_abstract(&self, semantic: &SemanticModel) -> bool;
+    fn is_enum(&self, semantic: &SemanticModel) -> bool;
+    fn label(&self, checker: &Checker) -> Option<String>;
 }
 
 impl ClassDefDiagramHelpers for ast::StmtClassDef {
@@ -85,6 +87,10 @@ impl ClassDefDiagramHelpers for ast::StmtClassDef {
         }
 
         is_abc_class(args, keywords, semantic)
+    }
+
+    fn is_enum(&self, semantic: &SemanticModel) -> bool {
+        is_enumeration(self, semantic)
     }
 }
 
@@ -158,6 +164,8 @@ impl ClassDiagram {
 
         let class_annotation = if class.is_abstract(checker.semantic()) {
             "<<abstract>>"
+        } else if class.is_enum(checker.semantic()) {
+            "<<enumeration>>"
         } else {
             ""
         };
@@ -201,6 +209,11 @@ impl ClassDiagram {
             if matches!(base_name.segments(), ["abc", "ABC" | "ABCMeta"])
                 && class.is_abstract(checker.semantic())
             {
+                continue;
+            }
+
+            // skip enums classes
+            if class.is_enum(checker.semantic()) {
                 continue;
             }
 
@@ -729,6 +742,29 @@ classDiagram
     class Thing {
         <<abstract>>
         + do_thing(self) None*
+    }
+```"#;
+
+        test_diagram(source, expected_output);
+    }
+
+    #[test]
+    fn test_enum() {
+        let source = r#"
+from enum import Enum
+class Color(Enum):
+    RED = 1
+    GREEN = 2
+    BLUE = 3
+"#;
+
+        let expected_output = r#"```mermaid
+classDiagram
+    class Color {
+        <<enumeration>>
+        + int RED
+        + int GREEN
+        + int BLUE
     }
 ```"#;
 
