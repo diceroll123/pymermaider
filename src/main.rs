@@ -3,6 +3,7 @@ mod class_diagram;
 mod mermaider;
 mod parameter_generator;
 mod settings;
+mod utils;
 
 extern crate clap;
 extern crate env_logger;
