@@ -21,7 +21,7 @@ globset = "0.4.16"
 
 [dev-dependencies]
 tempfile = "3.19.1"
-anyhow = "1.0.97"
+anyhow = "1.0.98"
 ctor = "0.4.1"
 
 [profile.release]
