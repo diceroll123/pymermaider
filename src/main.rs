@@ -5,11 +5,6 @@ mod parameter_generator;
 mod settings;
 mod utils;
 
-extern crate clap;
-extern crate env_logger;
-#[macro_use]
-extern crate log;
-
 use std::path::PathBuf;
 
 use clap::Parser;
@@ -65,19 +60,18 @@ fn main() {
     let file_settings = FileResolverSettings {
         project_root: project_root.clone(),
         output_directory: args.output_dir.into(),
-        exclude: FilePatternSet::try_from_iter(
-            args.exclude
-                .map(|paths| {
-                    paths
-                        .into_iter()
-                        .map(|pattern| {
-                            let absolute = GlobPath::normalize(&pattern, &project_root);
-                            FilePattern::User(pattern, absolute)
-                        })
-                        .collect::<Vec<_>>()
-                })
-                .unwrap_or(DEFAULT_EXCLUDES.to_vec()),
-        )
+        exclude: FilePatternSet::try_from_iter(args.exclude.map_or(
+            DEFAULT_EXCLUDES.to_vec(),
+            |paths| {
+                paths
+                    .into_iter()
+                    .map(|pattern| {
+                        let absolute = GlobPath::normalize(&pattern, &project_root);
+                        FilePattern::User(pattern, absolute)
+                    })
+                    .collect::<Vec<_>>()
+            },
+        ))
         .unwrap(),
         extend_exclude: FilePatternSet::try_from_iter(
             args.extend_exclude
@@ -101,5 +95,5 @@ fn main() {
 
     let written = mermaider.get_written_files();
 
-    println!("Files written: {}", written);
+    println!("Files written: {written}");
 }

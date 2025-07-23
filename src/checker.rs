@@ -1,6 +1,6 @@
 use crate::ast;
-use ast::{helpers::collect_import_from_member, identifier::Identifier, name::QualifiedName};
-use itertools::Itertools;
+use ast::{helpers::collect_import_from_member, identifier::Identifier as _, name::QualifiedName};
+use itertools::Itertools as _;
 use ruff_linter::Locator;
 use ruff_python_codegen::{Generator, Stylist};
 use ruff_python_semantic::{
@@ -41,15 +41,15 @@ impl<'a> Checker<'a> {
         }
     }
 
-    pub fn generator(&self) -> Generator {
+    pub fn generator(&self) -> Generator<'_> {
         Generator::new(self.stylist.indentation(), self.stylist.line_ending())
     }
 
-    pub fn semantic(&self) -> &SemanticModel<'a> {
+    pub const fn semantic(&self) -> &SemanticModel<'a> {
         &self.semantic
     }
 
-    pub fn locator(&self) -> &Locator<'a> {
+    pub const fn locator(&self) -> &Locator<'a> {
         self.locator
     }
 
@@ -197,7 +197,7 @@ impl<'a> Checker<'a> {
                     }
 
                     for alias in names {
-                        if let Some("__future__") = module {
+                        if module == Some("__future__") {
                             let name = alias.asname.as_ref().unwrap_or(&alias.name);
                             self.add_binding(
                                 name,

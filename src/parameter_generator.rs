@@ -7,7 +7,7 @@ pub struct ParameterGenerator {
 }
 
 impl ParameterGenerator {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             buffer: String::new(),
         }
@@ -28,7 +28,7 @@ impl ParameterGenerator {
     }
 
     fn p_delim(&mut self, first: &mut bool, s: &str) {
-        self.p_if(!std::mem::take(first), s);
+        self.p_if(!core::mem::take(first), s);
     }
 
     pub fn unparse_parameters(&mut self, parameters: &Parameters) {

@@ -3,7 +3,8 @@ use crate::ast;
 use crate::checker::Checker;
 use crate::parameter_generator::ParameterGenerator;
 use crate::utils::is_abc_class;
-use itertools::Itertools;
+use itertools::Itertools as _;
+use log::info;
 use ruff_linter::source_kind::SourceKind;
 use ruff_linter::Locator;
 use ruff_python_ast::name::QualifiedName;
@@ -35,7 +36,7 @@ impl QualifiedNameDiagramHelpers for QualifiedName<'_> {
         {
             name
         } else {
-            format!("`{}`", name)
+            format!("`{name}`")
         }
     }
 }
@@ -98,7 +99,7 @@ pub struct ClassDiagram {
 }
 
 impl ClassDiagram {
-    pub fn new() -> Self {
+    pub const fn new() -> Self {
         Self {
             classes: vec![],
             relationships: vec![],
@@ -132,7 +133,7 @@ impl ClassDiagram {
             res.push('\n');
         }
 
-        res = res.trim_end().to_string();
+        res = res.trim_end().to_owned();
 
         res.push_str("\n```\n");
 
@@ -188,15 +189,15 @@ impl ClassDiagram {
             res.push('}');
         }
 
-        self.classes.push(res.trim_end().to_string());
+        self.classes.push(res.trim_end().to_owned());
 
         for base in class.bases() {
-            let base_name = match checker.semantic().resolve_qualified_name(base) {
-                Some(base_name) => base_name,
-                None => {
-                    let name = checker.locator().slice(base);
-                    QualifiedName::user_defined(name)
-                }
+            let base_name = if let Some(base_name) = checker.semantic().resolve_qualified_name(base)
+            {
+                base_name
+            } else {
+                let name = checker.locator().slice(base);
+                QualifiedName::user_defined(name)
             };
 
             // skip "object" base class, it's implied
@@ -286,7 +287,7 @@ impl ClassDiagram {
 
                 let returns = match returns {
                     Some(target) => checker.generator().expr(target.as_ref()),
-                    None => "".to_string(),
+                    None => String::new(),
                 };
 
                 let mut method_types = vec![];
@@ -321,9 +322,9 @@ impl ClassDiagram {
                 ));
 
                 if !returns.is_empty() {
-                    res.push_str(&format!(" {}", returns));
+                    res.push_str(&format!(" {returns}"));
                 } else if let Some(method) = simple_magic_return_type(name) {
-                    res.push_str(&format!(" {}", method));
+                    res.push_str(&format!(" {method}"));
                 }
 
                 // Mermaid diagrams don't support multiple of these classifiers at this time
@@ -399,7 +400,7 @@ impl ClassDiagram {
             std::fs::create_dir_all(parent_dir).unwrap();
         }
         std::fs::write(&path, self.render()).unwrap();
-        println!("Mermaid file written to: {:?}", path);
+        println!("Mermaid file written to: {path:?}");
 
         true
     }
@@ -432,7 +433,7 @@ impl ClassDiagram {
         let mut checker = Checker::new(&stylist, &locator, semantic);
         checker.see_imports(&python_ast);
 
-        for stmt in python_ast.iter() {
+        for stmt in &python_ast {
             if let ast::Stmt::ClassDef(class) = stmt {
                 // we only care about class definitions
                 self.add_class(&checker, class, 1);
@@ -447,7 +448,7 @@ mod tests {
 
     #[test]
     fn test_class_diagram_basic() {
-        let source = r#"
+        let source = "
 class TestClass:
     def __init__(self, x: int, y: int) -> None:
         self.x = x
@@ -456,9 +457,9 @@ class TestClass:
         return x + y
     def subtract(self, x: int, y: int) -> int:
         return x - y
-"#;
+";
 
-        let expected_output = r#"```mermaid
+        let expected_output = "```mermaid
 classDiagram
     class TestClass {
         - __init__(self, x, y) None
@@ -466,16 +467,16 @@ classDiagram
         + subtract(self, x, y) int
     }
 ```
-"#;
+";
 
         test_diagram(source, expected_output);
     }
 
     #[test]
     fn test_class_diagram_generic_class() {
-        let source = r#"
+        let source = "
 class Thing[T]: ...
-"#;
+";
 
         let expected_output = r#"```mermaid
 classDiagram
@@ -487,25 +488,25 @@ classDiagram
 
     #[test]
     fn test_class_diagram_generic_inner_class() {
-        let source = r#"
+        let source = "
 class Thing(Inner[T]): ...
-"#;
+";
 
-        let expected_output = r#"```mermaid
+        let expected_output = "```mermaid
 classDiagram
     class Thing
 
     Thing --|> `Inner[T]`
-```"#;
+```";
 
         test_diagram(source, expected_output);
     }
 
     #[test]
     fn test_class_diagram_generic_class_multiple() {
-        let source = r#"
+        let source = "
 class Thing[T, U, V]: ...
-"#;
+";
 
         let expected_output = r#"```mermaid
 classDiagram
@@ -519,34 +520,34 @@ classDiagram
 
     #[test]
     fn test_class_diagram_final() {
-        let source = r#"
+        let source = "
 from typing import final
 @final
 class Thing: ...
-"#;
+";
 
-        let expected_output = r#"```mermaid
+        let expected_output = "```mermaid
 classDiagram
     class Thing {
         <<final>>
     }
 ```
-"#;
+";
 
         test_diagram(source, expected_output);
     }
 
     #[test]
     fn test_class_diagram_ellipsis() {
-        let source = r#"
+        let source = "
 class Thing: ...
-"#;
+";
 
-        let expected_output = r#"```mermaid
+        let expected_output = "```mermaid
 classDiagram
     class Thing
 ```
-"#;
+";
 
         test_diagram(source, expected_output);
     }
@@ -554,26 +555,26 @@ classDiagram
     #[test]
     fn test_class_diagram_complex() {
         // this tests async, classmethod, args, return type
-        let source = r#"
+        let source = "
 class Thing:
     @classmethod
     async def foo(cls, first, /, *second, kwarg: bool = True, **unpack_this) -> dict[str, str]: ...
-"#;
+";
 
-        let expected_output = r#"```mermaid
+        let expected_output = "```mermaid
 classDiagram
     class Thing {
         + @classmethod async foo(cls, first, /, *second, kwarg, **unpack_this) dict[str, str]
     }
 ```
-"#;
+";
 
         test_diagram(source, expected_output);
     }
 
     #[test]
     fn test_pydantic_example() {
-        let source = r#"
+        let source = "
 from pydantic import BaseModel
 
 
@@ -609,9 +610,9 @@ class User(UserBase):
 
     class Config:
         orm_mode = True
-"#;
+";
 
-        let expected_output = r#"```mermaid
+        let expected_output = "```mermaid
 classDiagram
     class ItemBase {
         + str title
@@ -651,14 +652,14 @@ classDiagram
 
     User --|> UserBase
 ```
-"#;
+";
 
         test_diagram(source, expected_output);
     }
 
     #[test]
     fn test_class_diagram_unique_overloads() {
-        let source = r#"
+        let source = "
 from typing import overload
 class Thing:
     @overload
@@ -668,67 +669,67 @@ class Thing:
     def __init__(self, x: str, y: str) -> None: ...
 
     def __init__(self, x: int | str, y: int | str) -> None: ...
-"#;
+";
 
-        let expected_output = r#"```mermaid
+        let expected_output = "```mermaid
 classDiagram
     class Thing {
         - @overload __init__(self, x, y) None
         - __init__(self, x, y) None
     }
 ```
-"#;
+";
 
         test_diagram(source, expected_output);
     }
 
     #[test]
     fn test_class_diagram_object_base() {
-        let source = r#"
+        let source = "
 class Thing(object): ...
-"#;
+";
 
-        let expected_output = r#"```mermaid
+        let expected_output = "```mermaid
 classDiagram
     class Thing
-```"#;
+```";
 
         test_diagram(source, expected_output);
     }
 
     #[test]
     fn test_class_diagram_dundermagic_infer() {
-        let source = r#"
+        let source = "
 class Thing:
     def __complex__(self): ...
     def __bytes__(self): ...
-"#;
+";
 
-        let expected_output = r#"```mermaid
+        let expected_output = "```mermaid
 classDiagram
     class Thing {
         - __complex__(self) complex
         - __bytes__(self) bytes
     }
-```"#;
+```";
 
         test_diagram(source, expected_output);
     }
 
     #[test]
     fn test_notimplemented() {
-        let source = r#"
+        let source = "
 class Thing:
     def do_thing(self):
         raise NotImplementedError
-"#;
+";
 
-        let expected_output = r#"```mermaid
+        let expected_output = "```mermaid
 classDiagram
     class Thing {
         + do_thing(self)
     }
-```"#;
+```";
 
         test_diagram(source, expected_output);
     }
@@ -743,28 +744,28 @@ class Thing(ABC):
         """Must be implemented by subclasses"""
         pass
 "#;
-        let expected_output = r#"```mermaid
+        let expected_output = "```mermaid
 classDiagram
     class Thing {
         <<abstract>>
         + do_thing(self) None*
     }
-```"#;
+```";
 
         test_diagram(source, expected_output);
     }
 
     #[test]
     fn test_enum() {
-        let source = r#"
+        let source = "
 from enum import Enum
 class Color(Enum):
     RED = 1
     GREEN = 2
     BLUE = 3
-"#;
+";
 
-        let expected_output = r#"```mermaid
+        let expected_output = "```mermaid
 classDiagram
     class Color {
         <<enumeration>>
@@ -772,41 +773,41 @@ classDiagram
         + int GREEN
         + int BLUE
     }
-```"#;
+```";
 
         test_diagram(source, expected_output);
     }
 
     #[test]
     fn test_staticmethod() {
-        let source = r#"
+        let source = "
 class Thing:
     @staticmethod
     def static_method(x: int, y: int) -> int:
         return x + y
-"#;
-        let expected_output = r#"```mermaid
+";
+        let expected_output = "```mermaid
 classDiagram
     class Thing {
         + @staticmethod static_method(x, y) int$
     }
-```"#;
+```";
 
         test_diagram(source, expected_output);
     }
 
     fn test_diagram(source: &str, expected_output: &str) {
         let mut diagram = ClassDiagram::new();
-        diagram.add_to_diagram(source.to_string(), &PathBuf::from("test.py"));
+        diagram.add_to_diagram(source.to_owned(), &PathBuf::from("test.py"));
         let output = diagram.render();
         assert_eq!(output.trim(), expected_output.trim());
     }
 
-    #[allow(dead_code)]
+    #[expect(dead_code)]
     fn test_diagram_print(source: &str) {
         // for making new tests and debugging :P
         let mut diagram = ClassDiagram::new();
-        diagram.add_to_diagram(source.to_string(), &PathBuf::from("test.py"));
+        diagram.add_to_diagram(source.to_owned(), &PathBuf::from("test.py"));
         println!("{}", diagram.render());
         assert_eq!(1, 2);
     }
