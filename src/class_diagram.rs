@@ -4,6 +4,7 @@ use crate::checker::Checker;
 use crate::parameter_generator::ParameterGenerator;
 use crate::utils::is_abc_class;
 use itertools::Itertools as _;
+use log::info;
 use ruff_linter::source_kind::SourceKind;
 use ruff_linter::Locator;
 use ruff_python_ast::name::QualifiedName;
