@@ -2,6 +2,7 @@ use crate::{class_diagram::ClassDiagram, settings::FileResolverSettings};
 
 use globset::Candidate;
 use ignore::{types::TypesBuilder, WalkBuilder};
+use log::{debug, error};
 use std::path::{Path, PathBuf};
 
 pub struct Mermaider {
@@ -10,7 +11,7 @@ pub struct Mermaider {
     files_written: usize,
 }
 impl Mermaider {
-    pub fn new(file_settings: FileResolverSettings, multiple_files: bool) -> Self {
+    pub const fn new(file_settings: FileResolverSettings, multiple_files: bool) -> Self {
         Self {
             file_settings,
             multiple_files,
@@ -19,7 +20,7 @@ impl Mermaider {
     }
 
     /// Get the amount of files written.
-    pub fn get_written_files(&self) -> usize {
+    pub const fn get_written_files(&self) -> usize {
         self.files_written
     }
 
@@ -28,12 +29,12 @@ impl Mermaider {
         let output_directory = &self.file_settings.output_directory;
 
         if !path.exists() {
-            println!("{:?} does not exist.", path);
+            println!("{path:?} does not exist.");
             return;
         }
 
         if path.is_file() {
-            let mut diagram = self.make_mermaid(vec![path.to_path_buf()]);
+            let mut diagram = self.make_mermaid(vec![path.clone()]);
             diagram.path = path.to_string_lossy().to_string();
 
             let wrote_file = diagram.write_to_file(output_directory);
@@ -44,7 +45,7 @@ impl Mermaider {
             let parsed_files = self.parse_folder(path).unwrap();
 
             if self.multiple_files {
-                for parsed_file in parsed_files.iter() {
+                for parsed_file in &parsed_files {
                     let mut diagram = self.make_mermaid(vec![parsed_file.clone()]);
 
                     let diagram_path = Path::new(parsed_file).strip_prefix(path).unwrap();
@@ -78,7 +79,7 @@ impl Mermaider {
     fn make_mermaid(&self, parsed_files: Vec<PathBuf>) -> ClassDiagram {
         let mut class_diagram = ClassDiagram::new();
 
-        for file in parsed_files.iter() {
+        for file in &parsed_files {
             let source = match std::fs::read_to_string(file) {
                 Ok(content) => content,
                 Err(_) => continue,
@@ -103,7 +104,7 @@ impl Mermaider {
             match result {
                 Ok(entry) => {
                     let path = entry.path();
-                    debug!("Parsing path: {:?}", path);
+                    debug!("Parsing path: {path:?}");
 
                     let path_candidate = Candidate::new(path);
 
@@ -121,14 +122,14 @@ impl Mermaider {
                             .extend_exclude
                             .is_match_candidate(&path_candidate)
                     {
-                        debug!("Skipping excluded path: {:?}", path);
+                        debug!("Skipping excluded path: {path:?}");
                         continue;
                     }
 
                     parsed_files.push(path.to_path_buf());
                 }
                 Err(err) => {
-                    error!("Error walking path: {:?}", err);
+                    error!("Error walking path: {err:?}");
                 }
             }
         }
@@ -140,7 +141,7 @@ impl Mermaider {
 #[cfg(test)]
 mod tests {
     use ruff_linter::settings::types::GlobPath;
-    use std::io::Write;
+    use std::io::Write as _;
 
     use crate::settings::DEFAULT_EXCLUDES;
 
@@ -149,13 +150,13 @@ mod tests {
     use ruff_linter::settings::types::{FilePattern, FilePatternSet};
     use tempfile::{Builder, TempDir};
 
-    #[ctor::ctor]
     fn init_logger() {
         let _ = env_logger::builder().is_test(true).try_init();
     }
 
     #[test]
     fn test_single_file() -> Result<()> {
+        init_logger();
         let temp_project_dir = TempDir::new()?;
         let mut test_file = std::fs::File::create(temp_project_dir.path().join("test.py"))?;
         test_file.write_all(b"class Test: ...")?;
@@ -180,6 +181,7 @@ mod tests {
 
     #[test]
     fn test_exclude_files() -> Result<()> {
+        init_logger();
         let temp_project_dir = TempDir::new()?;
         let mut test_file = std::fs::File::create(temp_project_dir.path().join("test.py"))?;
         test_file.write_all(b"class Test: ...")?;
