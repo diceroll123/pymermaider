@@ -4,7 +4,7 @@ version = "0.1.4"
 edition = "2021"
 
 [dependencies]
-clap = { version = "4.5.41", features = ["derive"] }
+clap = { version = "4.5.42", features = ["derive"] }
 env_logger = { version = "0.11.8", default-features = false, features = ["auto-color", "color"] }
 ignore = { version = "0.4.22", features = ["simd-accel"] }
 itertools = "0.14.0"
