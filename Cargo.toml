@@ -20,7 +20,7 @@ ruff_linter = { git = "https://github.com/astral-sh/ruff.git", tag = "0.13.1" }
 globset = "0.4.16"
 
 [dev-dependencies]
-tempfile = "3.22.0"
+tempfile = "3.23.0"
 anyhow = "1.0.99"
 ctor = "0.5.0"
 
