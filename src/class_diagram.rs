@@ -60,15 +60,12 @@ impl ClassDefDiagramHelpers for ast::StmtClassDef {
             return None;
         }
 
-        let mut res = String::new();
-        res.push('[');
-        res.push('"');
-        res.push_str(&self.name);
-        res.push_str(&post_name_labels.join(""));
-        res.push('"');
-        res.push(']');
+        // Extract the actual types without brackets
+        let type_params = post_name_labels.join("");
+        let clean_params = type_params.trim_start_matches('[').trim_end_matches(']');
 
-        Some(res)
+        // Format with tildes instead of brackets, with a space
+        Some(format!(" ~{}~", clean_params))
     }
 
     fn is_abstract(&self, semantic: &SemanticModel) -> bool {
@@ -92,6 +89,41 @@ impl ClassDefDiagramHelpers for ast::StmtClassDef {
     }
 }
 
+// Helper function to check if a base is a Generic type
+fn is_generic_base(base_name: &QualifiedName) -> bool {
+    matches!(base_name.segments(), ["typing", "Generic"])
+}
+
+// Helper function to extract generic type info from bases
+fn extract_generic_info(base: &Expr, checker: &Checker) -> Option<String> {
+    // Must be a subscript expression (like Generic[T])
+    let Expr::Subscript(subscript) = base else {
+        return None;
+    };
+
+    // Must be a qualified name that resolves to typing.Generic
+    let base_name = checker
+        .semantic()
+        .resolve_qualified_name(&subscript.value)?;
+
+    if !is_generic_base(&base_name) {
+        return None;
+    }
+
+    // Get the type string
+    let type_var = checker.locator().slice(base).to_string();
+
+    // For type parameter extraction, return just the parameter without Generic[]
+    let start_idx = type_var.find('[').map(|idx| idx + 1)?;
+    let end_idx = type_var.rfind(']')?;
+
+    if start_idx < end_idx {
+        Some(type_var[start_idx..end_idx].trim().to_string())
+    } else {
+        None
+    }
+}
+
 pub struct ClassDiagram {
     classes: Vec<String>,
     relationships: Vec<String>,
@@ -112,7 +144,7 @@ impl ClassDiagram {
     }
 
     pub fn render(&self) -> String {
-        let mut res = String::new();
+        let mut res = String::with_capacity(1024); // Pre-allocate a reasonable size
         res.push_str("```mermaid\n");
 
         if !self.path.is_empty() {
@@ -123,15 +155,15 @@ impl ClassDiagram {
 
         res.push_str("classDiagram\n");
 
+        // Add classes
         for class in self.classes.iter().unique() {
             res.push_str(class);
             res.push_str("\n\n");
         }
 
-        for relationship in self.relationships.iter().unique() {
-            res.push_str(relationship);
-            res.push('\n');
-        }
+        // Add relationships (no extra newlines between them)
+        let mut unique_relationships = self.relationships.iter().unique();
+        res.push_str(&unique_relationships.join("\n"));
 
         res = res.trim_end().to_owned();
 
@@ -143,16 +175,29 @@ impl ClassDiagram {
     pub fn add_class(&mut self, checker: &Checker, class: &ast::StmtClassDef, indent_level: usize) {
         let class_name = class.name.to_string();
         let mut res = String::new();
-
         let use_tab = TAB.repeat(indent_level);
 
-        res.push_str(&use_tab);
-        res.push_str(&format!("class {} ", &class_name));
-
-        if let Some(label) = class.label(checker) {
-            res.push_str(&label);
+        // Find generic type parameters from bases (for Generic[T])
+        let mut generic_type_var = None;
+        for base in class.bases() {
+            if let Some(type_var) = extract_generic_info(base, checker) {
+                generic_type_var = Some(type_var);
+                break;
+            }
         }
 
+        // Build class name with optional type parameters
+        res.push_str(&use_tab);
+        res.push_str(&format!("class {}", &class_name));
+        if let Some(label) = class.label(checker) {
+            // Already has explicit type parameters via [T] syntax
+            res.push_str(&label);
+        } else if let Some(ref type_var) = generic_type_var {
+            // Has Generic[T] parameter
+            res.push_str(&format!(" ~{}~", type_var));
+        }
+
+        // Process class body statements
         let processed_stmts: Vec<String> = class
             .body
             .iter()
@@ -160,7 +205,21 @@ impl ClassDiagram {
             .unique()
             .collect();
 
-        let class_annotation = if class.is_abstract(checker.semantic()) {
+        // Determine if this class is abstract, an enum, or final
+        let is_abstract = class.is_abstract(checker.semantic())
+            || class.bases().iter().any(|base| {
+                checker
+                    .semantic()
+                    .resolve_qualified_name(base)
+                    .is_some_and(|name| {
+                        matches!(
+                            name.segments(),
+                            ["abc", "ABC" | "ABCMeta"] | ["typing", "ABC"]
+                        )
+                    })
+            });
+
+        let class_annotation = if is_abstract {
             "<<abstract>>"
         } else if class.is_enum(checker.semantic()) {
             "<<enumeration>>"
@@ -170,8 +229,9 @@ impl ClassDiagram {
             ""
         };
 
+        // Add class body with any annotations
         if !processed_stmts.is_empty() || !class_annotation.is_empty() {
-            res.push('{');
+            res.push_str(" {");
             res.push('\n');
 
             if !class_annotation.is_empty() {
@@ -191,37 +251,51 @@ impl ClassDiagram {
 
         self.classes.push(res.trim_end().to_owned());
 
+        // Handle inheritance relationships
+        let relation_symbol = if is_abstract { "..|>" } else { "--|>" };
+
         for base in class.bases() {
-            let base_name = if let Some(base_name) = checker.semantic().resolve_qualified_name(base)
-            {
-                base_name
-            } else {
-                let name = checker.locator().slice(base);
-                QualifiedName::user_defined(name)
+            // skip if it's a generic type or a built-in type or an ABC or an enum
+            let should_skip = extract_generic_info(base, checker).is_some()
+                || checker
+                    .semantic()
+                    .resolve_qualified_name(base)
+                    .is_some_and(|name| {
+                        matches!(name.segments(), ["typing", "Generic"])
+                            || matches!(name.segments(), ["" | "builtins", "object"])
+                            || matches!(name.segments(), ["abc", "ABC" | "ABCMeta"])
+                            || matches!(name.segments(), ["typing", "ABC"])
+                    })
+                || class.is_enum(checker.semantic());
+
+            if should_skip {
+                continue;
+            }
+
+            let base_name = match checker.semantic().resolve_qualified_name(base) {
+                Some(base_name) => base_name.normalize_name(),
+                None => {
+                    let name = checker.locator().slice(base);
+                    QualifiedName::user_defined(name).normalize_name()
+                }
             };
 
-            // skip "object" base class, it's implied
-            if matches!(base_name.segments(), ["" | "builtins", "object"]) {
-                continue;
+            // Extract just the base class name without the generic specialization
+            let base_display = if base_name.contains('[') {
+                base_name
+                    .split('[')
+                    .next()
+                    .unwrap_or(&base_name)
+                    .to_string()
+            } else {
+                base_name
             }
-
-            // skip ABCs, they're marked as abstract
-            if matches!(base_name.segments(), ["abc", "ABC" | "ABCMeta"])
-                && class.is_abstract(checker.semantic())
-            {
-                continue;
-            }
-
-            // skip enums classes
-            if class.is_enum(checker.semantic()) {
-                continue;
-            }
+            .trim_matches('`')
+            .to_string();
 
             let relationship = format!(
-                "{}{} --|> {}\n",
-                use_tab,
-                class_name,
-                base_name.normalize_name()
+                "{}{} {} {}\n",
+                use_tab, class_name, relation_symbol, base_display
             );
 
             self.relationships.push(relationship);
@@ -480,7 +554,7 @@ class Thing[T]: ...
 
         let expected_output = r#"```mermaid
 classDiagram
-    class Thing ["Thing[T]"]
+    class Thing ~T~
 ```"#;
 
         test_diagram(source, expected_output);
@@ -492,12 +566,31 @@ classDiagram
 class Thing(Inner[T]): ...
 ";
 
-        let expected_output = "```mermaid
+        let expected_output = r#"```mermaid
 classDiagram
     class Thing
 
-    Thing --|> `Inner[T]`
-```";
+    Thing --|> Inner
+```"#;
+
+        test_diagram(source, expected_output);
+    }
+
+    #[test]
+    fn test_class_diagram_generic() {
+        let source = r#"
+from typing import TypeVar, Generic
+from abc import ABC
+FancyType = TypeVar("FancyType")
+class Thing(ABC, Generic[FancyType]): ...
+"#;
+
+        let expected_output = r#"```mermaid
+classDiagram
+    class Thing ~FancyType~ {
+        <<abstract>>
+    }
+```"#;
 
         test_diagram(source, expected_output);
     }
@@ -510,12 +603,10 @@ class Thing[T, U, V]: ...
 
         let expected_output = r#"```mermaid
 classDiagram
-    class Thing ["Thing[T, U, V]"]
-```
-"#;
+    class Thing ~T, U, V~
+```"#;
 
         test_diagram(source, expected_output);
-        // test_diagram_print(source);
     }
 
     #[test]
@@ -640,13 +731,13 @@ classDiagram
         + list[Item] items
     }
 
-    ItemBase --|> `pydantic.BaseModel`
+    ItemBase --|> pydantic.BaseModel
 
     ItemCreate --|> ItemBase
 
     Item --|> ItemBase
 
-    UserBase --|> `pydantic.BaseModel`
+    UserBase --|> pydantic.BaseModel
 
     UserCreate --|> UserBase
 
@@ -792,6 +883,122 @@ classDiagram
         + @staticmethod static_method(x, y) int$
     }
 ```";
+
+        test_diagram(source, expected_output);
+    }
+
+    #[test]
+    fn test_concrete_generic_base() {
+        let source = r#"
+from typing import TypeVar, Generic
+IndexType = TypeVar("IndexType")
+
+class Store(Generic[IndexType]):
+    def insert(self, data) -> None:
+        pass
+
+class MemoryStore(Store[int]):
+    def insert(self, data) -> None:
+        self.storage.append(data)
+"#;
+
+        let expected_output = r#"```mermaid
+classDiagram
+    class Store ~IndexType~ {
+        + insert(self, data) None
+    }
+
+    class MemoryStore {
+        + insert(self, data) None
+    }
+
+    MemoryStore --|> Store
+```"#;
+
+        test_diagram(source, expected_output);
+    }
+
+    #[test]
+    fn test_abstract_generic_inheritance() {
+        let source = r#"
+from typing import TypeVar, Generic
+from abc import ABC, abstractmethod
+IndexType = TypeVar("IndexType")
+
+class Store(ABC, Generic[IndexType]):
+    @abstractmethod
+    def insert(self, data) -> None:
+        pass
+
+class MemoryStore(Store[int]):
+    def insert(self, data) -> None:
+        self.storage.append(data)
+"#;
+
+        let expected_output = r#"```mermaid
+classDiagram
+    class Store ~IndexType~ {
+        <<abstract>>
+        + insert(self, data) None*
+    }
+
+    class MemoryStore {
+        + insert(self, data) None
+    }
+
+    MemoryStore --|> Store
+```"#;
+
+        test_diagram(source, expected_output);
+    }
+
+    #[test]
+    fn test_full_generics_example() {
+        let source = r#"
+from typing import TypeVar, Generic
+from abc import ABC, abstractmethod
+from datetime import datetime
+
+IndexType = TypeVar("IndexType")
+FancyStorage = TypeVar("FancyStorage")
+
+class Store(ABC, Generic[IndexType]):
+    @abstractmethod
+    def insert(self, data) -> None:
+        pass
+
+class MemoryStore(Store[datetime]):
+    def insert(self, data) -> None:
+        self.storage.append(data)
+
+class FancyStore(Store[datetime], Generic[FancyStorage]):
+    def __init__(self, fancy_store: FancyStorage) -> None:
+        self.storage = fancy_store
+
+    def insert(self, data) -> None:
+        self.storage.insert(data)
+"#;
+
+        let expected_output = r#"```mermaid
+classDiagram
+    class Store ~IndexType~ {
+        <<abstract>>
+        + insert(self, data) None*
+    }
+
+    class MemoryStore {
+        + insert(self, data) None
+    }
+
+    class FancyStore ~FancyStorage~ {
+        - __init__(self, fancy_store) None
+        + insert(self, data) None
+    }
+
+    MemoryStore --|> Store
+
+    FancyStore --|> Store
+```"#;
 
         test_diagram(source, expected_output);
     }
