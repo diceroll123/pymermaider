@@ -211,7 +211,12 @@ impl ClassDiagram {
                 checker
                     .semantic()
                     .resolve_qualified_name(base)
-                    .is_some_and(|name| matches!(name.segments(), ["abc", "ABC" | "ABCMeta"]))
+                    .is_some_and(|name| {
+                        matches!(
+                            name.segments(),
+                            ["abc", "ABC" | "ABCMeta"] | ["typing", "ABC"]
+                        )
+                    })
             });
 
         let class_annotation = if is_abstract {
@@ -259,6 +264,7 @@ impl ClassDiagram {
                         matches!(name.segments(), ["typing", "Generic"])
                             || matches!(name.segments(), ["" | "builtins", "object"])
                             || matches!(name.segments(), ["abc", "ABC" | "ABCMeta"])
+                            || matches!(name.segments(), ["typing", "ABC"])
                     })
                 || class.is_enum(checker.semantic());
 
@@ -564,7 +570,7 @@ class Thing(Inner[T]): ...
 classDiagram
     class Thing
 
-    Thing --|> `Inner[T]`
+    Thing --|> Inner
 ```"#;
 
         test_diagram(source, expected_output);
