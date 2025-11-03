@@ -6,7 +6,7 @@ edition = "2021"
 [dependencies]
 clap = { version = "4.5.50", features = ["derive"] }
 env_logger = { version = "0.11.8", default-features = false, features = ["auto-color", "color"] }
-ignore = { version = "0.4.24", features = ["simd-accel"] }
+ignore = { version = "0.4.25", features = ["simd-accel"] }
 itertools = "0.14.0"
 log = "0.4.28"
 ruff_python_ast = { git = "https://github.com/astral-sh/ruff.git", tag = "0.14.0" }
