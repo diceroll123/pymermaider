@@ -21,6 +21,21 @@ use std::path::{Path, PathBuf};
 
 const TAB: &str = "    ";
 
+/// Escape leading underscores for Mermaid diagrams
+/// Mermaid interprets __ as formatting, so we escape leading underscores with backslashes
+fn escape_underscores(s: &str) -> String {
+    let leading_underscores = s.chars().take_while(|&c| c == '_').count();
+    if leading_underscores > 0 {
+        format!(
+            "{}{}",
+            r"\_".repeat(leading_underscores),
+            &s[leading_underscores..]
+        )
+    } else {
+        s.to_string()
+    }
+}
+
 trait QualifiedNameDiagramHelpers {
     fn normalize_name(&self) -> String;
 }
@@ -325,6 +340,7 @@ impl ClassDiagram {
                 };
 
                 let target_name = target.to_string();
+                let escaped_target_name = escape_underscores(&target_name);
 
                 let annotation_name = checker.generator().expr(annotation.as_ref());
 
@@ -336,7 +352,7 @@ impl ClassDiagram {
                     "{} {} {}\n",
                     if is_private { '-' } else { '+' },
                     annotation_name,
-                    target_name,
+                    escaped_target_name,
                 ));
 
                 Some(res)
@@ -351,6 +367,7 @@ impl ClassDiagram {
                 ..
             }) => {
                 let is_private = name.starts_with('_');
+                let escaped_name = escape_underscores(name.as_str());
 
                 let is_static = is_staticmethod(decorator_list, checker.semantic());
 
@@ -391,7 +408,7 @@ impl ClassDiagram {
                     if is_private { '-' } else { '+' },
                     method_types.join(""),
                     if *is_async { "async " } else { "" },
-                    &name,
+                    &escaped_name,
                     params,
                 ));
 
@@ -442,6 +459,7 @@ impl ClassDiagram {
                     };
 
                     let target_name = target.to_string();
+                    let escaped_target_name = escape_underscores(&target_name);
 
                     res.push_str(&TAB.repeat(indent_level));
                     res.push_str("+ ");
@@ -449,7 +467,7 @@ impl ClassDiagram {
                         res.push_str(value_type);
                         res.push(' ');
                     }
-                    res.push_str(&format!("{target_name}\n"));
+                    res.push_str(&format!("{escaped_target_name}\n"));
                 }
 
                 if res.is_empty() {
@@ -533,10 +551,10 @@ class TestClass:
         return x - y
 ";
 
-        let expected_output = "```mermaid
+        let expected_output = r"```mermaid
 classDiagram
     class TestClass {
-        - __init__(self, x, y) None
+        - \_\_init__(self, x, y) None
         + add(self, x, y) int
         + subtract(self, x, y) int
     }
@@ -762,11 +780,11 @@ class Thing:
     def __init__(self, x: int | str, y: int | str) -> None: ...
 ";
 
-        let expected_output = "```mermaid
+        let expected_output = r"```mermaid
 classDiagram
     class Thing {
-        - @overload __init__(self, x, y) None
-        - __init__(self, x, y) None
+        - @overload \_\_init__(self, x, y) None
+        - \_\_init__(self, x, y) None
     }
 ```
 ";
@@ -796,11 +814,11 @@ class Thing:
     def __bytes__(self): ...
 ";
 
-        let expected_output = "```mermaid
+        let expected_output = r"```mermaid
 classDiagram
     class Thing {
-        - __complex__(self) complex
-        - __bytes__(self) bytes
+        - \_\_complex__(self) complex
+        - \_\_bytes__(self) bytes
     }
 ```";
 
@@ -979,7 +997,7 @@ class FancyStore(Store[datetime], Generic[FancyStorage]):
         self.storage.insert(data)
 "#;
 
-        let expected_output = r#"```mermaid
+        let expected_output = r"```mermaid
 classDiagram
     class Store ~IndexType~ {
         <<abstract>>
@@ -991,14 +1009,14 @@ classDiagram
     }
 
     class FancyStore ~FancyStorage~ {
-        - __init__(self, fancy_store) None
+        - \_\_init__(self, fancy_store) None
         + insert(self, data) None
     }
 
     MemoryStore --|> Store
 
     FancyStore --|> Store
-```"#;
+```";
 
         test_diagram(source, expected_output);
     }
