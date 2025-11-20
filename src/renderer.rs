@@ -105,8 +105,8 @@ pub struct ClassNode {
 /// Type of relationship between classes
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum RelationType {
-    Inheritance,      // Solid line: --|>
-    Implementation,   // Dotted line: ..|> (for interfaces/abstracts)
+    Inheritance,    // Solid line: --|>
+    Implementation, // Dotted line: ..|> (for interfaces/abstracts)
 }
 
 /// Represents an inheritance or implementation relationship
