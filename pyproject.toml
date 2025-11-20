@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "pymermaider"
-version = "0.1.4"
+dynamic = ["version"]
 description = "Mermaid diagram generator for Python code."
 authors = [{ name = "diceroll123" }]
 readme = "README.md"

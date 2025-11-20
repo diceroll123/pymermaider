@@ -1,155 +1,48 @@
 use crate::ast;
 use crate::checker::Checker;
+use crate::class_helpers::{ClassDefHelpers, QualifiedNameHelpers};
+use crate::class_type_detector::ClassTypeDetector;
+use crate::mermaid_renderer::MermaidRenderer;
 use crate::parameter_generator::ParameterGenerator;
-use crate::utils::is_abc_class;
+use crate::renderer::*;
+use crate::type_analyzer;
 use itertools::Itertools as _;
 #[cfg(feature = "cli")]
 use log::info;
 use ruff_linter::source_kind::SourceKind;
 use ruff_linter::Locator;
 use ruff_python_ast::name::QualifiedName;
-use ruff_python_ast::{Arguments, Expr, Number, PySourceType};
+use ruff_python_ast::{Expr, Number, PySourceType};
 use ruff_python_codegen::Stylist;
 use ruff_python_parser::parse_unchecked_source;
-use ruff_python_semantic::analyze::class::is_enumeration;
 use ruff_python_semantic::analyze::visibility::{
     is_abstract, is_classmethod, is_final, is_overload, is_override, is_staticmethod,
 };
 use ruff_python_semantic::{Module, ModuleKind, ModuleSource, SemanticModel};
 use ruff_python_stdlib::typing::simple_magic_return_type;
+use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
-const TAB: &str = "    ";
-
-/// Escape leading underscores for Mermaid diagrams
-/// Mermaid interprets __ as formatting, so we escape leading underscores with backslashes
-fn escape_underscores(s: &str) -> String {
-    let leading_underscores = s.chars().take_while(|&c| c == '_').count();
-    if leading_underscores > 0 {
-        format!(
-            "{}{}",
-            r"\_".repeat(leading_underscores),
-            &s[leading_underscores..]
-        )
-    } else {
-        s.to_string()
-    }
-}
-
-trait QualifiedNameDiagramHelpers {
-    fn normalize_name(&self) -> String;
-}
-
-impl QualifiedNameDiagramHelpers for QualifiedName<'_> {
-    fn normalize_name(&self) -> String {
-        // make sure name is alphanumeric (including unicode), underscores, and dashes
-        // if it's not, then return it with backticks
-        let name = self.to_string();
-        if name
-            .chars()
-            .all(|c| c.is_alphanumeric() || c == '_' || c == '-')
-        {
-            name
-        } else {
-            format!("`{name}`")
-        }
-    }
-}
-
-trait ClassDefDiagramHelpers {
-    fn is_abstract(&self, semantic: &SemanticModel) -> bool;
-    fn is_final(&self, semantic: &SemanticModel) -> bool;
-    fn is_enum(&self, semantic: &SemanticModel) -> bool;
-    fn label(&self, checker: &Checker) -> Option<String>;
-}
-
-impl ClassDefDiagramHelpers for ast::StmtClassDef {
-    fn label(&self, checker: &Checker) -> Option<String> {
-        let mut post_name_labels = vec![];
-
-        if let Some(params) = &self.type_params {
-            post_name_labels.push(checker.locator().slice(params.as_ref()));
-        }
-
-        if post_name_labels.is_empty() {
-            return None;
-        }
-
-        // Extract the actual types without brackets
-        let type_params = post_name_labels.join("");
-        let clean_params = type_params.trim_start_matches('[').trim_end_matches(']');
-
-        // Format with tildes instead of brackets, with a space
-        Some(format!(" ~{}~", clean_params))
-    }
-
-    fn is_abstract(&self, semantic: &SemanticModel) -> bool {
-        let Some(Arguments { args, keywords, .. }) = self.arguments.as_deref() else {
-            return false;
-        };
-
-        if args.len() + keywords.len() != 1 {
-            return false;
-        }
-
-        is_abc_class(args, keywords, semantic)
-    }
-
-    fn is_enum(&self, semantic: &SemanticModel) -> bool {
-        is_enumeration(self, semantic)
-    }
-
-    fn is_final(&self, semantic: &SemanticModel) -> bool {
-        is_final(&self.decorator_list, semantic)
-    }
-}
-
-// Helper function to check if a base is a Generic type
-fn is_generic_base(base_name: &QualifiedName) -> bool {
-    matches!(base_name.segments(), ["typing", "Generic"])
-}
-
-// Helper function to extract generic type info from bases
-fn extract_generic_info(base: &Expr, checker: &Checker) -> Option<String> {
-    // Must be a subscript expression (like Generic[T])
-    let Expr::Subscript(subscript) = base else {
-        return None;
-    };
-
-    // Must be a qualified name that resolves to typing.Generic
-    let base_name = checker
-        .semantic()
-        .resolve_qualified_name(&subscript.value)?;
-
-    if !is_generic_base(&base_name) {
-        return None;
-    }
-
-    // Get the type string
-    let type_var = checker.locator().slice(base).to_string();
-
-    // For type parameter extraction, return just the parameter without Generic[]
-    let start_idx = type_var.find('[').map(|idx| idx + 1)?;
-    let end_idx = type_var.rfind(']')?;
-
-    if start_idx < end_idx {
-        Some(type_var[start_idx..end_idx].trim().to_string())
-    } else {
-        None
-    }
+/// Represents a class member (attribute or method) during processing
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+enum ClassMember {
+    Attribute(Attribute),
+    Method(MethodSignature),
 }
 
 pub struct ClassDiagram {
-    classes: Vec<String>,
-    relationships: Vec<String>,
+    diagram: Diagram,
+    protocol_classes: HashSet<String>,
+    abstract_classes: HashSet<String>,
     pub path: String,
 }
 
 impl ClassDiagram {
-    pub const fn new() -> Self {
+    pub fn new() -> Self {
         Self {
-            classes: vec![],
-            relationships: vec![],
+            diagram: Diagram::new(None),
+            protocol_classes: HashSet::new(),
+            abstract_classes: HashSet::new(),
             path: String::new(),
         }
     }
@@ -157,123 +50,116 @@ impl ClassDiagram {
     #[cfg(feature = "cli")]
     #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
-        self.classes.is_empty() && self.relationships.is_empty()
+        self.diagram.classes.is_empty()
+            && self.diagram.relationships.is_empty()
+            && self.diagram.compositions.is_empty()
     }
 
     pub fn render(&self) -> String {
-        let mut res = String::with_capacity(1024); // Pre-allocate a reasonable size
-        res.push_str("```mermaid\n");
+        // Use new modular rendering architecture
+        let mut diagram = self.diagram.clone();
+        diagram.title = if self.path.is_empty() {
+            None
+        } else {
+            Some(self.path.clone())
+        };
 
-        if !self.path.is_empty() {
-            res.push_str("---\n");
-            res.push_str(&format!("title: {}\n", self.path));
-            res.push_str("---\n");
-        }
+        // Sort classes topologically before rendering
+        diagram.sort_classes_topologically();
 
-        res.push_str("classDiagram\n");
-
-        // Add classes
-        for class in self.classes.iter().unique() {
-            res.push_str(class);
-            res.push_str("\n\n");
-        }
-
-        // Add relationships (no extra newlines between them)
-        let mut unique_relationships = self.relationships.iter().unique();
-        res.push_str(&unique_relationships.join("\n"));
-
-        res = res.trim_end().to_owned();
-
-        res.push_str("\n```\n");
-
-        res
+        // Use the new MermaidRenderer
+        let renderer = MermaidRenderer::new();
+        renderer.render_diagram(&diagram)
     }
 
-    pub fn add_class(&mut self, checker: &Checker, class: &ast::StmtClassDef, indent_level: usize) {
+    pub fn add_class(
+        &mut self,
+        checker: &Checker,
+        class: &ast::StmtClassDef,
+        _indent_level: usize,
+    ) {
         let class_name = class.name.to_string();
-        let mut res = String::new();
-        let use_tab = TAB.repeat(indent_level);
 
-        // Find generic type parameters from bases (for Generic[T])
+        // Find generic type parameters - either from explicit [T] syntax or Generic[T] bases
         let mut generic_type_var = None;
-        for base in class.bases() {
-            if let Some(type_var) = extract_generic_info(base, checker) {
-                generic_type_var = Some(type_var);
-                break;
+
+        if let Some(params) = &class.type_params {
+            // Explicit type parameters via [T] syntax (Python 3.12+)
+            // Extract the raw type params from the source
+            let raw_params = checker.locator().slice(params.as_ref());
+            // Remove the brackets to get just the type names
+            generic_type_var = Some(
+                raw_params
+                    .trim_start_matches('[')
+                    .trim_end_matches(']')
+                    .to_string(),
+            );
+        } else {
+            // Check for Generic[T] in bases
+            for base in class.bases() {
+                if let Some(type_var) = type_analyzer::extract_generic_params(base, checker) {
+                    generic_type_var = Some(type_var);
+                    break;
+                }
             }
         }
 
-        // Build class name with optional type parameters
-        res.push_str(&use_tab);
-        res.push_str(&format!("class {}", &class_name));
-        if let Some(label) = class.label(checker) {
-            // Already has explicit type parameters via [T] syntax
-            res.push_str(&label);
-        } else if let Some(ref type_var) = generic_type_var {
-            // Has Generic[T] parameter
-            res.push_str(&format!(" ~{}~", type_var));
+        // Detect composition relationships from class attributes
+        let mut composition_types: Vec<String> = vec![];
+        for stmt in &class.body {
+            if let ast::Stmt::AnnAssign(ast::StmtAnnAssign { annotation, .. }) = stmt {
+                if let Some(type_name) =
+                    type_analyzer::extract_composition_type(annotation.as_ref(), checker)
+                {
+                    composition_types.push(type_name);
+                }
+            }
         }
 
         // Process class body statements
-        let processed_stmts: Vec<String> = class
+        let members: Vec<ClassMember> = class
             .body
             .iter()
-            .filter_map(|stmt| self.process_stmt(checker, stmt, indent_level + 1))
+            .filter_map(|stmt| self.process_stmt_to_member(checker, stmt))
             .unique()
             .collect();
 
-        // Determine if this class is abstract, an enum, or final
-        let is_abstract = class.is_abstract(checker.semantic())
-            || class.bases().iter().any(|base| {
-                checker
-                    .semantic()
-                    .resolve_qualified_name(base)
-                    .is_some_and(|name| {
-                        matches!(
-                            name.segments(),
-                            ["abc", "ABC" | "ABCMeta"] | ["typing", "ABC"]
-                        )
-                    })
-            });
+        // Detect class type using ClassTypeDetector
+        let detector = ClassTypeDetector::new(checker);
+        let class_type = detector.detect_type(class);
 
-        let class_annotation = if is_abstract {
-            "<<abstract>>"
-        } else if class.is_enum(checker.semantic()) {
-            "<<enumeration>>"
-        } else if class.is_final(checker.semantic()) {
-            "<<final>>"
-        } else {
-            ""
-        };
-
-        // Add class body with any annotations
-        if !processed_stmts.is_empty() || !class_annotation.is_empty() {
-            res.push_str(" {");
-            res.push('\n');
-
-            if !class_annotation.is_empty() {
-                res.push_str(&use_tab);
-                res.push_str(&use_tab);
-                res.push_str(class_annotation);
-                res.push('\n');
-            }
-
-            for stmt in processed_stmts {
-                res.push_str(&stmt);
-            }
-
-            res.push_str(&use_tab);
-            res.push('}');
+        // Track protocols and abstract classes for relationship detection
+        if matches!(class_type, ClassType::Interface) {
+            self.protocol_classes.insert(class_name.clone());
+        }
+        if matches!(class_type, ClassType::Abstract) {
+            self.abstract_classes.insert(class_name.clone());
         }
 
-        self.classes.push(res.trim_end().to_owned());
+        // Split members into attributes and methods
+        let mut attributes = Vec::new();
+        let mut methods = Vec::new();
+        for member in members {
+            match member {
+                ClassMember::Attribute(attr) => attributes.push(attr),
+                ClassMember::Method(method) => methods.push(method),
+            }
+        }
+
+        let class_node = ClassNode {
+            name: class_name.clone(),
+            type_params: generic_type_var,
+            class_type,
+            attributes,
+            methods,
+        };
+
+        self.diagram.add_class(class_node);
 
         // Handle inheritance relationships
-        let relation_symbol = if is_abstract { "..|>" } else { "--|>" };
-
         for base in class.bases() {
-            // skip if it's a generic type or a built-in type or an ABC or an enum
-            let should_skip = extract_generic_info(base, checker).is_some()
+            // skip if it's a generic type or a built-in type or an ABC or an enum or a Protocol
+            let should_skip = type_analyzer::extract_generic_params(base, checker).is_some()
                 || checker
                     .semantic()
                     .resolve_qualified_name(base)
@@ -282,6 +168,8 @@ impl ClassDiagram {
                             || matches!(name.segments(), ["" | "builtins", "object"])
                             || matches!(name.segments(), ["abc", "ABC" | "ABCMeta"])
                             || matches!(name.segments(), ["typing", "ABC"])
+                            || matches!(name.segments(), ["typing", "Protocol"])
+                            || matches!(name.segments(), ["typing_extensions", "Protocol"])
                     })
                 || class.is_enum(checker.semantic());
 
@@ -310,21 +198,41 @@ impl ClassDiagram {
             .trim_matches('`')
             .to_string();
 
-            let relationship = format!(
-                "{}{} {} {}\n",
-                use_tab, class_name, relation_symbol, base_display
+            // Check if the base class is abstract or a protocol (either built-in or user-defined)
+            let base_is_abstract_or_protocol = detector.is_base_abstract_or_protocol(
+                &base_display,
+                base,
+                &self.protocol_classes,
+                &self.abstract_classes,
             );
 
-            self.relationships.push(relationship);
+            let rel = RelationshipEdge {
+                from: class_name.clone(),
+                to: base_display,
+                relation_type: if base_is_abstract_or_protocol {
+                    RelationType::Implementation
+                } else {
+                    RelationType::Inheritance
+                },
+            };
+            self.diagram.add_relationship(rel);
+        }
+
+        // Add composition relationships
+        for comp_type in composition_types.iter().unique() {
+            // Extract just the class name (remove module prefix if present)
+            let comp_display = comp_type.split('.').next_back().unwrap_or(comp_type);
+
+            let comp = CompositionEdge {
+                container: class_name.clone(),
+                contained: comp_display.to_string(),
+            };
+            self.diagram.add_composition(comp);
         }
     }
 
-    fn process_stmt(
-        &self,
-        checker: &Checker,
-        stmt: &ast::Stmt,
-        indent_level: usize,
-    ) -> Option<String> {
+    /// Process a statement into an Attribute or MethodSignature
+    fn process_stmt_to_member(&self, checker: &Checker, stmt: &ast::Stmt) -> Option<ClassMember> {
         match stmt {
             ast::Stmt::AnnAssign(ast::StmtAnnAssign {
                 target,
@@ -332,7 +240,6 @@ impl ClassDiagram {
                 simple,
                 ..
             }) => {
-                let mut res = String::new();
                 if !simple {
                     return None;
                 }
@@ -342,98 +249,22 @@ impl ClassDiagram {
                 };
 
                 let target_name = target.to_string();
-                let escaped_target_name = escape_underscores(&target_name);
-
                 let annotation_name = checker.generator().expr(annotation.as_ref());
-
-                res.push_str(TAB.repeat(indent_level).as_str());
-
                 let is_private = target_name.starts_with('_');
 
-                res.push_str(&format!(
-                    "{} {} {}\n",
-                    if is_private { '-' } else { '+' },
-                    annotation_name,
-                    escaped_target_name,
-                ));
-
-                Some(res)
-            }
-
-            ast::Stmt::FunctionDef(ast::StmtFunctionDef {
-                name,
-                is_async,
-                parameters,
-                returns,
-                decorator_list,
-                ..
-            }) => {
-                let is_private = name.starts_with('_');
-                let escaped_name = escape_underscores(name.as_str());
-
-                let is_static = is_staticmethod(decorator_list, checker.semantic());
-
-                let mut param_gen = ParameterGenerator::new();
-                param_gen.unparse_parameters(parameters);
-
-                let params = param_gen.generate();
-
-                let returns = match returns {
-                    Some(target) => checker.generator().expr(target.as_ref()),
-                    None => String::new(),
-                };
-
-                let mut method_types = vec![];
-
-                if is_final(decorator_list, checker.semantic()) {
-                    method_types.push("@final ");
-                }
-
-                if is_classmethod(decorator_list, checker.semantic()) {
-                    method_types.push("@classmethod ");
-                } else if is_static {
-                    method_types.push("@staticmethod ");
-                }
-
-                if is_overload(decorator_list, checker.semantic()) {
-                    method_types.push("@overload ");
-                }
-
-                if is_override(decorator_list, checker.semantic()) {
-                    method_types.push("@override ");
-                }
-
-                let mut res = String::new();
-                res.push_str(&TAB.repeat(indent_level));
-                res.push_str(&format!(
-                    "{} {}{}{}({})",
-                    if is_private { '-' } else { '+' },
-                    method_types.join(""),
-                    if *is_async { "async " } else { "" },
-                    &escaped_name,
-                    params,
-                ));
-
-                if !returns.is_empty() {
-                    res.push_str(&format!(" {returns}"));
-                } else if let Some(method) = simple_magic_return_type(name) {
-                    res.push_str(&format!(" {method}"));
-                }
-
-                // Mermaid diagrams don't support multiple of these classifiers at this time
-                if is_abstract(decorator_list, checker.semantic()) {
-                    res.push('*');
-                } else if is_static {
-                    res.push('$');
-                }
-
-                res.push('\n');
-                Some(res)
+                Some(ClassMember::Attribute(Attribute {
+                    name: target_name,
+                    type_annotation: annotation_name,
+                    visibility: if is_private {
+                        Visibility::Private
+                    } else {
+                        Visibility::Public
+                    },
+                }))
             }
 
             ast::Stmt::Assign(ast::StmtAssign { targets, value, .. }) => {
-                let mut res = String::new();
-
+                // Handle simple assignments (like enum members)
                 let value_type = match value.as_ref() {
                     Expr::BoolOp(_) => "bool",
                     Expr::BinOp(_) | Expr::UnaryOp(_) => "int",
@@ -455,28 +286,74 @@ impl ClassDiagram {
                     _ => "",
                 };
 
-                for target in targets {
-                    let Expr::Name(ast::ExprName { id: target, .. }) = target else {
-                        continue;
-                    };
-
+                // For now, just handle the first target (typical for enums and simple assignments)
+                if let Some(Expr::Name(ast::ExprName { id: target, .. })) = targets.first() {
                     let target_name = target.to_string();
-                    let escaped_target_name = escape_underscores(&target_name);
 
-                    res.push_str(&TAB.repeat(indent_level));
-                    res.push_str("+ ");
-                    if !value_type.is_empty() {
-                        res.push_str(value_type);
-                        res.push(' ');
-                    }
-                    res.push_str(&format!("{escaped_target_name}\n"));
+                    return Some(ClassMember::Attribute(Attribute {
+                        name: target_name,
+                        type_annotation: if value_type.is_empty() {
+                            "Any".to_string()
+                        } else {
+                            value_type.to_string()
+                        },
+                        visibility: Visibility::Public, // Simple assignments are always public
+                    }));
                 }
 
-                if res.is_empty() {
-                    None
-                } else {
-                    Some(res)
+                None
+            }
+
+            ast::Stmt::FunctionDef(ast::StmtFunctionDef {
+                name,
+                is_async,
+                parameters,
+                returns,
+                decorator_list,
+                ..
+            }) => {
+                let is_private = name.starts_with('_');
+                let is_static = is_staticmethod(decorator_list, checker.semantic());
+
+                let mut param_gen = ParameterGenerator::new();
+                param_gen.unparse_parameters(parameters);
+                let params = param_gen.generate();
+
+                let returns = match returns {
+                    Some(target) => Some(checker.generator().expr(target.as_ref())),
+                    None => simple_magic_return_type(name).map(String::from),
+                };
+
+                let mut decorators = vec![];
+                if is_final(decorator_list, checker.semantic()) {
+                    decorators.push("@final".to_string());
                 }
+                if is_classmethod(decorator_list, checker.semantic()) {
+                    decorators.push("@classmethod".to_string());
+                } else if is_static {
+                    decorators.push("@staticmethod".to_string());
+                }
+                if is_overload(decorator_list, checker.semantic()) {
+                    decorators.push("@overload".to_string());
+                }
+                if is_override(decorator_list, checker.semantic()) {
+                    decorators.push("@override".to_string());
+                }
+
+                Some(ClassMember::Method(MethodSignature {
+                    name: name.to_string(),
+                    parameters: params,
+                    return_type: returns,
+                    visibility: if is_private {
+                        Visibility::Private
+                    } else {
+                        Visibility::Public
+                    },
+                    is_static,
+                    is_abstract: is_abstract(decorator_list, checker.semantic()),
+                    is_async: *is_async,
+                    decorators,
+                }))
             }
 
             _ => None,
@@ -493,9 +370,11 @@ impl ClassDiagram {
 
         let path = format!("{0}/{1}.md", output_directory.to_string_lossy(), self.path);
         if let Some(parent_dir) = std::path::Path::new(&path).parent() {
-            std::fs::create_dir_all(parent_dir).unwrap();
+            std::fs::create_dir_all(parent_dir)
+                .unwrap_or_else(|e| panic!("Failed to create directory {parent_dir:?}: {e}"));
         }
-        std::fs::write(&path, self.render()).unwrap();
+        std::fs::write(&path, self.render())
+            .unwrap_or_else(|e| panic!("Failed to write file {path:?}: {e}"));
         println!("Mermaid file written to: {path:?}");
 
         true
@@ -686,6 +565,105 @@ classDiagram
     }
 
     #[test]
+    fn test_dataclass() {
+        let source = "
+from dataclasses import dataclass
+
+@dataclass
+class Person:
+    name: str
+    age: int
+
+    def greet(self) -> str:
+        return f'Hello, I am {self.name}'
+";
+
+        let expected_output = "```mermaid
+classDiagram
+    class Person {
+        <<dataclass>>
+        + str name
+        + int age
+        + greet(self) str
+    }
+```";
+
+        test_diagram(source, expected_output);
+    }
+
+    #[test]
+    fn test_protocol() {
+        let source = "
+from typing import Protocol
+
+class Drawable(Protocol):
+    def draw(self) -> None:
+        ...
+
+class Circle(Drawable):
+    def draw(self) -> None:
+        pass
+";
+
+        let expected_output = "```mermaid
+classDiagram
+    class Drawable {
+        <<interface>>
+        + draw(self) None
+    }
+
+    class Circle {
+        + draw(self) None
+    }
+
+    Circle ..|> Drawable
+```";
+
+        test_diagram(source, expected_output);
+    }
+
+    #[test]
+    fn test_composition_relationships() {
+        let source = "
+class Engine:
+    horsepower: int
+
+class Wheel:
+    diameter: int
+
+class Car:
+    engine: Engine
+    wheels: list[Wheel]
+
+    def drive(self) -> None:
+        pass
+";
+
+        let expected_output = "```mermaid
+classDiagram
+    class Engine {
+        + int horsepower
+    }
+
+    class Wheel {
+        + int diameter
+    }
+
+    class Car {
+        + Engine engine
+        + list[Wheel] wheels
+        + drive(self) None
+    }
+
+    Car *-- Engine
+
+    Car *-- Wheel
+```";
+
+        test_diagram(source, expected_output);
+    }
+
+    #[test]
     fn test_pydantic_example() {
         let source = "
 from pydantic import BaseModel
@@ -732,25 +710,25 @@ classDiagram
         + str | None description
     }
 
-    class ItemCreate
-
     class Item {
         + int id
         + int owner_id
     }
 
+    class ItemCreate
+
     class UserBase {
         + str email
-    }
-
-    class UserCreate {
-        + str password
     }
 
     class User {
         + int id
         + bool is_active
         + list[Item] items
+    }
+
+    class UserCreate {
+        + str password
     }
 
     ItemBase --|> pydantic.BaseModel
@@ -764,6 +742,8 @@ classDiagram
     UserCreate --|> UserBase
 
     User --|> UserBase
+
+    User *-- Item
 ```
 ";
 
@@ -968,7 +948,7 @@ classDiagram
         + insert(self, data) None
     }
 
-    MemoryStore --|> Store
+    MemoryStore ..|> Store
 ```"#;
 
         test_diagram(source, expected_output);
@@ -1001,15 +981,11 @@ class FancyStore(Store[datetime], Generic[FancyStorage]):
         self.storage.insert(data)
 "#;
 
-        let expected_output = r"```mermaid
+        let expected_output = r#"```mermaid
 classDiagram
     class Store ~IndexType~ {
         <<abstract>>
         + insert(self, data) None*
-    }
-
-    class MemoryStore {
-        + insert(self, data) None
     }
 
     class FancyStore ~FancyStorage~ {
@@ -1017,10 +993,14 @@ classDiagram
         + insert(self, data) None
     }
 
-    MemoryStore --|> Store
+    class MemoryStore {
+        + insert(self, data) None
+    }
 
-    FancyStore --|> Store
-```";
+    MemoryStore ..|> Store
+
+    FancyStore ..|> Store
+```"#;
 
         test_diagram(source, expected_output);
     }

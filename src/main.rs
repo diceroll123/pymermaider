@@ -1,9 +1,14 @@
 mod checker;
 mod class_diagram;
+mod class_helpers;
+mod class_type_detector;
+mod mermaid_escape;
+mod mermaid_renderer;
 mod mermaider;
 mod parameter_generator;
+mod renderer;
 mod settings;
-mod utils;
+mod type_analyzer;
 
 use std::path::PathBuf;
 
