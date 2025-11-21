@@ -1,7 +1,12 @@
 mod checker;
 mod class_diagram;
+mod class_helpers;
+mod class_type_detector;
+mod mermaid_escape;
+mod mermaid_renderer;
 mod parameter_generator;
-mod utils;
+mod renderer;
+mod type_analyzer;
 
 use class_diagram::ClassDiagram;
 use ruff_python_ast as ast;
