@@ -1,43 +1,66 @@
-name: Run Lints
+name: Lint and Format
 
 on:
-  workflow_dispatch:
-  pull_request:
   push:
-    branches:
-      - main
-
-concurrency:
-  group: ${{ github.workflow }}-${{ github.ref_name }}-${{ github.event.pull_request.number || github.sha }}
-  cancel-in-progress: true
+    branches: [main, develop]
+  pull_request:
+  workflow_dispatch:
 
 env:
-  CARGO_INCREMENTAL: 0
-  CARGO_NET_RETRY: 10
   CARGO_TERM_COLOR: always
-  RUSTUP_MAX_RETRIES: 10
 
 jobs:
-  cargo-fmt:
-    name: "cargo fmt"
+  rust-lint:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - name: "Install Rust toolchain"
-        run: rustup component add rustfmt
-      - run: cargo fmt --all --check
+      - name: Checkout repository
+        uses: actions/checkout@v4
 
-  cargo-clippy:
-    name: "cargo clippy"
+      - name: Setup Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          components: rustfmt, clippy
+          override: true
+
+      - name: Cache Rust dependencies
+        uses: actions/cache@v3
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-lint-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Check Rust formatting
+        run: cargo fmt -- --check
+
+      - name: Run Clippy
+        run: cargo clippy --all-targets --all-features -- -D warnings
+
+  web-lint:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - name: "Install Rust toolchain"
-        run: |
-          rustup default nightly
-          rustup component add clippy
-      - uses: Swatinem/rust-cache@v2
-      - name: "Clippy"
-        run: cargo clippy --workspace --all-targets --all-features --locked -- -D warnings
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: 'npm'
+          cache-dependency-path: web/package-lock.json
+
+      - name: Install dependencies
+        working-directory: ./web
+        run: npm ci
+
+      - name: Run ESLint
+        working-directory: ./web
+        run: npm run lint
+
+      - name: Check TypeScript
+        working-directory: ./web
+        run: npx tsc --noEmit

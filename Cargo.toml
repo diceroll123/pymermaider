@@ -3,10 +3,13 @@ name = "pymermaider"
 version = "0.1.4"
 edition = "2021"
 
+[lib]
+crate-type = ["cdylib", "rlib"]
+
 [dependencies]
-clap = { version = "4.5.51", features = ["derive"] }
-env_logger = { version = "0.11.8", default-features = false, features = ["auto-color", "color"] }
-ignore = { version = "0.4.25", features = ["simd-accel"] }
+clap = { version = "4.5.51", features = ["derive"], optional = true }
+env_logger = { version = "0.11.8", default-features = false, features = ["auto-color", "color"], optional = true }
+ignore = { version = "0.4.25", features = ["simd-accel"], optional = true }
 itertools = "0.14.0"
 log = "0.4.28"
 ruff_python_ast = { git = "https://github.com/astral-sh/ruff.git", tag = "0.14.5" }
@@ -18,13 +21,26 @@ ruff_source_file = { git = "https://github.com/astral-sh/ruff.git", tag = "0.14.
 ruff_text_size = { git = "https://github.com/astral-sh/ruff.git", tag = "0.14.5" }
 ruff_linter = { git = "https://github.com/astral-sh/ruff.git", tag = "0.14.5" }
 globset = "0.4.18"
+wasm-bindgen = "0.2"
+console_error_panic_hook = { version = "0.1", optional = true }
+
+# Ensure getrandom and uuid work with WASM
+getrandom = { version = "0.3", features = ["wasm_js"] }
+uuid = { version = "1", features = ["v4", "js"] }
 
 [dev-dependencies]
 tempfile = "3.23.0"
 anyhow = "1.0.100"
 ctor = "0.6.1"
 
+[features]
+default = ["cli"]
+cli = ["clap", "env_logger", "ignore"]
+
 [profile.release]
 lto = "fat"
 codegen-units = 1
+opt-level = 3
+
+[profile.release.package."*"]
 opt-level = 3
