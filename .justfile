@@ -13,8 +13,8 @@ web-install:
     cd web && npm install
 
 # Run web dev server (requires WASM to be built first)
-web-dev:
-    cd web && npm run dev
+web-dev port="3000":
+    cd web && npm run dev -- -p {{port}}
 
 # Build web app for production (static export)
 web-build:
@@ -31,7 +31,8 @@ web-serve:
 web-setup: web-install build-wasm
 
 # Full web dev workflow (setup + dev server)
-web: web-setup web-dev
+web port="3000": web-setup
+    @just web-dev {{port}}
 
 # Build CLI in release mode
 build-cli:
