@@ -44,7 +44,7 @@ export default function DiagramEditor() {
     });
 
   // Resizable panel
-  const { leftPanelWidth, isDragging, handleMouseDown } = useResizablePanel(50);
+  const { leftPanelWidth, isDragging, handleMouseDown, resetToCenter } = useResizablePanel(50);
 
   // Combined error from WASM or Mermaid
   const error = wasmError || mermaidError;
@@ -76,7 +76,7 @@ export default function DiagramEditor() {
       />
 
       {/* Resizable Divider */}
-      <ResizableDivider isDragging={isDragging} onMouseDown={handleMouseDown} />
+      <ResizableDivider isDragging={isDragging} onMouseDown={handleMouseDown} onDoubleClick={resetToCenter} />
 
       {/* Right Panel - Tabbed View */}
       <VStack w={`${100 - leftPanelWidth}%`} h="100%" p={4} gap={4} align="stretch">

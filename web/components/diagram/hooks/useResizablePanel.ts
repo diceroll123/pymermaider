@@ -40,9 +40,14 @@ export function useResizablePanel(initialWidth: number = 50) {
     document.addEventListener("mouseup", handleMouseUp);
   }, [handleMouseMove, handleMouseUp]);
 
+  const resetToCenter = useCallback(() => {
+    setLeftPanelWidth(50);
+  }, []);
+
   return {
     leftPanelWidth,
     isDragging,
     handleMouseDown,
+    resetToCenter,
   };
 }
