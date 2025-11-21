@@ -1,9 +1,9 @@
-extern crate env_logger;
 use crate::ast;
 use crate::checker::Checker;
 use crate::parameter_generator::ParameterGenerator;
 use crate::utils::is_abc_class;
 use itertools::Itertools as _;
+#[cfg(feature = "cli")]
 use log::info;
 use ruff_linter::source_kind::SourceKind;
 use ruff_linter::Locator;
@@ -154,6 +154,8 @@ impl ClassDiagram {
         }
     }
 
+    #[cfg(feature = "cli")]
+    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
         self.classes.is_empty() && self.relationships.is_empty()
     }
@@ -481,6 +483,8 @@ impl ClassDiagram {
         }
     }
 
+    #[cfg(feature = "cli")]
+    #[allow(dead_code)]
     pub fn write_to_file(&self, output_directory: &Path) -> bool {
         if self.is_empty() {
             info!("No classes found for {0:?}.", self.path);
