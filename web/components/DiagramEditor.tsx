@@ -57,7 +57,7 @@ export default function DiagramEditor() {
   return (
     <Flex
       w="100%"
-      h="calc(100vh - 100px)"
+      flex={1}
       gap={0}
       position="relative"
       style={{ userSelect: isDragging ? "none" : "auto" }}
@@ -76,11 +76,16 @@ export default function DiagramEditor() {
       />
 
       {/* Resizable Divider */}
-      <ResizableDivider isDragging={isDragging} onMouseDown={handleMouseDown} onDoubleClick={resetToCenter} />
+      <ResizableDivider
+        isDragging={isDragging}
+        onMouseDown={handleMouseDown}
+        onDoubleClick={resetToCenter}
+        leftPosition={leftPanelWidth}
+      />
 
       {/* Right Panel - Tabbed View */}
-      <VStack w={`${100 - leftPanelWidth}%`} h="100%" p={4} gap={4} align="stretch">
-        <Tabs.Root value={activeTab} onValueChange={(e) => setActiveTab(e.value)} fitted lazyMount={false} unmountOnExit={false}>
+      <VStack w={`${100 - leftPanelWidth}%`} h="100%" px={4} gap={4} align="stretch">
+        <Tabs.Root value={activeTab} onValueChange={(e) => setActiveTab(e.value)} fitted>
           <Tabs.List>
             <Tabs.Trigger value="diagram">
               <Text fontSize="md" fontWeight="medium">
@@ -93,27 +98,25 @@ export default function DiagramEditor() {
               </Text>
             </Tabs.Trigger>
           </Tabs.List>
-
-          <div style={{ position: "relative", flex: 1 }}>
-            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            <Tabs.Content value="diagram" style={{ height: "100%", display: "block !important" as any, visibility: activeTab === "diagram" ? "visible" : "hidden", position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>
-              <DiagramView
-                diagramSvg={diagramSvg}
-                error={error}
-                isWasmLoaded={isWasmLoaded}
-              />
-            </Tabs.Content>
-
-            {/* eslint-disable-next-line @typescript-eslint/no-explicit-any */}
-            <Tabs.Content value="code" style={{ height: "100%", display: "block !important" as any, visibility: activeTab === "code" ? "visible" : "hidden", position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>
-              <MermaidCodeView
-                mermaidCode={mermaidCode}
-                colorMode={colorMode}
-                isWasmLoaded={isWasmLoaded}
-              />
-            </Tabs.Content>
-          </div>
         </Tabs.Root>
+
+        <div style={{ position: "relative", flex: 1 }}>
+          <div style={{ height: "100%", display: "flex", visibility: activeTab === "diagram" ? "visible" : "hidden", position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>
+            <DiagramView
+              diagramSvg={diagramSvg}
+              error={error}
+              isWasmLoaded={isWasmLoaded}
+            />
+          </div>
+
+          <div style={{ height: "100%", display: "flex", visibility: activeTab === "code" ? "visible" : "hidden", position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>
+            <MermaidCodeView
+              mermaidCode={mermaidCode}
+              colorMode={colorMode}
+              isWasmLoaded={isWasmLoaded}
+            />
+          </div>
+        </div>
       </VStack>
     </Flex>
   );

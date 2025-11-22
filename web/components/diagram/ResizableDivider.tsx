@@ -5,12 +5,14 @@ interface ResizableDividerProps {
   isDragging: boolean;
   onMouseDown: () => void;
   onDoubleClick?: () => void;
+  leftPosition: number; // Percentage position from left
 }
 
 export function ResizableDivider({
   isDragging,
   onMouseDown,
   onDoubleClick,
+  leftPosition,
 }: ResizableDividerProps) {
   const dividerBg = useColorModeValue("gray.300", "gray.600");
   const dividerHoverBg = useColorModeValue("blue.400", "blue.500");
@@ -18,14 +20,16 @@ export function ResizableDivider({
   return (
     <Box
       w="4px"
-      h="100%"
       bg={isDragging ? dividerHoverBg : dividerBg}
       cursor="col-resize"
       onMouseDown={onMouseDown}
       onDoubleClick={onDoubleClick}
       transition="background 0.2s"
       _hover={{ bg: dividerHoverBg }}
-      position="relative"
+      position="absolute"
+      top={0}
+      bottom={0}
+      left={`calc(${leftPosition}% - 2px)`}
       zIndex={10}
     />
   );

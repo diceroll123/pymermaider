@@ -4,7 +4,6 @@ import { useColorModeValue } from "@/components/ui/color-mode";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
 import { ZoomControls } from "./ZoomControls";
 import { ErrorDisplay } from "./ErrorDisplay";
-import { usePageVisibility } from "./hooks/usePageVisibility";
 
 interface DiagramViewProps {
   diagramSvg: string;
@@ -20,14 +19,12 @@ export function DiagramView({
   const bgColor = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.600");
 
-  const isPageVisible = usePageVisibility();
-
   const diagramContainerRef = useRef<HTMLDivElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const fitToWidthRef = useRef<(() => void) | null>(null);
   const originalSvgWidthRef = useRef<number | null>(null);
   const animationFrameRef = useRef<number | null>(null);
-  const hasAutoFittedRef = useRef<string | null>(null); // Track which diagram has been auto-fitted
+  const hasAutoFittedRef = useRef<boolean>(false); // Track if auto-fit has been done
 
   // Extract SVG width accurately
   const extractSvgWidth = useCallback((svg: SVGSVGElement): number | null => {
@@ -63,14 +60,17 @@ export function DiagramView({
     return null;
   }, []);
 
-  // Store original SVG width and auto-fit when diagram loads (only once per diagram)
+  // Store original SVG width and auto-fit when diagram loads (only once)
   useEffect(() => {
-    originalSvgWidthRef.current = null;
+    if (!diagramSvg || !diagramContainerRef.current) {
+      // Reset auto-fit flag when diagram is cleared
+      hasAutoFittedRef.current = false;
+      originalSvgWidthRef.current = null;
+      return;
+    }
 
-    if (!diagramSvg || !diagramContainerRef.current || !isPageVisible) return;
-
-    // Skip auto-fit if we've already fitted this diagram
-    if (hasAutoFittedRef.current === diagramSvg) return;
+    // Skip auto-fit if we've already done it
+    if (hasAutoFittedRef.current) return;
 
     let retryCount = 0;
     const maxRetries = 30; // Increased retries for slower systems
@@ -79,15 +79,6 @@ export function DiagramView({
     const maxFitRetries = 10;
 
     const measureAndFit = () => {
-      // Cancel if page becomes hidden
-      if (!isPageVisible) {
-        if (animationFrameRef.current) {
-          cancelAnimationFrame(animationFrameRef.current);
-          animationFrameRef.current = null;
-        }
-        return;
-      }
-
       const svg = diagramContainerRef.current?.querySelector("svg");
       if (!svg) {
         if (retryCount < maxRetries) {
@@ -104,10 +95,10 @@ export function DiagramView({
 
         // Retry calling fitToWidth until it's available
         const tryFit = () => {
-          if (fitToWidthRef.current && isPageVisible) {
+          if (fitToWidthRef.current) {
             fitToWidthRef.current();
-            // Mark this diagram as auto-fitted
-            hasAutoFittedRef.current = diagramSvg;
+            // Mark that auto-fit has been done
+            hasAutoFittedRef.current = true;
           } else if (fitRetryCount < maxFitRetries) {
             fitRetryCount++;
             timeoutId = setTimeout(tryFit, 50);
@@ -128,18 +119,19 @@ export function DiagramView({
         animationFrameRef.current = null;
       }
     };
-  }, [diagramSvg, extractSvgWidth, isPageVisible]);
+  }, [diagramSvg, extractSvgWidth]);
 
   return (
     <Box
       ref={containerRef}
-      h="calc(100vh - 180px)"
+      w="100%"
       overflow="hidden"
-      border="1px"
+      borderWidth="1px"
       borderColor={borderColor}
       borderRadius="md"
       bg={bgColor}
       position="relative"
+      mb={4}
     >
       {diagramSvg ? (
         <TransformWrapper

@@ -43,8 +43,8 @@ export function PythonCodeEditor({
   );
 
   return (
-    <VStack w={`${width}%`} h="100%" p={4} gap={4} align="stretch" borderRightWidth="0">
-      <HStack justify="space-between" align="center">
+    <VStack w={`${width}%`} h="100%" px={4} gap={4} align="stretch" borderRightWidth="0">
+      <HStack justify="space-between" align="center" minH="41px">
         <Text fontSize="lg" fontWeight="bold">
           Python Code
         </Text>
@@ -65,11 +65,13 @@ export function PythonCodeEditor({
       <Box
         flex={1}
         overflow="auto"
-        border="1px"
+        borderWidth="1px"
+        borderStyle="solid"
         borderColor={borderColor}
         borderRadius="md"
         bg={editorBg}
         position="relative"
+        mb={4}
       >
         <Editor
           key="python-editor"

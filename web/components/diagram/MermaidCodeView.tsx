@@ -15,19 +15,19 @@ export function MermaidCodeView({
   colorMode,
   isWasmLoaded,
 }: MermaidCodeViewProps) {
-  const borderColor = useColorModeValue("gray.200", "gray.600");
   const editorBg = useColorModeValue("gray.50", "gray.900");
+  const borderColor = useColorModeValue("gray.200", "gray.600");
 
   return (
     <Box
-      h="calc(100vh - 180px)"
+      w="100%"
       overflow="auto"
-      border="1px"
+      borderWidth="1px"
       borderColor={borderColor}
       borderRadius="md"
       bg={editorBg}
       p={4}
-      position="relative"
+      mb={4}
     >
       {mermaidCode && mermaidCode.trim().length > 0 ? (
         <CodeBlock.AdapterProvider value={shikiAdapter}>
