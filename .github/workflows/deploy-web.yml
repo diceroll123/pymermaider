@@ -33,12 +33,9 @@ jobs:
           cache-dependency-path: web/package-lock.json
 
       - name: Setup Rust
-        uses: actions-rs/toolchain@v1
+        uses: dtolnay/rust-toolchain@stable
         with:
-          toolchain: stable
-          target: wasm32-unknown-unknown
-          override: true
-          profile: minimal
+          targets: wasm32-unknown-unknown
 
       - name: Cache Rust dependencies
         uses: actions/cache@v3
