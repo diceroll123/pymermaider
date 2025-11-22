@@ -1,7 +1,3 @@
-// Allow dead code during migration phase - these types will be fully utilized
-// once the migration from the legacy string-based rendering is complete
-#![allow(dead_code)]
-
 /// Trait for rendering class diagrams in different formats
 pub trait DiagramRenderer {
     /// Render the diagram header/preamble
