@@ -53,6 +53,8 @@ pub trait DiagramRenderer {
 pub enum Visibility {
     Public,
     Private,
+    /// Reserved for future use - Python doesn't have true protected visibility
+    #[allow(dead_code)]
     Protected,
 }
 
