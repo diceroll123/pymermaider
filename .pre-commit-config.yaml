@@ -14,3 +14,10 @@ repos:
         language: system
         types: [rust]
         pass_filenames: false
+
+      - id: web-lint
+        name: Web lint
+        entry: bash -c 'cd web && npm run lint'
+        language: system
+        types_or: [javascript, jsx, ts, tsx]
+        pass_filenames: false

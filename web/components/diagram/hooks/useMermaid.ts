@@ -57,11 +57,7 @@ export function useMermaid({
       let diagram: string;
       try {
         diagram = wasmRef.current.processPythonCode(pythonCode);
-      } catch (wasmErr) {
-        // Handle Python parsing/processing errors gracefully
-        const errorMsg =
-          wasmErr instanceof Error ? wasmErr.message : String(wasmErr);
-        setError(`Python parsing error: ${errorMsg}`);
+      } catch {
         return;
       }
 
@@ -106,10 +102,7 @@ export function useMermaid({
         }
 
         setDiagramSvg(fixedSvg);
-      } catch (mermaidErr) {
-        const errorMsg =
-          mermaidErr instanceof Error ? mermaidErr.message : String(mermaidErr);
-        setError(`Diagram rendering error: ${errorMsg}`);
+      } catch {
       }
     } catch (err) {
       console.error("Unexpected error generating diagram:", err);
