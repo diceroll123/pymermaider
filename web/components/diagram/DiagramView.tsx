@@ -24,7 +24,7 @@ export function DiagramView({
   const fitToWidthRef = useRef<(() => void) | null>(null);
   const originalSvgWidthRef = useRef<number | null>(null);
   const animationFrameRef = useRef<number | null>(null);
-  const hasAutoFittedRef = useRef<boolean>(false); // Track if auto-fit has been done
+  const hasAutoFittedRef = useRef<boolean>(false); // Track if auto-fit has been done for current diagram
 
   // Extract SVG width accurately
   const extractSvgWidth = useCallback((svg: SVGSVGElement): number | null => {
@@ -60,7 +60,7 @@ export function DiagramView({
     return null;
   }, []);
 
-  // Store original SVG width and auto-fit when diagram loads (only once)
+  // Store original SVG width and auto-fit when diagram loads or changes
   useEffect(() => {
     if (!diagramSvg || !diagramContainerRef.current) {
       // Reset auto-fit flag when diagram is cleared
@@ -69,8 +69,8 @@ export function DiagramView({
       return;
     }
 
-    // Skip auto-fit if we've already done it
-    if (hasAutoFittedRef.current) return;
+    // Reset auto-fit flag for the new diagram (useEffect only runs when diagramSvg changes)
+    hasAutoFittedRef.current = false;
 
     let retryCount = 0;
     const maxRetries = 30; // Increased retries for slower systems
