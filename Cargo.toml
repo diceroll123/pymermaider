@@ -6,6 +6,11 @@ edition = "2021"
 [lib]
 crate-type = ["cdylib", "rlib"]
 
+[[bin]]
+name = "pymermaider-cli"
+path = "src/main.rs"
+required-features = ["cli"]
+
 [dependencies]
 clap = { version = "4.5.51", features = ["derive"], optional = true }
 env_logger = { version = "0.11.8", default-features = false, features = ["auto-color", "color"], optional = true }
