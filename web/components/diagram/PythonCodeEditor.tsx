@@ -1,7 +1,6 @@
-import { useMemo } from "react";
+import { useColorMode } from "@/components/ui/color-mode";
 import { Box, VStack, HStack, Text } from "@chakra-ui/react";
-import { useColorModeValue } from "@/components/ui/color-mode";
-import Editor from "react-simple-code-editor";
+import Editor from "@monaco-editor/react";
 import { ErrorDisplay } from "./ErrorDisplay";
 import { LoadingIndicator } from "./LoadingIndicator";
 
@@ -28,19 +27,8 @@ export function PythonCodeEditor({
   lineCount,
   isHighlightingEnabled,
 }: PythonCodeEditorProps) {
-  const borderColor = useColorModeValue("gray.200", "gray.600");
-  const editorBg = useColorModeValue("gray.50", "gray.900");
-
-  const editorStyle = useMemo(
-    () => ({
-      fontFamily:
-        '"Fira Code", "Fira Mono", Consolas, Menlo, Courier, monospace',
-      fontSize: 14,
-      minHeight: "100%",
-      outline: "none",
-    }),
-    []
-  );
+  const { colorMode } = useColorMode();
+  const borderColor = colorMode === "light" ? "gray.200" : "gray.600";
 
   return (
     <VStack w={`${width}%`} h="100%" px={4} gap={4} align="stretch" borderRightWidth="0">
@@ -64,24 +52,39 @@ export function PythonCodeEditor({
 
       <Box
         flex={1}
-        overflow="auto"
+        overflow="hidden"
         borderWidth="1px"
         borderStyle="solid"
         borderColor={borderColor}
         borderRadius="md"
-        bg={editorBg}
         position="relative"
         mb={4}
       >
         <Editor
-          key="python-editor"
+          height="100%"
+          defaultLanguage="python"
           value={code}
-          onValueChange={onCodeChange}
-          highlight={highlightCode}
-          padding={10}
-          style={editorStyle}
-          placeholder="Enter your Python code here..."
-          textareaId="python-code-textarea"
+          onChange={(value) => onCodeChange(value || "")}
+          theme={colorMode === "light" ? "vs" : "vs-dark"}
+          options={{
+            minimap: { enabled: false },
+            fontSize: 14,
+            fontFamily: '"Fira Code", "Fira Mono", Consolas, Menlo, Courier, monospace',
+            scrollBeyondLastLine: false,
+            automaticLayout: true,
+            tabSize: 4,
+            wordWrap: "off",
+            lineNumbers: "on",
+            glyphMargin: false,
+            folding: true,
+            lineDecorationsWidth: 0,
+            lineNumbersMinChars: 3,
+            renderLineHighlight: "all",
+            scrollbar: {
+              verticalScrollbarSize: 10,
+              horizontalScrollbarSize: 10,
+            },
+          }}
         />
       </Box>
 
