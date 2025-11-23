@@ -62,7 +62,7 @@ jobs:
           name: wheel
           path: dist
 
-      - name: Install and test
+      - name: Install and test on Python ${{ matrix.python-version }}
         run: |
           uv pip install dist/*.whl
           pymermaider --help
