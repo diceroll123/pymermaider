@@ -64,6 +64,7 @@ jobs:
 
       - name: Install and test on Python ${{ matrix.python-version }}
         run: |
+          uv venv
           uv pip install dist/*.whl
           pymermaider --help
 
