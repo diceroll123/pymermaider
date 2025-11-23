@@ -176,7 +176,11 @@ impl DiagramRenderer for MermaidRenderer {
         String::from("```\n")
     }
 
-    fn render_diagram(&self, diagram: &Diagram) -> String {
+    fn render_diagram(&self, diagram: &Diagram) -> Option<String> {
+        if diagram.is_empty() {
+            return None;
+        }
+
         let mut output = String::with_capacity(1024);
 
         // Header
@@ -215,7 +219,7 @@ impl DiagramRenderer for MermaidRenderer {
         output.push('\n');
         output.push_str(&self.render_footer());
 
-        output
+        Some(output)
     }
 }
 

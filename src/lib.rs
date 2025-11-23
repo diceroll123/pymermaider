@@ -31,7 +31,7 @@ impl PyMermaider {
         }
     }
 
-    /// Process Python source code and return the Mermaid diagram as a string
+    /// Process Python source code and return the Mermaid diagram as a string (or empty string if no diagram)
     #[wasm_bindgen(js_name = processPythonCode)]
     pub fn process_python_code(&mut self, source: &str) -> Result<String, JsValue> {
         // Reset the diagram for fresh processing
@@ -43,14 +43,14 @@ impl PyMermaider {
         // Add the source to the diagram
         self.diagram.add_to_diagram(source.to_string(), &dummy_path);
 
-        // Return the mermaid diagram as a string
-        Ok(self.diagram.render())
+        // Return the mermaid diagram as a string, or empty string if None
+        Ok(self.diagram.render().unwrap_or_default())
     }
 
-    /// Get the current diagram as a string
+    /// Get the current diagram as a string (or empty string if no diagram)
     #[wasm_bindgen(js_name = getDiagram)]
     pub fn get_diagram(&self) -> String {
-        self.diagram.render()
+        self.diagram.render().unwrap_or_default()
     }
 }
 

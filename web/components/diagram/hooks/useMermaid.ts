@@ -58,10 +58,19 @@ export function useMermaid({
       try {
         diagram = wasmRef.current.processPythonCode(pythonCode);
       } catch {
+        // Handle Python parsing/processing errors gracefully - show empty state instead of error
+        setMermaidCode("");
+        setDiagramSvg("");
         return;
       }
 
       setMermaidCode(diagram);
+
+      // If diagram is empty, clear the SVG
+      if (!diagram || diagram.trim().length === 0) {
+        setDiagramSvg("");
+        return;
+      }
 
       // Strip markdown wrapper if present
       let cleanDiagram = diagram.trim();
@@ -103,6 +112,8 @@ export function useMermaid({
 
         setDiagramSvg(fixedSvg);
       } catch {
+        // Silently handle mermaid rendering errors - show empty diagram instead
+        setDiagramSvg("");
       }
     } catch (err) {
       console.error("Unexpected error generating diagram:", err);
@@ -144,6 +155,11 @@ export function useMermaid({
 
     const renderWithNewTheme = async () => {
       try {
+        // If mermaid code is empty, don't try to render
+        if (!mermaidCode || mermaidCode.trim().length === 0) {
+          return;
+        }
+
         let cleanDiagram = mermaidCode.trim();
         if (cleanDiagram.startsWith("```mermaid")) {
           cleanDiagram = cleanDiagram

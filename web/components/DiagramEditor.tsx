@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useCallback } from "react";
 import { Flex, VStack, Text, Tabs } from "@chakra-ui/react";
 import { useColorMode } from "@/components/ui/color-mode";
 import { DEFAULT_PYTHON_CODE } from "./diagram/types";
@@ -17,6 +17,7 @@ export default function DiagramEditor() {
   const [pythonCode, setPythonCode] = useState(DEFAULT_PYTHON_CODE);
   const { colorMode, mounted: themeMounted } = useColorMode();
   const [activeTab, setActiveTab] = useState("diagram");
+  const fitToWidthFnRef = useRef<(() => void) | null>(null);
 
   // Load WASM
   const { wasmRef, isWasmLoaded, error: wasmError } = useWasm();
@@ -54,6 +55,23 @@ export default function DiagramEditor() {
     setPythonCode(processedCode);
   };
 
+  const handleFitToWidthReady = useCallback((fn: () => void) => {
+    fitToWidthFnRef.current = fn;
+  }, []);
+
+  const handleDividerDoubleClick = () => {
+    // Always reset divider to center first
+    resetToCenter();
+
+    // Then auto-fit the diagram if available
+    if (fitToWidthFnRef.current) {
+      // Use setTimeout to ensure the panel has resized before fitting
+      setTimeout(() => {
+        fitToWidthFnRef.current?.();
+      }, 100);
+    }
+  };
+
   return (
     <Flex
       w="100%"
@@ -78,7 +96,7 @@ export default function DiagramEditor() {
       <ResizableDivider
         isDragging={isDragging}
         onMouseDown={handleMouseDown}
-        onDoubleClick={resetToCenter}
+        onDoubleClick={handleDividerDoubleClick}
         leftPosition={leftPanelWidth}
       />
 
@@ -105,6 +123,7 @@ export default function DiagramEditor() {
               diagramSvg={diagramSvg}
               error={error}
               isWasmLoaded={isWasmLoaded}
+              onFitToWidthReady={handleFitToWidthReady}
             />
           </div>
 

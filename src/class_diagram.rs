@@ -47,15 +47,11 @@ impl ClassDiagram {
         }
     }
 
-    #[cfg(feature = "cli")]
-    #[allow(dead_code)]
     pub fn is_empty(&self) -> bool {
-        self.diagram.classes.is_empty()
-            && self.diagram.relationships.is_empty()
-            && self.diagram.compositions.is_empty()
+        self.diagram.is_empty()
     }
 
-    pub fn render(&self) -> String {
+    pub fn render(&self) -> Option<String> {
         // Use new modular rendering architecture
         let mut diagram = self.diagram.clone();
         diagram.title = if self.path.is_empty() {
@@ -373,7 +369,10 @@ impl ClassDiagram {
             std::fs::create_dir_all(parent_dir)
                 .unwrap_or_else(|e| panic!("Failed to create directory {parent_dir:?}: {e}"));
         }
-        std::fs::write(&path, self.render())
+
+        // Render the diagram (should always be Some since we checked is_empty above)
+        let content = self.render().unwrap_or_default();
+        std::fs::write(&path, content)
             .unwrap_or_else(|e| panic!("Failed to write file {path:?}: {e}"));
         println!("Mermaid file written to: {path:?}");
 
@@ -1008,7 +1007,7 @@ classDiagram
     fn test_diagram(source: &str, expected_output: &str) {
         let mut diagram = ClassDiagram::new();
         diagram.add_to_diagram(source.to_owned(), &PathBuf::from("test.py"));
-        let output = diagram.render();
+        let output = diagram.render().unwrap_or_default();
         assert_eq!(output.trim(), expected_output.trim());
     }
 
@@ -1017,7 +1016,7 @@ classDiagram
         // for making new tests and debugging :P
         let mut diagram = ClassDiagram::new();
         diagram.add_to_diagram(source.to_owned(), &PathBuf::from("test.py"));
-        println!("{}", diagram.render());
+        println!("{}", diagram.render().unwrap_or_default());
         assert_eq!(1, 2);
     }
 }
