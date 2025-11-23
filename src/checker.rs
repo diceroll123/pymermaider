@@ -140,7 +140,11 @@ impl<'a> Checker<'a> {
             match stmt {
                 ast::Stmt::Import(ast::StmtImport { names, .. }) => {
                     for alias in names {
-                        let module = alias.name.split('.').next().unwrap();
+                        let module = alias
+                            .name
+                            .split('.')
+                            .next()
+                            .expect("Import name should not be empty");
 
                         self.semantic.add_module(module);
 

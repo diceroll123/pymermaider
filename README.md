@@ -104,9 +104,9 @@ classDiagram
 
 - ~~Output directory option~~ ✅
 - ~~Better output file naming convention~~ ✅
+- ~~Sort classes with relationships to be grouped together~~ ✅
 - Import resolution (sorta-kinda implemented now, but not good enough or even used yet)
 - More language support, maybe?? 😳🤔
-- Sort classes with relationships to be grouped together
 - Test suites!
 
 ## Known Issues

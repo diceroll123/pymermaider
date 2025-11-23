@@ -33,18 +33,9 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
 
-      - name: Cache Rust dependencies
-        uses: actions/cache@v3
+      - uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/bin/
-            ~/.cargo/registry/index/
-            ~/.cargo/registry/cache/
-            ~/.cargo/git/db/
-            target/
-          key: ${{ runner.os }}-cargo-wasm-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-wasm-
+          key: wasm
 
       - name: Check WASM library compilation
         run: cargo check --lib --target wasm32-unknown-unknown --no-default-features
