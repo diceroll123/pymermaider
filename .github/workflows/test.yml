@@ -36,7 +36,7 @@ jobs:
         run: |
           uv venv
           uv pip install maturin
-          maturin build --release --out dist
+          uv run maturin build --release --out dist
       - name: Upload wheel
         uses: actions/upload-artifact@v4
         with:
@@ -67,7 +67,7 @@ jobs:
         run: |
           uv venv
           uv pip install dist/*.whl
-          pymermaider --help
+          uv run pymermaider --help
 
   all-python-builds-pass:
     needs: python-build-and-help
