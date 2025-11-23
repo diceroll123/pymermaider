@@ -34,6 +34,7 @@ jobs:
         uses: astral-sh/setup-uv@v7
       - name: Build wheel
         run: |
+          uv venv
           uv pip install maturin
           maturin build --release --out dist
       - name: Upload wheel
