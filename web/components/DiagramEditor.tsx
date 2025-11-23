@@ -37,7 +37,7 @@ export default function DiagramEditor() {
   });
 
   // Syntax highlighting for Python editor
-  const { highlightCode, handleCodeChange, isHighlightingEnabled, lineCount } =
+  const { handleCodeChange, isHighlightingEnabled, lineCount } =
     useSyntaxHighlighter({
       code: pythonCode,
       colorMode,
@@ -85,7 +85,6 @@ export default function DiagramEditor() {
         width={leftPanelWidth}
         code={pythonCode}
         onCodeChange={handlePythonCodeChange}
-        highlightCode={highlightCode}
         isWasmLoaded={isWasmLoaded}
         error={error}
         isProcessing={isProcessing}

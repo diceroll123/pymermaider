@@ -8,7 +8,6 @@ interface PythonCodeEditorProps {
   width: number;
   code: string;
   onCodeChange: (code: string) => void;
-  highlightCode: (code: string) => string;
   isWasmLoaded: boolean;
   error: string | null;
   isProcessing: boolean;
@@ -20,7 +19,6 @@ export function PythonCodeEditor({
   width,
   code,
   onCodeChange,
-  highlightCode,
   isWasmLoaded,
   error,
   isProcessing,

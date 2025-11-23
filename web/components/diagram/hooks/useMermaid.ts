@@ -57,7 +57,7 @@ export function useMermaid({
       let diagram: string;
       try {
         diagram = wasmRef.current.processPythonCode(pythonCode);
-      } catch (wasmErr) {
+      } catch {
         // Handle Python parsing/processing errors gracefully - show empty state instead of error
         setMermaidCode("");
         setDiagramSvg("");
@@ -111,7 +111,7 @@ export function useMermaid({
         }
 
         setDiagramSvg(fixedSvg);
-      } catch (mermaidErr) {
+      } catch {
         // Silently handle mermaid rendering errors - show empty diagram instead
         setDiagramSvg("");
       }
