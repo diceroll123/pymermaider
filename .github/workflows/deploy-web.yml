@@ -41,15 +41,13 @@ jobs:
         with:
           key: wasm
 
-      - name: Install wasm-pack
-        run: |
-          if ! command -v wasm-pack &> /dev/null; then
-            curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-          fi
+      - name: Install wasm-bindgen-cli
+        run: cargo install wasm-bindgen-cli --version 0.2.105
 
       - name: Build WASM module
         run: |
-          wasm-pack build --target web --out-dir web/public/wasm --no-typescript --no-default-features
+          cargo build --lib --release --target wasm32-unknown-unknown --no-default-features
+          wasm-bindgen --target web --out-dir web/public/wasm target/wasm32-unknown-unknown/release/pymermaider_lib.wasm --out-name pymermaider
           echo "WASM module built successfully"
           ls -lh web/public/wasm/
 
