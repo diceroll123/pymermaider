@@ -4,10 +4,11 @@ version = "0.1.4"
 edition = "2021"
 
 [lib]
+name = "pymermaider_lib"
 crate-type = ["cdylib", "rlib"]
 
 [[bin]]
-name = "pymermaider-cli"
+name = "pymermaider"
 path = "src/main.rs"
 required-features = ["cli"]
 
