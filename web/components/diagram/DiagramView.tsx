@@ -1,7 +1,8 @@
 import { useRef, useEffect, useCallback } from "react";
-import { Box, Text } from "@chakra-ui/react";
+import { Box, Text, Icon } from "@chakra-ui/react";
 import { useColorModeValue } from "@/components/ui/color-mode";
 import { TransformWrapper, TransformComponent } from "react-zoom-pan-pinch";
+import { FaDiagramProject } from "react-icons/fa6";
 import { ZoomControls } from "./ZoomControls";
 import { ErrorDisplay } from "./ErrorDisplay";
 
@@ -9,12 +10,14 @@ interface DiagramViewProps {
   diagramSvg: string;
   error: string | null;
   isWasmLoaded: boolean;
+  onFitToWidthReady?: (fitFunction: () => void) => void;
 }
 
 export function DiagramView({
   diagramSvg,
   error,
   isWasmLoaded,
+  onFitToWidthReady,
 }: DiagramViewProps) {
   const bgColor = useColorModeValue("white", "gray.800");
   const borderColor = useColorModeValue("gray.200", "gray.600");
@@ -121,6 +124,13 @@ export function DiagramView({
     };
   }, [diagramSvg, extractSvgWidth]);
 
+  // Notify parent when fit function is ready
+  useEffect(() => {
+    if (diagramSvg && fitToWidthRef.current && onFitToWidthReady) {
+      onFitToWidthReady(fitToWidthRef.current);
+    }
+  }, [diagramSvg, onFitToWidthReady]);
+
   return (
     <Box
       ref={containerRef}
@@ -216,11 +226,19 @@ export function DiagramView({
           {error ? (
             <ErrorDisplay error={error} variant="centered" />
           ) : (
-            <Text color="gray.400">
-              {isWasmLoaded
-                ? "Enter Python code to see the diagram"
-                : "Loading..."}
-            </Text>
+            <Box textAlign="center" maxW="md" p={6}>
+              <Icon asChild fontSize="6xl" mb={4} color="gray.400">
+                <FaDiagramProject />
+              </Icon>
+              <Text fontSize="lg" fontWeight="semibold" color="gray.600" mb={2}>
+                No Diagram to Display
+              </Text>
+              <Text fontSize="sm" color="gray.500">
+                {isWasmLoaded
+                  ? "Start by entering Python code with classes in the editor on the left. The class diagram will appear here automatically."
+                  : "Loading..."}
+              </Text>
+            </Box>
           )}
         </Box>
       )}

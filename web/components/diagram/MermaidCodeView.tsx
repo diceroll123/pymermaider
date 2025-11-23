@@ -1,4 +1,4 @@
-import { FaMarkdown } from "react-icons/fa";
+import { FaMarkdown, FaCode } from "react-icons/fa";
 import { Box, Text, IconButton, Icon } from "@chakra-ui/react";
 import { CodeBlock } from "@chakra-ui/react";
 import { useColorModeValue } from "@/components/ui/color-mode";
@@ -18,6 +18,9 @@ export function MermaidCodeView({
   const editorBg = useColorModeValue("gray.50", "gray.900");
   const borderColor = useColorModeValue("gray.200", "gray.600");
 
+  // Check if mermaid code has content
+  const hasContent = !!mermaidCode && mermaidCode.trim().length > 0;
+
   return (
     <Box
       w="100%"
@@ -29,7 +32,7 @@ export function MermaidCodeView({
       p={4}
       mb={4}
     >
-      {mermaidCode && mermaidCode.trim().length > 0 ? (
+      {hasContent ? (
         <CodeBlock.AdapterProvider value={shikiAdapter}>
           <CodeBlock.Root
             code={mermaidCode}
@@ -61,11 +64,19 @@ export function MermaidCodeView({
           alignItems="center"
           h="100%"
         >
-          <Text color="gray.400">
-            {isWasmLoaded
-              ? "Enter Python code to see the Mermaid code"
-              : "Loading..."}
-          </Text>
+          <Box textAlign="center" maxW="md" p={6}>
+            <Icon asChild fontSize="6xl" mb={4} color="gray.400">
+              <FaCode />
+            </Icon>
+            <Text fontSize="lg" fontWeight="semibold" color="gray.600" mb={2}>
+              No Mermaid Code to Display
+            </Text>
+            <Text fontSize="sm" color="gray.500">
+              {isWasmLoaded
+                ? "Enter Python code with classes in the editor to generate the corresponding Mermaid diagram syntax."
+                : "Loading..."}
+            </Text>
+          </Box>
         </Box>
       )}
     </Box>

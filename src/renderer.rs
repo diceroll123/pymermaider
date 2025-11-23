@@ -15,8 +15,13 @@ pub trait DiagramRenderer {
     /// Render the diagram footer
     fn render_footer(&self) -> String;
 
-    /// Render the complete diagram
-    fn render_diagram(&self, diagram: &Diagram) -> String {
+    /// Render the complete diagram, returns None if diagram is empty
+    fn render_diagram(&self, diagram: &Diagram) -> Option<String> {
+        // Check if diagram is empty
+        if diagram.is_empty() {
+            return None;
+        }
+
         let mut output = String::with_capacity(1024);
 
         // Header
@@ -44,7 +49,7 @@ pub trait DiagramRenderer {
         // Footer
         output.push_str(&self.render_footer());
 
-        output
+        Some(output)
     }
 }
 
@@ -139,6 +144,10 @@ impl Diagram {
             relationships: Vec::new(),
             compositions: Vec::new(),
         }
+    }
+
+    pub fn is_empty(&self) -> bool {
+        self.classes.is_empty() && self.relationships.is_empty() && self.compositions.is_empty()
     }
 
     pub fn add_class(&mut self, class: ClassNode) {
