@@ -19,18 +19,10 @@ jobs:
     strategy:
       fail-fast: false
     steps:
-      - uses: actions/checkout@v4
-      - name: Cache Rust dependencies
-        uses: actions/cache@v4
+      - uses: actions/checkout@v6
+      - uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-x86_64-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-x86_64-
-            ${{ runner.os }}-cargo-
+          key: x86_64
       - name: "Build wheels - x86_64"
         uses: PyO3/maturin-action@v1
         with:
@@ -47,18 +39,10 @@ jobs:
     strategy:
       fail-fast: false
     steps:
-      - uses: actions/checkout@v4
-      - name: Cache Rust dependencies
-        uses: actions/cache@v4
+      - uses: actions/checkout@v6
+      - uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-universal-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-universal-
-            ${{ runner.os }}-cargo-
+          key: universal
       - name: "Build wheels - universal"
         uses: PyO3/maturin-action@v1
         with:
@@ -79,20 +63,12 @@ jobs:
           - target: i686-pc-windows-msvc
           - target: aarch64-pc-windows-msvc
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v6
       - name: "Configure Git to support long paths"
         run: git config --system core.longpaths true
-      - name: Cache Rust dependencies
-        uses: actions/cache@v4
+      - uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ matrix.platform.target }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-${{ matrix.platform.target }}-
-            ${{ runner.os }}-cargo-
+          key: ${{ matrix.platform.target }}
       - name: "Build wheels - windows"
         uses: PyO3/maturin-action@v1
         with:
@@ -112,18 +88,10 @@ jobs:
           - x86_64-unknown-linux-gnu
           - i686-unknown-linux-gnu
     steps:
-      - uses: actions/checkout@v4
-      - name: Cache Rust dependencies
-        uses: actions/cache@v4
+      - uses: actions/checkout@v6
+      - uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-${{ matrix.target }}-
-            ${{ runner.os }}-cargo-
+          key: ${{ matrix.target }}
       - name: "Build wheels - linux"
         uses: PyO3/maturin-action@v1
         with:
@@ -155,19 +123,10 @@ jobs:
           - target: powerpc64-unknown-linux-gnu
             arch: ppc64
     steps:
-      - uses: actions/checkout@v4
-      - name: Cache Rust dependencies
-        uses: actions/cache@v4
+      - uses: actions/checkout@v6
+      - uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-cross-${{ matrix.platform.target }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-cross-${{ matrix.platform.target }}-
-            ${{ runner.os }}-cargo-cross-
-            ${{ runner.os }}-cargo-
+          key: ${{ matrix.platform.target }}
       - name: "Build wheels - linux-cross"
         uses: PyO3/maturin-action@v1
         with:
@@ -190,19 +149,10 @@ jobs:
           - x86_64-unknown-linux-musl
           - i686-unknown-linux-musl
     steps:
-      - uses: actions/checkout@v4
-      - name: Cache Rust dependencies
-        uses: actions/cache@v4
+      - uses: actions/checkout@v6
+      - uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-musl-${{ matrix.target }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-musl-${{ matrix.target }}-
-            ${{ runner.os }}-cargo-musl-
-            ${{ runner.os }}-cargo-
+          key: musl-${{ matrix.target }}
       - name: "Build wheels - musllinux"
         uses: PyO3/maturin-action@v1
         with:
@@ -227,20 +177,10 @@ jobs:
           - target: armv7-unknown-linux-musleabihf
             arch: armv7
     steps:
-      - uses: actions/checkout@v4
-      - name: Cache Rust dependencies
-        uses: actions/cache@v4
+      - uses: actions/checkout@v6
+      - uses: Swatinem/rust-cache@v2
         with:
-          path: |
-            ~/.cargo/registry
-            ~/.cargo/git
-            target
-          key: ${{ runner.os }}-cargo-musl-cross-${{ matrix.platform.target }}-${{ hashFiles('**/Cargo.lock') }}
-          restore-keys: |
-            ${{ runner.os }}-cargo-musl-cross-${{ matrix.platform.target }}-
-            ${{ runner.os }}-cargo-musl-cross-
-            ${{ runner.os }}-cargo-musl-
-            ${{ runner.os }}-cargo-
+          key: musl-${{ matrix.platform.target }}
       - name: "Build wheels - musllinux-cross"
         uses: PyO3/maturin-action@v1
         with:
