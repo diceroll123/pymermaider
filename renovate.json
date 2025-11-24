@@ -1,0 +1,22 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "extends": [
+    "config:base"
+  ],
+  "platformAutomerge": true,
+  "packageRules": [
+    {
+      "matchPackagePatterns": ["^ruff"],
+      "groupName": "ruff dependencies",
+      "groupSlug": "ruff",
+      "automerge": true
+    },
+    {
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true
+    }
+  ],
+  "cargo": {
+    "enabled": true
+  }
+}
