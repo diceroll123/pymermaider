@@ -7,8 +7,6 @@ use crate::parameter_generator::ParameterGenerator;
 use crate::renderer::*;
 use crate::type_analyzer;
 use itertools::Itertools as _;
-#[cfg(feature = "cli")]
-use log::info;
 use ruff_linter::source_kind::SourceKind;
 use ruff_linter::Locator;
 use ruff_python_ast::name::QualifiedName;
@@ -52,6 +50,10 @@ impl ClassDiagram {
     }
 
     pub fn render(&self) -> Option<String> {
+        if self.is_empty() {
+            return None;
+        }
+
         // Use new modular rendering architecture
         let mut diagram = self.diagram.clone();
         diagram.title = if self.path.is_empty() {
@@ -354,29 +356,6 @@ impl ClassDiagram {
 
             _ => None,
         }
-    }
-
-    #[cfg(feature = "cli")]
-    #[allow(dead_code)]
-    pub fn write_to_file(&self, output_directory: &Path) -> bool {
-        if self.is_empty() {
-            info!("No classes found for {0:?}.", self.path);
-            return false;
-        }
-
-        let path = format!("{0}/{1}.md", output_directory.to_string_lossy(), self.path);
-        if let Some(parent_dir) = std::path::Path::new(&path).parent() {
-            std::fs::create_dir_all(parent_dir)
-                .unwrap_or_else(|e| panic!("Failed to create directory {parent_dir:?}: {e}"));
-        }
-
-        // Render the diagram (should always be Some since we checked is_empty above)
-        let content = self.render().unwrap_or_default();
-        std::fs::write(&path, content)
-            .unwrap_or_else(|e| panic!("Failed to write file {path:?}: {e}"));
-        println!("Mermaid file written to: {path:?}");
-
-        true
     }
 
     pub fn add_to_diagram(&mut self, source: String, file: &PathBuf) {
