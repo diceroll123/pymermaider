@@ -2,7 +2,7 @@ use crate::{class_diagram::ClassDiagram, settings::FileResolverSettings};
 
 use globset::Candidate;
 use ignore::{types::TypesBuilder, WalkBuilder};
-use log::{debug, error};
+use log::{debug, error, info};
 use std::path::{Path, PathBuf};
 
 pub struct Mermaider {
@@ -37,7 +37,7 @@ impl Mermaider {
             let mut diagram = self.make_mermaid(vec![path.clone()]);
             diagram.path = path.to_string_lossy().to_string();
 
-            let wrote_file = diagram.write_to_file(output_directory);
+            let wrote_file = self.write_diagram(&diagram, output_directory);
             if wrote_file {
                 self.files_written += 1;
             }
@@ -52,7 +52,7 @@ impl Mermaider {
 
                     diagram.path = diagram_path.to_string_lossy().to_string();
 
-                    let wrote_file = diagram.write_to_file(output_directory);
+                    let wrote_file = self.write_diagram(&diagram, output_directory);
                     if wrote_file {
                         self.files_written += 1;
                     }
@@ -68,12 +68,43 @@ impl Mermaider {
                     .unwrap()
                     .to_owned();
 
-                let wrote_file = diagram.write_to_file(output_directory);
+                let wrote_file = self.write_diagram(&diagram, output_directory);
                 if wrote_file {
                     self.files_written += 1;
                 }
             }
         }
+    }
+
+    #[cfg(feature = "cli")]
+    #[allow(dead_code)]
+    fn write_diagram(&self, diagram: &ClassDiagram, output_directory: &Path) -> bool {
+        if diagram.is_empty() {
+            info!("No classes found for {0:?}.", diagram.path);
+            return false;
+        }
+
+        let extension = "md";
+        let path = format!(
+            "{0}/{1}.{2}",
+            output_directory.to_string_lossy(),
+            diagram.path,
+            extension
+        );
+
+        if let Some(parent_dir) = std::path::Path::new(&path).parent() {
+            std::fs::create_dir_all(parent_dir)
+                .unwrap_or_else(|e| panic!("Failed to create directory {parent_dir:?}: {e}"));
+        }
+
+        let raw = diagram.render().unwrap_or_default();
+        let content = format!("```mermaid\n{raw}\n```\n");
+
+        std::fs::write(&path, content)
+            .unwrap_or_else(|e| panic!("Failed to write file {path:?}: {e}"));
+        println!("Mermaid file written to: {path:?}");
+
+        true
     }
 
     fn make_mermaid(&self, parsed_files: Vec<PathBuf>) -> ClassDiagram {
