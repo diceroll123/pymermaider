@@ -12,9 +12,6 @@ pub trait DiagramRenderer {
     /// Render a composition relationship
     fn render_composition(&self, composition: &CompositionEdge) -> String;
 
-    /// Render the diagram footer
-    fn render_footer(&self) -> String;
-
     /// Render the complete diagram, returns None if diagram is empty
     fn render_diagram(&self, diagram: &Diagram) -> Option<String> {
         // Check if diagram is empty
@@ -45,9 +42,6 @@ pub trait DiagramRenderer {
                 output.push_str(&self.render_composition(composition));
             }
         }
-
-        // Footer
-        output.push_str(&self.render_footer());
 
         Some(output)
     }

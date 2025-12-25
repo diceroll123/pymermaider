@@ -5,6 +5,7 @@ mod class_type_detector;
 mod mermaid_escape;
 mod mermaid_renderer;
 mod mermaider;
+mod output_format;
 mod parameter_generator;
 mod renderer;
 mod settings;
@@ -14,6 +15,7 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use mermaider::Mermaider;
+use output_format::OutputFormat;
 use ruff_linter::settings::types::{FilePattern, FilePatternSet, GlobPath};
 use ruff_python_ast::{self as ast};
 use settings::{FileResolverSettings, DEFAULT_EXCLUDES};
@@ -36,6 +38,13 @@ struct Args {
     /// Output directory for mermaid files.
     #[arg(short, long, default_value = "./output")]
     output_dir: String,
+
+    /// Output file format.
+    ///
+    /// - md: writes `*.md` files containing a fenced ```mermaid code block
+    /// - mmd: writes `*.mmd` files containing raw Mermaid text (no fences)
+    #[arg(long, value_enum, default_value_t = OutputFormat::Md)]
+    output_format: OutputFormat,
 
     /// List of paths, used to omit files and/or directories from analysis.
     #[arg(
@@ -94,7 +103,7 @@ fn main() {
         .unwrap(),
     };
 
-    let mut mermaider = Mermaider::new(file_settings, args.multiple_files);
+    let mut mermaider = Mermaider::new(file_settings, args.multiple_files, args.output_format);
 
     mermaider.process();
 
