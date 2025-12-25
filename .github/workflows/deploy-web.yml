@@ -37,12 +37,28 @@ jobs:
         with:
           targets: wasm32-unknown-unknown
 
-      - uses: Swatinem/rust-cache@v2
+      - name: Get Rust version (for cache key)
+        id: rust_version
+        run: echo "rustc=$(rustc -V | tr ' ' '-')" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Rust + Cargo (wasm)
+        uses: actions/cache@v5
         with:
-          key: wasm
+          path: |
+            ~/.cargo/bin
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: ${{ runner.os }}-${{ steps.rust_version.outputs.rustc }}-wasm32-unknown-unknown-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-${{ steps.rust_version.outputs.rustc }}-wasm32-unknown-unknown-
+            ${{ runner.os }}-
 
       - name: Install wasm-bindgen-cli
-        run: cargo install wasm-bindgen-cli --version 0.2.105
+        run: |
+          if ! command -v wasm-bindgen &> /dev/null; then
+            cargo install wasm-bindgen-cli --version 0.2.105 --locked
+          fi
 
       - name: Build WASM module
         run: |
