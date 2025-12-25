@@ -9,8 +9,12 @@
       "groupName": "ruff dependencies",
       "groupSlug": "ruff",
       "automerge": true,
-      "matchPackageNames": [
-        "/^ruff/"
+      "matchManagers": [
+        "cargo",
+        "cargo-lock"
+      ],
+      "matchDepNames": [
+        "/^ruff_/"
       ]
     },
     {
