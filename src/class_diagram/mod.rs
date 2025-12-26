@@ -155,7 +155,6 @@ impl ClassDiagram {
                         matches!(name.segments(), ["typing", "Generic"])
                             || matches!(name.segments(), ["" | "builtins", "object"])
                             || matches!(name.segments(), ["abc", "ABC" | "ABCMeta"])
-                            || matches!(name.segments(), ["typing", "ABC"])
                             || matches!(name.segments(), ["typing", "Protocol"])
                             || matches!(name.segments(), ["typing_extensions", "Protocol"])
                     })

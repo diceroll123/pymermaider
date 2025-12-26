@@ -56,12 +56,7 @@ impl<'a> ClassTypeDetector<'a> {
         class.bases().iter().any(|base| {
             self.semantic
                 .resolve_qualified_name(base)
-                .is_some_and(|name| {
-                    matches!(
-                        name.segments(),
-                        ["abc", "ABC" | "ABCMeta"] | ["typing", "ABC"]
-                    )
-                })
+                .is_some_and(|name| matches!(name.segments(), ["abc", "ABC" | "ABCMeta"]))
         })
     }
 
