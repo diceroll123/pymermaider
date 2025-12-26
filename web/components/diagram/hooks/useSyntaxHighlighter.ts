@@ -48,12 +48,6 @@ export function useSyntaxHighlighter({
     if (!themeMounted || !highlighter || !colorMode || !isHighlightingEnabled || !isPageVisible)
       return;
 
-    // Handle empty code
-    if (!code || code.trim().length === 0) {
-      setHighlightedCode("");
-      return;
-    }
-
     // Clear previous timer
     if (highlightTimerRef.current) {
       clearTimeout(highlightTimerRef.current);
@@ -116,6 +110,9 @@ export function useSyntaxHighlighter({
   // Highlight function for editor
   const highlightCode = useCallback(
     (codeToHighlight: string) => {
+      if (!codeToHighlight || codeToHighlight.trim().length === 0) {
+        return "";
+      }
       if (!isHighlightingEnabled || !highlighter) {
         return codeToHighlight;
       }

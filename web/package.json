@@ -3,10 +3,10 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build && touch out/.nojekyll",
-    "start": "next start",
-    "lint": "next lint"
+    "dev": "next dev .",
+    "build": "next build . && touch out/.nojekyll",
+    "start": "next start .",
+    "lint": "eslint ."
   },
   "dependencies": {
     "@chakra-ui/react": "^3.2.2",
