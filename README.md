@@ -36,24 +36,22 @@ pymermaider [OPTIONS] <PATH>
 ### Arguments
 
 - `<PATH>`
-  The path to a file or directory to process.
+  Path to a file or directory. Use '-' to read Python source from stdin.
 
 ### Options
 
 - `-m, --multiple-files`
-  When processing a directory, this option will generate an individual Mermaid file for each file within the directory.
+  Process each file individually, outputting a mermaid file for each file. Only used when path is a directory.
 
 - `-o, --output-dir <OUTPUT>`
-  Specify the output directory for the generated Mermaid files. Defaults to `./output` if not provided.
+  Output directory for mermaid files. [default: ./output]
 
 - `--output-format <OUTPUT_FORMAT>`
-  Choose the output format:
-  - `md`: writes `*.md` files containing a fenced ` ```mermaid ` code block (default)
-  - `mmd`: writes `*.mmd` files containing raw Mermaid text (no Markdown fences)
-    - *this may become the default in the future, depending on user feedback*
+  Output file format. [default: md] [possible values: md, mmd]
+    - *`mmd` may become the default in the future, depending on user feedback*
 
 - `--output <OUTPUT>`
-  Write a single output to a file path, or use `-` to write to stdout. Not compatible with `--multiple-files`.
+  Output file path. Use '-' to write to stdout. Not compatible with `--multiple-files`.
 
 - `-h, --help`
   Display help information for the command.
