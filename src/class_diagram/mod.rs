@@ -64,18 +64,53 @@ impl ClassDiagram {
             return None;
         }
 
-        // Use new modular rendering architecture
-        let mut diagram = self.diagram.clone();
-        diagram.title = if self.path.is_empty() {
+        let title = if self.path.is_empty() {
             None
         } else {
-            Some(self.path.clone())
+            Some(self.path.as_str())
         };
 
-        diagram.sort_classes_topologically();
+        // Render without cloning/mutating the diagram by computing a stable topological
+        // ordering of unique classes (by name) on the fly.
+        let ordered_classes = self.diagram.classes_topologically_sorted_unique();
 
         let renderer = MermaidRenderer::new();
-        renderer.render_diagram(&diagram)
+        let mut output = String::with_capacity(1024);
+
+        // Header
+        output.push_str(&renderer.render_header(title));
+
+        // Classes
+        for class in ordered_classes {
+            output.push_str(&renderer.render_class(class));
+        }
+
+        // Relationships (deduplicated)
+        let unique_relationships: Vec<_> = self.diagram.relationships.iter().unique().collect();
+        if !unique_relationships.is_empty() {
+            let relationship_strs: Vec<String> = unique_relationships
+                .iter()
+                .map(|rel| renderer.render_relationship(rel))
+                .collect();
+            output.push_str(&relationship_strs.join("\n"));
+        }
+
+        // Compositions (deduplicated)
+        let unique_compositions: Vec<_> = self.diagram.compositions.iter().unique().collect();
+        if !unique_compositions.is_empty() {
+            if !unique_relationships.is_empty() {
+                output.push('\n');
+            }
+            let composition_strs: Vec<String> = unique_compositions
+                .iter()
+                .map(|comp| renderer.render_composition(comp))
+                .collect();
+            output.push_str(&composition_strs.join("\n"));
+        }
+
+        output = output.trim_end().to_owned();
+        output.push('\n');
+        Some(output)
     }
 
     pub fn add_class(
