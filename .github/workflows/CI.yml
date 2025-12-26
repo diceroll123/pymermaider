@@ -20,43 +20,36 @@ env:
   RUSTUP_MAX_RETRIES: 10
 
 jobs:
-  macos-x86_64:
+  macos:
     runs-on: macos-latest
     strategy:
       fail-fast: false
+      matrix:
+        platform:
+          - name: x86_64
+            target: x86_64
+            cache_key: x86_64
+            artifact_name: wheels-macos-x86_64
+            args: --release --find-interpreter --out dist
+          - name: universal
+            target: universal2-apple-darwin
+            cache_key: universal
+            artifact_name: wheels-macos-universal
+            args: --release --find-interpreter --out dist
     steps:
       - uses: actions/checkout@v6
       - uses: Swatinem/rust-cache@v2
         with:
-          key: x86_64
-      - name: "Build wheels - x86_64"
+          key: ${{ matrix.platform.cache_key }}
+      - name: "Build wheels - ${{ matrix.platform.name }}"
         uses: PyO3/maturin-action@v1
         with:
-          target: x86_64
-          args: --release --find-interpreter --out dist
+          target: ${{ matrix.platform.target }}
+          args: ${{ matrix.platform.args }}
       - name: Upload wheels
         uses: actions/upload-artifact@v6
         with:
-          name: wheels-macos-x86_64
-          path: dist
-
-  macos-universal:
-    runs-on: macos-latest
-    strategy:
-      fail-fast: false
-    steps:
-      - uses: actions/checkout@v6
-      - uses: Swatinem/rust-cache@v2
-        with:
-          key: universal
-      - name: "Build wheels - universal"
-        uses: PyO3/maturin-action@v1
-        with:
-          args: --release --find-interpreter --target universal2-apple-darwin --out dist
-      - name: Upload wheels
-        uses: actions/upload-artifact@v6
-        with:
-          name: wheels-macos-universal
+          name: ${{ matrix.platform.artifact_name }}
           path: dist
 
   windows:
