@@ -135,7 +135,7 @@ fn main() {
         let mut diagram = class_diagram::ClassDiagram::new();
         let stdin_path = PathBuf::from("stdin.py");
         diagram.add_to_diagram(source, &stdin_path);
-        diagram.path = "stdin".to_owned();
+
         vec![diagram]
     } else {
         mermaider.generate_diagrams()
