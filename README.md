@@ -136,9 +136,8 @@ classDiagram
 - ~~Output directory option~~ ✅
 - ~~Better output file naming convention~~ ✅
 - ~~Sort classes with relationships to be grouped together~~ ✅
-- Import resolution (sorta-kinda implemented now, but not good enough or even used yet)
+- Import/type resolution powered by [ty](https://github.com/astral-sh/ty)
 - More language support, maybe?? 😳🤔
-- Test suites!
 
 ## Known Issues
 
