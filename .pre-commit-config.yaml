@@ -17,7 +17,7 @@ repos:
 
       - id: web-lint
         name: Web lint
-        entry: bash -c 'cd web && npm run lint'
+        entry: bash -c 'cd web && npm ci && npm run lint'
         language: system
         types_or: [javascript, jsx, ts, tsx]
         pass_filenames: false
