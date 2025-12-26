@@ -1,4 +1,5 @@
 use std::process::Command;
+use std::process::Stdio;
 
 #[test]
 fn file_to_stdout_works() {
@@ -15,6 +16,40 @@ fn file_to_stdout_works() {
         .output()
         .expect("run pymermaider");
 
+    assert!(
+        output.status.success(),
+        "status={:?} stderr={}",
+        output.status.code(),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("```mermaid"));
+    assert!(stdout.contains("classDiagram"));
+    assert!(stdout.contains("A"));
+}
+
+#[test]
+fn stdin_to_stdout_works() {
+    use std::io::Write as _;
+
+    let exe = env!("CARGO_BIN_EXE_pymermaider");
+
+    let mut child = Command::new(exe)
+        .arg("-")
+        .arg("--output")
+        .arg("-")
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .expect("spawn pymermaider");
+
+    {
+        let mut stdin = child.stdin.take().expect("stdin piped");
+        stdin.write_all(b"class A: ...\n").expect("write to stdin");
+    }
+
+    let output = child.wait_with_output().expect("wait pymermaider");
     assert!(
         output.status.success(),
         "status={:?} stderr={}",

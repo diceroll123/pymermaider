@@ -86,6 +86,9 @@ pymermaider /path/to/dir --output-dir ./output --output-format mmd
 # file -> stdout
 pymermaider my_file.py --output -
 
+# stdin -> stdout
+cat my_file.py | pymermaider - --output -
+
 # directory -> stdout (single combined diagram)
 pymermaider ./my_project --output - > diagram.md
 ```

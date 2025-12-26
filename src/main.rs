@@ -20,12 +20,13 @@ use output_format::OutputFormat;
 use ruff_linter::settings::types::{FilePattern, FilePatternSet, GlobPath};
 use ruff_python_ast::{self as ast};
 use settings::{FileResolverSettings, DEFAULT_EXCLUDES};
+use std::io::Read as _;
 use std::io::Write as _;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
 struct Args {
-    /// Path to a file or directory
+    /// Path to a file or directory. Use '-' to read Python source from stdin.
     #[arg()]
     path: String,
 
@@ -77,7 +78,14 @@ fn main() {
 
     let args = Args::parse();
 
-    let project_root = PathBuf::from(args.path);
+    // Special-case stdin input: `pymermaider -` reads Python source from stdin.
+    // For path normalization in exclude patterns, use the current working directory.
+    let is_stdin = args.path == "-";
+    let project_root = if is_stdin {
+        std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+    } else {
+        PathBuf::from(&args.path)
+    };
     let output_dir_path = PathBuf::from(&args.output_dir);
 
     let file_settings = FileResolverSettings {
@@ -113,7 +121,25 @@ fn main() {
 
     let mermaider = Mermaider::new(file_settings, args.multiple_files, args.output_format);
 
-    let diagrams = mermaider.generate_diagrams();
+    let diagrams = if is_stdin {
+        if args.multiple_files {
+            eprintln!("--multiple-files is not compatible with stdin input (PATH='-').");
+            std::process::exit(2);
+        }
+
+        let mut source = String::new();
+        std::io::stdin()
+            .read_to_string(&mut source)
+            .unwrap_or_else(|e| panic!("Failed to read stdin: {e}"));
+
+        let mut diagram = class_diagram::ClassDiagram::new();
+        let stdin_path = PathBuf::from("stdin.py");
+        diagram.add_to_diagram(source, &stdin_path);
+        diagram.path = "stdin".to_owned();
+        vec![diagram]
+    } else {
+        mermaider.generate_diagrams()
+    };
 
     // If --output is provided, render a single diagram to stdout or a specific file.
     // This is only valid when we're generating a single diagram (i.e. not multiple per-file outputs).
