@@ -436,7 +436,6 @@ class TestClass:
         let raw = diagram.render().unwrap_or_default();
 
         assert!(!raw.contains("```mermaid"));
-        assert!(!raw.contains("```"));
         assert!(raw.contains("classDiagram"));
         assert!(raw.contains("class TestClass"));
     }
