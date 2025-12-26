@@ -4,7 +4,7 @@ use clap::ValueEnum;
 #[cfg_attr(feature = "cli", derive(ValueEnum))]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Default)]
 pub enum OutputFormat {
-    /// Markdown file containing a ```mermaid code block
+    /// Markdown file containing a fenced Mermaid block (three backticks + `mermaid`)
     #[default]
     Md,
     /// Raw Mermaid diagram file (no Markdown fences), suitable for `.mmd`
