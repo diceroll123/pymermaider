@@ -31,7 +31,7 @@ jobs:
           target: x86_64
           args: --release --find-interpreter --out dist
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: wheels-macos-x86_64
           path: dist
@@ -50,7 +50,7 @@ jobs:
         with:
           args: --release --find-interpreter --target universal2-apple-darwin --out dist
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: wheels-macos-universal
           path: dist
@@ -76,7 +76,7 @@ jobs:
         with:
           args: --release --find-interpreter --out dist --target ${{ matrix.platform.target }}
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: wheels-${{ matrix.platform.target }}
           path: dist
@@ -102,7 +102,7 @@ jobs:
           command: build
           args: --release --find-interpreter -o dist
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: wheels-${{ matrix.target }}
           path: dist
@@ -137,7 +137,7 @@ jobs:
           docker-options: ${{ matrix.platform.maturin_docker_options }}
           args: --release --find-interpreter -o dist
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: wheels-${{ matrix.platform.target }}
           path: dist
@@ -162,7 +162,7 @@ jobs:
           manylinux: musllinux_1_2
           args: --release --find-interpreter -o dist
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: wheels-${{ matrix.target }}
           path: dist
@@ -191,7 +191,7 @@ jobs:
           args: --release --find-interpreter -o dist
           docker-options: ${{ matrix.platform.maturin_docker_options }}
       - name: Upload wheels
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: wheels-${{ matrix.platform.target }}
           path: dist
@@ -219,7 +219,7 @@ jobs:
       - all-builds-pass
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
     steps:
-      - uses: actions/download-artifact@v4
+      - uses: actions/download-artifact@v7
         with:
           pattern: wheels-*
           merge-multiple: true
