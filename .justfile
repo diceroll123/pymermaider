@@ -61,7 +61,7 @@ lint:
 
 # Run web linting
 lint-web:
-    cd web && npm run lint
+    cd web && npm ci && npm run lint
 
 # Format Rust code
 fmt:
