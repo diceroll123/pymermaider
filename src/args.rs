@@ -25,7 +25,7 @@ pub struct Args {
     #[arg(long, value_enum, verbatim_doc_comment, default_value_t = OutputFormat::Md)]
     pub output_format: OutputFormat,
 
-    /// Output file path. Use '-' to write to stdout.
+    /// Output file path. Use '-' to write to stdout. Not compatible with `--multiple-files`.
     ///
     /// If omitted, output is written to files under --output-dir (the default behavior).
     #[arg(long, verbatim_doc_comment)]
