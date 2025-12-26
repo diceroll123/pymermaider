@@ -243,6 +243,40 @@ class Car:
 }
 
 #[test]
+fn test_composition_relationships_union_types() {
+    let source = "
+class Engine:
+    horsepower: int
+
+class Wheel:
+    diameter: int
+
+class Car:
+    part: Engine | Wheel
+";
+
+    let expected_output = "classDiagram
+    class Engine {
+        + int horsepower
+    }
+
+    class Wheel {
+        + int diameter
+    }
+
+    class Car {
+        + Engine | Wheel part
+    }
+
+    Car *-- Engine
+
+    Car *-- Wheel
+";
+
+    test_diagram(source, expected_output);
+}
+
+#[test]
 fn test_pydantic_example() {
     let source = "
 from pydantic import BaseModel

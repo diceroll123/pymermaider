@@ -105,11 +105,10 @@ impl ClassDiagram {
         let mut composition_types: Vec<String> = vec![];
         for stmt in &class.body {
             if let ast::Stmt::AnnAssign(ast::StmtAnnAssign { annotation, .. }) = stmt {
-                if let Some(type_name) =
-                    type_analyzer::extract_composition_type(annotation.as_ref(), checker)
-                {
-                    composition_types.push(type_name);
-                }
+                composition_types.extend(type_analyzer::extract_composition_types(
+                    annotation.as_ref(),
+                    checker,
+                ));
             }
         }
 
@@ -346,40 +345,72 @@ impl ClassDiagram {
     }
 
     pub fn add_to_diagram(&mut self, source: String, file: &PathBuf) {
-        let source_type = PySourceType::from(file);
         let source_kind = SourceKind::Python(source);
+        let file_path = Path::new(file);
 
-        let locator = Locator::new(source_kind.source_code());
+        let parsed = Self::parse_python(source_kind.source_code(), file_path);
+        let mut checker = Self::build_checker(
+            &parsed.stylist,
+            &parsed.locator,
+            &parsed.python_ast,
+            file_path,
+        );
+        checker.see_imports(&parsed.python_ast);
 
-        let parsed = parse_unchecked_source(source_kind.source_code(), source_type);
+        self.add_classes_from_ast(&checker, &parsed.python_ast);
+    }
 
-        let stylist = Stylist::from_tokens(parsed.tokens(), source_kind.source_code());
-
-        let python_ast = parsed.into_suite();
-
-        let kind = if file.ends_with("__init__.py") {
-            ModuleKind::Package
-        } else {
-            ModuleKind::Module
-        };
-
-        let module = Module {
-            kind,
-            source: ModuleSource::File(Path::new(file)),
-            python_ast: &python_ast,
-            name: None,
-        };
-        let semantic = SemanticModel::new(&[], Path::new(file), module);
-        let mut checker = Checker::new(&stylist, &locator, semantic);
-        checker.see_imports(&python_ast);
-
-        for stmt in &python_ast {
+    fn add_classes_from_ast(&mut self, checker: &Checker, python_ast: &[ast::Stmt]) {
+        for stmt in python_ast {
             if let ast::Stmt::ClassDef(class) = stmt {
                 // we only care about class definitions
-                self.add_class(&checker, class, 1);
+                self.add_class(checker, class, 1);
             }
         }
     }
+
+    fn module_kind_for_file(file: &Path) -> ModuleKind {
+        if file.ends_with("__init__.py") {
+            ModuleKind::Package
+        } else {
+            ModuleKind::Module
+        }
+    }
+
+    fn parse_python<'a>(source: &'a str, file: &Path) -> ParsedPython<'a> {
+        let source_type = PySourceType::from(file);
+        let parsed = parse_unchecked_source(source, source_type);
+        let stylist = Stylist::from_tokens(parsed.tokens(), source);
+        let python_ast = parsed.into_suite();
+
+        ParsedPython {
+            python_ast,
+            locator: Locator::new(source),
+            stylist,
+        }
+    }
+
+    fn build_checker<'a>(
+        stylist: &'a Stylist<'a>,
+        locator: &'a Locator<'a>,
+        python_ast: &'a [ast::Stmt],
+        file: &'a Path,
+    ) -> Checker<'a> {
+        let module = Module {
+            kind: Self::module_kind_for_file(file),
+            source: ModuleSource::File(file),
+            python_ast,
+            name: None,
+        };
+        let semantic = SemanticModel::new(&[], file, module);
+        Checker::new(stylist, locator, semantic)
+    }
+}
+
+struct ParsedPython<'a> {
+    python_ast: Vec<ast::Stmt>,
+    locator: Locator<'a>,
+    stylist: Stylist<'a>,
 }
 
 #[cfg(test)]

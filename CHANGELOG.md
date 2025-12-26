@@ -6,6 +6,7 @@
 - Support for .mmd output format using the `--output-format` flag.
 - Support for single input file stdin using `-` as the path.
 - Support for single output file using the `--output` flag and `-` as the path.
+- Composition detection now supports union/tuple annotations (e.g. `Engine | Wheel`, `Union[Engine, Wheel]`) and will emit composition edges for each candidate type.
 
 ### Changed
 - Dependency + CI maintenance (migrated from Dependabot to Renovate; routine updates across Rust crates, GitHub Actions, and the web app toolchain).
