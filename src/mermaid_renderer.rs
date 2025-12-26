@@ -101,6 +101,13 @@ impl MermaidRenderer {
 
         output.push('\n');
     }
+
+    fn render_relationship_symbol(&self, relation_type: RelationType) -> &'static str {
+        match relation_type {
+            RelationType::Inheritance => "--|>",
+            RelationType::Implementation => "..|>",
+        }
+    }
 }
 
 impl Default for MermaidRenderer {
@@ -163,10 +170,7 @@ impl DiagramRenderer for MermaidRenderer {
     }
 
     fn render_relationship(&self, relationship: &RelationshipEdge) -> String {
-        let symbol = match relationship.relation_type {
-            RelationType::Inheritance => "--|>",
-            RelationType::Implementation => "..|>",
-        };
+        let symbol = self.render_relationship_symbol(relationship.relation_type);
 
         format!(
             "{}{} {} {}\n",
