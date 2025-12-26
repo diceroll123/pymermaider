@@ -5,17 +5,15 @@ use itertools::Itertools;
 const TAB: &str = "    ";
 
 /// Mermaid-specific renderer implementation
-pub struct MermaidRenderer {
-    indent_level: usize,
-}
+pub struct MermaidRenderer {}
 
 impl MermaidRenderer {
     pub fn new() -> Self {
-        Self { indent_level: 1 }
+        Self {}
     }
 
-    fn indent(&self) -> String {
-        TAB.repeat(self.indent_level)
+    fn indent(&self, indent_level: usize) -> String {
+        TAB.repeat(indent_level)
     }
 
     fn format_visibility(&self, visibility: Visibility) -> char {
@@ -35,6 +33,73 @@ impl MermaidRenderer {
             ClassType::Dataclass => Some("<<dataclass>>"),
             ClassType::Final => Some("<<final>>"),
         }
+    }
+
+    fn has_class_body(&self, class: &ClassNode) -> bool {
+        !class.attributes.is_empty()
+            || !class.methods.is_empty()
+            || class.class_type != ClassType::Regular
+    }
+
+    fn render_class_annotation(
+        &self,
+        output: &mut String,
+        inner_indent: &str,
+        class_type: ClassType,
+    ) {
+        if let Some(annotation) = self.format_class_type(class_type) {
+            output.push_str(inner_indent);
+            output.push_str(annotation);
+            output.push('\n');
+        }
+    }
+
+    fn render_attribute(&self, output: &mut String, inner_indent: &str, attr: &Attribute) {
+        output.push_str(inner_indent);
+        output.push(self.format_visibility(attr.visibility));
+        output.push(' ');
+        output.push_str(&attr.type_annotation);
+        output.push(' ');
+        output.push_str(&attr.name.escape_underscores());
+        output.push('\n');
+    }
+
+    fn render_method(&self, output: &mut String, inner_indent: &str, method: &MethodSignature) {
+        output.push_str(inner_indent);
+        output.push(self.format_visibility(method.visibility));
+        output.push(' ');
+
+        // Decorators
+        for decorator in &method.decorators {
+            output.push_str(decorator);
+            output.push(' ');
+        }
+
+        // Async modifier
+        if method.is_async {
+            output.push_str("async ");
+        }
+
+        // Method signature
+        output.push_str(&method.name.escape_underscores());
+        output.push('(');
+        output.push_str(&method.parameters);
+        output.push(')');
+
+        // Return type
+        if let Some(ref return_type) = method.return_type {
+            output.push(' ');
+            output.push_str(return_type);
+        }
+
+        // Classifiers
+        if method.is_abstract {
+            output.push('*');
+        } else if method.is_static {
+            output.push('$');
+        }
+
+        output.push('\n');
     }
 }
 
@@ -60,7 +125,8 @@ impl DiagramRenderer for MermaidRenderer {
 
     fn render_class(&self, class: &ClassNode) -> String {
         let mut output = String::new();
-        let indent = self.indent();
+        let indent = self.indent(1);
+        let inner_indent = self.indent(2);
 
         // Class declaration
         output.push_str(&indent);
@@ -72,72 +138,20 @@ impl DiagramRenderer for MermaidRenderer {
             output.push_str(&format!(" ~{}~", type_params));
         }
 
-        // Check if we need a body
-        let has_content = !class.attributes.is_empty()
-            || !class.methods.is_empty()
-            || class.class_type != ClassType::Regular;
-
-        if has_content {
+        if self.has_class_body(class) {
             output.push_str(" {\n");
 
             // Class type annotation
-            if let Some(annotation) = self.format_class_type(class.class_type) {
-                output.push_str(&indent);
-                output.push_str(&indent);
-                output.push_str(annotation);
-                output.push('\n');
-            }
+            self.render_class_annotation(&mut output, &inner_indent, class.class_type);
 
             // Attributes
             for attr in &class.attributes {
-                output.push_str(&indent);
-                output.push_str(&indent);
-                output.push(self.format_visibility(attr.visibility));
-                output.push(' ');
-                output.push_str(&attr.type_annotation);
-                output.push(' ');
-                output.push_str(&attr.name.escape_underscores());
-                output.push('\n');
+                self.render_attribute(&mut output, &inner_indent, attr);
             }
 
             // Methods
             for method in &class.methods {
-                output.push_str(&indent);
-                output.push_str(&indent);
-                output.push(self.format_visibility(method.visibility));
-                output.push(' ');
-
-                // Decorators
-                for decorator in &method.decorators {
-                    output.push_str(decorator);
-                    output.push(' ');
-                }
-
-                // Async modifier
-                if method.is_async {
-                    output.push_str("async ");
-                }
-
-                // Method signature
-                output.push_str(&method.name.escape_underscores());
-                output.push('(');
-                output.push_str(&method.parameters);
-                output.push(')');
-
-                // Return type
-                if let Some(ref return_type) = method.return_type {
-                    output.push(' ');
-                    output.push_str(return_type);
-                }
-
-                // Classifiers
-                if method.is_abstract {
-                    output.push('*');
-                } else if method.is_static {
-                    output.push('$');
-                }
-
-                output.push('\n');
+                self.render_method(&mut output, &inner_indent, method);
             }
 
             output.push_str(&indent);
@@ -156,7 +170,7 @@ impl DiagramRenderer for MermaidRenderer {
 
         format!(
             "{}{} {} {}\n",
-            self.indent(),
+            self.indent(1),
             relationship.from,
             symbol,
             relationship.to
@@ -166,7 +180,7 @@ impl DiagramRenderer for MermaidRenderer {
     fn render_composition(&self, composition: &CompositionEdge) -> String {
         format!(
             "{}{} *-- {}\n",
-            self.indent(),
+            self.indent(1),
             composition.container,
             composition.contained
         )
