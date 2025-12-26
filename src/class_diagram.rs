@@ -62,10 +62,8 @@ impl ClassDiagram {
             Some(self.path.clone())
         };
 
-        // Sort classes topologically before rendering
         diagram.sort_classes_topologically();
 
-        // Use the new MermaidRenderer
         let renderer = MermaidRenderer::new();
         renderer.render_diagram(&diagram)
     }
@@ -412,17 +410,35 @@ class TestClass:
         return x - y
 ";
 
-        let expected_output = r"```mermaid
-classDiagram
+        let expected_output = r"classDiagram
     class TestClass {
         - \_\_init__(self, x, y) None
         + add(self, x, y) int
         + subtract(self, x, y) int
     }
-```
 ";
 
         test_diagram(source, expected_output);
+    }
+
+    #[test]
+    fn test_class_diagram_raw_mermaid_has_no_fences() {
+        let source = r#"
+class TestClass:
+    def add(self, x: int, y: int) -> int:
+        return x + y
+"#;
+
+        let mut diagram = ClassDiagram::new();
+        diagram.path = "example.py".to_string();
+        diagram.add_to_diagram(source.to_string(), &PathBuf::from("example.py"));
+
+        let raw = diagram.render().unwrap_or_default();
+
+        assert!(!raw.contains("```mermaid"));
+        assert!(!raw.contains("```"));
+        assert!(raw.contains("classDiagram"));
+        assert!(raw.contains("class TestClass"));
     }
 
     #[test]
@@ -431,10 +447,8 @@ classDiagram
 class Thing[T]: ...
 ";
 
-        let expected_output = r#"```mermaid
-classDiagram
-    class Thing ~T~
-```"#;
+        let expected_output = r#"classDiagram
+    class Thing ~T~"#;
 
         test_diagram(source, expected_output);
     }
@@ -445,12 +459,10 @@ classDiagram
 class Thing(Inner[T]): ...
 ";
 
-        let expected_output = r#"```mermaid
-classDiagram
+        let expected_output = r#"classDiagram
     class Thing
 
-    Thing --|> Inner
-```"#;
+    Thing --|> Inner"#;
 
         test_diagram(source, expected_output);
     }
@@ -464,12 +476,10 @@ FancyType = TypeVar("FancyType")
 class Thing(ABC, Generic[FancyType]): ...
 "#;
 
-        let expected_output = r#"```mermaid
-classDiagram
+        let expected_output = r#"classDiagram
     class Thing ~FancyType~ {
         <<abstract>>
-    }
-```"#;
+    }"#;
 
         test_diagram(source, expected_output);
     }
@@ -480,10 +490,8 @@ classDiagram
 class Thing[T, U, V]: ...
 ";
 
-        let expected_output = r#"```mermaid
-classDiagram
-    class Thing ~T, U, V~
-```"#;
+        let expected_output = r#"classDiagram
+    class Thing ~T, U, V~"#;
 
         test_diagram(source, expected_output);
     }
@@ -496,12 +504,10 @@ from typing import final
 class Thing: ...
 ";
 
-        let expected_output = "```mermaid
-classDiagram
+        let expected_output = "classDiagram
     class Thing {
         <<final>>
     }
-```
 ";
 
         test_diagram(source, expected_output);
@@ -513,10 +519,8 @@ classDiagram
 class Thing: ...
 ";
 
-        let expected_output = "```mermaid
-classDiagram
+        let expected_output = "classDiagram
     class Thing
-```
 ";
 
         test_diagram(source, expected_output);
@@ -531,12 +535,10 @@ class Thing:
     async def foo(cls, first, /, *second, kwarg: bool = True, **unpack_this) -> dict[str, str]: ...
 ";
 
-        let expected_output = "```mermaid
-classDiagram
+        let expected_output = "classDiagram
     class Thing {
         + @classmethod async foo(cls, first, /, *second, kwarg, **unpack_this) dict[str, str]
     }
-```
 ";
 
         test_diagram(source, expected_output);
@@ -556,15 +558,14 @@ class Person:
         return f'Hello, I am {self.name}'
 ";
 
-        let expected_output = "```mermaid
-classDiagram
+        let expected_output = "classDiagram
     class Person {
         <<dataclass>>
         + str name
         + int age
         + greet(self) str
     }
-```";
+";
 
         test_diagram(source, expected_output);
     }
@@ -583,8 +584,7 @@ class Circle(Drawable):
         pass
 ";
 
-        let expected_output = "```mermaid
-classDiagram
+        let expected_output = "classDiagram
     class Drawable {
         <<interface>>
         + draw(self) None
@@ -595,7 +595,7 @@ classDiagram
     }
 
     Circle ..|> Drawable
-```";
+";
 
         test_diagram(source, expected_output);
     }
@@ -617,8 +617,7 @@ class Car:
         pass
 ";
 
-        let expected_output = "```mermaid
-classDiagram
+        let expected_output = "classDiagram
     class Engine {
         + int horsepower
     }
@@ -636,7 +635,7 @@ classDiagram
     Car *-- Engine
 
     Car *-- Wheel
-```";
+";
 
         test_diagram(source, expected_output);
     }
@@ -681,8 +680,7 @@ class User(UserBase):
         orm_mode = True
 ";
 
-        let expected_output = "```mermaid
-classDiagram
+        let expected_output = "classDiagram
     class ItemBase {
         + str title
         + str | None description
@@ -722,7 +720,6 @@ classDiagram
     User --|> UserBase
 
     User *-- Item
-```
 ";
 
         test_diagram(source, expected_output);
@@ -742,13 +739,11 @@ class Thing:
     def __init__(self, x: int | str, y: int | str) -> None: ...
 ";
 
-        let expected_output = r"```mermaid
-classDiagram
+        let expected_output = r"classDiagram
     class Thing {
         - @overload \_\_init__(self, x, y) None
         - \_\_init__(self, x, y) None
     }
-```
 ";
 
         test_diagram(source, expected_output);
@@ -760,10 +755,9 @@ classDiagram
 class Thing(object): ...
 ";
 
-        let expected_output = "```mermaid
-classDiagram
+        let expected_output = "classDiagram
     class Thing
-```";
+";
 
         test_diagram(source, expected_output);
     }
@@ -776,13 +770,12 @@ class Thing:
     def __bytes__(self): ...
 ";
 
-        let expected_output = r"```mermaid
-classDiagram
+        let expected_output = r"classDiagram
     class Thing {
         - \_\_complex__(self) complex
         - \_\_bytes__(self) bytes
     }
-```";
+";
 
         test_diagram(source, expected_output);
     }
@@ -795,12 +788,11 @@ class Thing:
         raise NotImplementedError
 ";
 
-        let expected_output = "```mermaid
-classDiagram
+        let expected_output = "classDiagram
     class Thing {
         + do_thing(self)
     }
-```";
+";
 
         test_diagram(source, expected_output);
     }
@@ -815,13 +807,12 @@ class Thing(ABC):
         """Must be implemented by subclasses"""
         pass
 "#;
-        let expected_output = "```mermaid
-classDiagram
+        let expected_output = "classDiagram
     class Thing {
         <<abstract>>
         + do_thing(self) None*
     }
-```";
+";
 
         test_diagram(source, expected_output);
     }
@@ -836,15 +827,14 @@ class Color(Enum):
     BLUE = 3
 ";
 
-        let expected_output = "```mermaid
-classDiagram
+        let expected_output = "classDiagram
     class Color {
         <<enumeration>>
         + int RED
         + int GREEN
         + int BLUE
     }
-```";
+";
 
         test_diagram(source, expected_output);
     }
@@ -857,12 +847,11 @@ class Thing:
     def static_method(x: int, y: int) -> int:
         return x + y
 ";
-        let expected_output = "```mermaid
-classDiagram
+        let expected_output = "classDiagram
     class Thing {
         + @staticmethod static_method(x, y) int$
     }
-```";
+";
 
         test_diagram(source, expected_output);
     }
@@ -882,8 +871,7 @@ class MemoryStore(Store[int]):
         self.storage.append(data)
 "#;
 
-        let expected_output = r#"```mermaid
-classDiagram
+        let expected_output = r#"classDiagram
     class Store ~IndexType~ {
         + insert(self, data) None
     }
@@ -892,8 +880,7 @@ classDiagram
         + insert(self, data) None
     }
 
-    MemoryStore --|> Store
-```"#;
+    MemoryStore --|> Store"#;
 
         test_diagram(source, expected_output);
     }
@@ -915,8 +902,7 @@ class MemoryStore(Store[int]):
         self.storage.append(data)
 "#;
 
-        let expected_output = r#"```mermaid
-classDiagram
+        let expected_output = r#"classDiagram
     class Store ~IndexType~ {
         <<abstract>>
         + insert(self, data) None*
@@ -926,8 +912,7 @@ classDiagram
         + insert(self, data) None
     }
 
-    MemoryStore ..|> Store
-```"#;
+    MemoryStore ..|> Store"#;
 
         test_diagram(source, expected_output);
     }
@@ -959,8 +944,7 @@ class FancyStore(Store[datetime], Generic[FancyStorage]):
         self.storage.insert(data)
 "#;
 
-        let expected_output = r#"```mermaid
-classDiagram
+        let expected_output = r#"classDiagram
     class Store ~IndexType~ {
         <<abstract>>
         + insert(self, data) None*
@@ -977,8 +961,7 @@ classDiagram
 
     MemoryStore ..|> Store
 
-    FancyStore ..|> Store
-```"#;
+    FancyStore ..|> Store"#;
 
         test_diagram(source, expected_output);
     }

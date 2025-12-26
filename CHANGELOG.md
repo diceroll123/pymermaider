@@ -2,6 +2,9 @@
 
 ## [Unreleased]
 
+### Added
+- Support for .mmd output format using the `--output-format` flag.
+
 ### Changed
 - Dependency + CI maintenance (migrated from Dependabot to Renovate; routine updates across Rust crates, GitHub Actions, and the web app toolchain).
 

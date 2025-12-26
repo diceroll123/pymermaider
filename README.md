@@ -46,6 +46,12 @@ pymermaider [OPTIONS] <PATH>
 - `-o, --output-dir <OUTPUT>`
   Specify the output directory for the generated Mermaid files. Defaults to `./output` if not provided.
 
+- `--output-format <OUTPUT_FORMAT>`
+  Choose the output format:
+  - `md`: writes `*.md` files containing a fenced ` ```mermaid ` code block (default)
+  - `mmd`: writes `*.mmd` files containing raw Mermaid text (no Markdown fences)
+    - *this may become the default in the future, depending on user feedback*
+
 - `-h, --help`
   Display help information for the command.
 
@@ -64,6 +70,12 @@ pymermaider /path/to/dir --extend-exclude "**/tests/*,**/docs/*"
 ```
 
 This command will exclude any folders within the subdirectories of `/path/to/dir` that are named `tests` or `docs`.
+
+### Export raw Mermaid to `.mmd`:
+
+```bash
+pymermaider /path/to/dir --output-dir ./output --output-format mmd
+```
 
 ---
 

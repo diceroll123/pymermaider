@@ -46,7 +46,7 @@ impl Default for MermaidRenderer {
 
 impl DiagramRenderer for MermaidRenderer {
     fn render_header(&self, title: Option<&str>) -> String {
-        let mut output = String::from("```mermaid\n");
+        let mut output = String::new();
 
         if let Some(title) = title {
             output.push_str("---\n");
@@ -172,10 +172,6 @@ impl DiagramRenderer for MermaidRenderer {
         )
     }
 
-    fn render_footer(&self) -> String {
-        String::from("```\n")
-    }
-
     fn render_diagram(&self, diagram: &Diagram) -> Option<String> {
         if diagram.is_empty() {
             return None;
@@ -214,10 +210,8 @@ impl DiagramRenderer for MermaidRenderer {
             output.push_str(&composition_strs.join("\n"));
         }
 
-        // Trim and add footer
         output = output.trim_end().to_owned();
         output.push('\n');
-        output.push_str(&self.render_footer());
 
         Some(output)
     }

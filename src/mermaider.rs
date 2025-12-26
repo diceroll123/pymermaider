@@ -1,3 +1,4 @@
+use crate::output_format::OutputFormat;
 use crate::{class_diagram::ClassDiagram, settings::FileResolverSettings};
 
 use globset::Candidate;
@@ -9,13 +10,19 @@ pub struct Mermaider {
     file_settings: FileResolverSettings,
     multiple_files: bool,
     files_written: usize,
+    output_format: OutputFormat,
 }
 impl Mermaider {
-    pub const fn new(file_settings: FileResolverSettings, multiple_files: bool) -> Self {
+    pub const fn new(
+        file_settings: FileResolverSettings,
+        multiple_files: bool,
+        output_format: OutputFormat,
+    ) -> Self {
         Self {
             file_settings,
             multiple_files,
             files_written: 0,
+            output_format,
         }
     }
 
@@ -84,7 +91,7 @@ impl Mermaider {
             return false;
         }
 
-        let extension = "md";
+        let extension = self.output_format.extension();
         let path = format!(
             "{0}/{1}.{2}",
             output_directory.to_string_lossy(),
@@ -98,7 +105,13 @@ impl Mermaider {
         }
 
         let raw = diagram.render().unwrap_or_default();
-        let content = format!("```mermaid\n{raw}\n```\n");
+        let content = match self.output_format {
+            OutputFormat::Md => {
+                let raw = raw.trim_end();
+                format!("```mermaid\n{raw}\n```\n")
+            }
+            OutputFormat::Mmd => raw,
+        };
 
         std::fs::write(&path, content)
             .unwrap_or_else(|e| panic!("Failed to write file {path:?}: {e}"));
@@ -201,7 +214,7 @@ mod tests {
             output_directory: temp_output_dir.path().to_path_buf(),
         };
 
-        let mut mermaider = Mermaider::new(settings, true);
+        let mut mermaider = Mermaider::new(settings, true, OutputFormat::Md);
 
         mermaider.process();
 
@@ -239,7 +252,7 @@ mod tests {
             output_directory: temp_output_dir.path().to_path_buf(),
         };
 
-        let mut mermaider = Mermaider::new(settings, true);
+        let mut mermaider = Mermaider::new(settings, true, OutputFormat::Md);
 
         mermaider.process();
 
