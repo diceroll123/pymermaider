@@ -1,16 +1,7 @@
 mod args;
-mod checker;
-mod class_diagram;
-mod class_helpers;
-mod class_type_detector;
-mod mermaid_escape;
-mod mermaid_renderer;
 mod mermaider;
 mod output_format;
-mod parameter_generator;
-mod renderer;
 mod settings;
-mod type_analyzer;
 
 use std::path::PathBuf;
 
@@ -18,8 +9,8 @@ use args::Args;
 use clap::Parser;
 use log::info;
 use mermaider::Mermaider;
+use pymermaider_lib::class_diagram;
 use ruff_linter::settings::types::{FilePattern, FilePatternSet, GlobPath};
-use ruff_python_ast::{self as ast};
 use settings::{FileResolverSettings, DEFAULT_EXCLUDES};
 use std::io::Read as _;
 use std::io::Write as _;

@@ -35,6 +35,12 @@ pub struct ClassDiagram {
     pub path: String,
 }
 
+impl Default for ClassDiagram {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ClassDiagram {
     pub fn new() -> Self {
         Self {

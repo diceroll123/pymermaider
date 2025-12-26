@@ -1,5 +1,6 @@
 use crate::output_format::OutputFormat;
-use crate::{class_diagram::ClassDiagram, settings::FileResolverSettings};
+use crate::settings::FileResolverSettings;
+use pymermaider_lib::class_diagram::ClassDiagram;
 
 use globset::Candidate;
 use ignore::{types::TypesBuilder, WalkBuilder};

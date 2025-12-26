@@ -6,6 +6,12 @@ pub struct ParameterGenerator {
     buffer: String,
 }
 
+impl Default for ParameterGenerator {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
 impl ParameterGenerator {
     pub const fn new() -> Self {
         Self {
