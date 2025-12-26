@@ -5,7 +5,7 @@ use crate::class_type_detector::ClassTypeDetector;
 use crate::parameter_generator::ParameterGenerator;
 use crate::renderer::*;
 use crate::type_analyzer;
-use itertools::Itertools as _;
+use indexmap::IndexSet;
 use ruff_linter::source_kind::SourceKind;
 use ruff_linter::Locator;
 use ruff_python_ast::name::QualifiedName;
@@ -105,7 +105,7 @@ impl ClassDiagram {
         }
 
         // Detect composition relationships from class attributes
-        let mut composition_types: Vec<String> = vec![];
+        let mut composition_types: IndexSet<String> = IndexSet::new();
         for stmt in &class.body {
             if let ast::Stmt::AnnAssign(ast::StmtAnnAssign { annotation, .. }) = stmt {
                 composition_types.extend(type_analyzer::extract_composition_types(
@@ -116,12 +116,12 @@ impl ClassDiagram {
         }
 
         // Process class body statements
-        let members: Vec<ClassMember> = class
-            .body
-            .iter()
-            .filter_map(|stmt| self.process_stmt_to_member(checker, stmt))
-            .unique()
-            .collect();
+        let mut members: IndexSet<ClassMember> = IndexSet::new();
+        for stmt in &class.body {
+            if let Some(member) = self.process_stmt_to_member(checker, stmt) {
+                members.insert(member);
+            }
+        }
 
         // Detect class type using ClassTypeDetector
         let detector = ClassTypeDetector::new(checker);
@@ -171,7 +171,7 @@ impl ClassDiagram {
         }
 
         // Add composition relationships
-        for comp_type in composition_types.iter().unique() {
+        for comp_type in &composition_types {
             // Extract just the class name (remove module prefix if present)
             let comp_display = comp_type.split('.').next_back().unwrap_or(comp_type);
 

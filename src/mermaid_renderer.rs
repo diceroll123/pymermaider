@@ -1,6 +1,6 @@
 use crate::mermaid_escape::MermaidEscape;
 use crate::renderer::*;
-use itertools::Itertools;
+use indexmap::IndexSet;
 
 const TAB: &str = "    ";
 
@@ -184,7 +184,7 @@ pub fn render_diagram(diagram: &Diagram, title_override: Option<&str>) -> Option
     }
 
     // Relationships (deduped; stable order)
-    let unique_relationships: Vec<_> = diagram.relationships.iter().unique().collect();
+    let unique_relationships: IndexSet<_> = diagram.relationships.iter().collect();
     if !unique_relationships.is_empty() {
         for (idx, rel) in unique_relationships.iter().enumerate() {
             output.push_str(&render_relationship(rel));
@@ -195,7 +195,7 @@ pub fn render_diagram(diagram: &Diagram, title_override: Option<&str>) -> Option
     }
 
     // Compositions (deduped; stable order)
-    let unique_compositions: Vec<_> = diagram.compositions.iter().unique().collect();
+    let unique_compositions: IndexSet<_> = diagram.compositions.iter().collect();
     if !unique_compositions.is_empty() {
         if !unique_relationships.is_empty() {
             output.push('\n');
