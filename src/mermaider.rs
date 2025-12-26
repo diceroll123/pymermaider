@@ -3,13 +3,12 @@ use crate::{class_diagram::ClassDiagram, settings::FileResolverSettings};
 
 use globset::Candidate;
 use ignore::{types::TypesBuilder, WalkBuilder};
-use log::{debug, error, info};
+use log::{debug, error};
 use std::path::{Path, PathBuf};
 
 pub struct Mermaider {
     file_settings: FileResolverSettings,
     multiple_files: bool,
-    files_written: usize,
     output_format: OutputFormat,
 }
 impl Mermaider {
@@ -21,103 +20,75 @@ impl Mermaider {
         Self {
             file_settings,
             multiple_files,
-            files_written: 0,
             output_format,
         }
     }
 
-    /// Get the amount of files written.
-    pub const fn get_written_files(&self) -> usize {
-        self.files_written
+    /// Format raw Mermaid output according to the configured `output_format`.
+    ///
+    /// - `Md`: wraps in a fenced ```mermaid Markdown block and ensures a trailing newline.
+    /// - `Mmd`: emits raw Mermaid and ensures a trailing newline.
+    pub fn format_output(&self, raw: &str) -> String {
+        let raw = raw.trim_end();
+        match self.output_format {
+            OutputFormat::Md => format!("```mermaid\n{raw}\n```\n"),
+            OutputFormat::Mmd => format!("{raw}\n"),
+        }
     }
 
-    pub fn process(&mut self) {
+    /// Generate one or more class diagrams without writing them to disk.
+    ///
+    /// - If the project root is a file, returns one diagram.
+    /// - If the project root is a directory:
+    ///   - with `multiple_files=true`, returns one diagram per Python file.
+    ///   - otherwise returns one combined diagram.
+    pub fn generate_diagrams(&self) -> Vec<ClassDiagram> {
         let path = &self.file_settings.project_root;
-        let output_directory = &self.file_settings.output_directory;
 
         if !path.exists() {
-            println!("{path:?} does not exist.");
-            return;
+            eprintln!("{path:?} does not exist.");
+            return vec![];
         }
 
         if path.is_file() {
             let mut diagram = self.make_mermaid(vec![path.clone()]);
             diagram.path = path.to_string_lossy().to_string();
+            return vec![diagram];
+        }
 
-            let wrote_file = self.write_diagram(&diagram, output_directory);
-            if wrote_file {
-                self.files_written += 1;
-            }
-        } else if path.is_dir() {
-            let parsed_files = self.parse_folder(path).unwrap();
+        if path.is_dir() {
+            let parsed_files = match self.parse_folder(path) {
+                Ok(files) => files,
+                Err(_) => return vec![],
+            };
 
             if self.multiple_files {
+                let mut diagrams = Vec::with_capacity(parsed_files.len());
                 for parsed_file in &parsed_files {
                     let mut diagram = self.make_mermaid(vec![parsed_file.clone()]);
-
                     let diagram_path = Path::new(parsed_file).strip_prefix(path).unwrap();
-
                     diagram.path = diagram_path.to_string_lossy().to_string();
-
-                    let wrote_file = self.write_diagram(&diagram, output_directory);
-                    if wrote_file {
-                        self.files_written += 1;
-                    }
+                    diagrams.push(diagram);
                 }
-            } else {
-                let canonical_path = path.canonicalize().unwrap();
-
-                let mut diagram = self.make_mermaid(parsed_files);
-                diagram.path = canonical_path
-                    .file_name()
-                    .unwrap()
-                    .to_str()
-                    .unwrap()
-                    .to_owned();
-
-                let wrote_file = self.write_diagram(&diagram, output_directory);
-                if wrote_file {
-                    self.files_written += 1;
-                }
+                return diagrams;
             }
-        }
-    }
 
-    #[cfg(feature = "cli")]
-    #[allow(dead_code)]
-    fn write_diagram(&self, diagram: &ClassDiagram, output_directory: &Path) -> bool {
-        if diagram.is_empty() {
-            info!("No classes found for {0:?}.", diagram.path);
-            return false;
-        }
+            let canonical_path = match path.canonicalize() {
+                Ok(p) => p,
+                Err(_) => path.clone(),
+            };
 
-        let extension = self.output_format.extension();
-        let path = format!(
-            "{0}/{1}.{2}",
-            output_directory.to_string_lossy(),
-            diagram.path,
-            extension
-        );
+            let mut diagram = self.make_mermaid(parsed_files);
+            diagram.path = canonical_path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("diagram")
+                .to_owned();
 
-        if let Some(parent_dir) = std::path::Path::new(&path).parent() {
-            std::fs::create_dir_all(parent_dir)
-                .unwrap_or_else(|e| panic!("Failed to create directory {parent_dir:?}: {e}"));
+            return vec![diagram];
         }
 
-        let raw = diagram.render().unwrap_or_default();
-        let content = match self.output_format {
-            OutputFormat::Md => {
-                let raw = raw.trim_end();
-                format!("```mermaid\n{raw}\n```\n")
-            }
-            OutputFormat::Mmd => raw,
-        };
-
-        std::fs::write(&path, content)
-            .unwrap_or_else(|e| panic!("Failed to write file {path:?}: {e}"));
-        println!("Mermaid file written to: {path:?}");
-
-        true
+        vec![]
     }
 
     fn make_mermaid(&self, parsed_files: Vec<PathBuf>) -> ClassDiagram {
@@ -199,26 +170,59 @@ mod tests {
     }
 
     #[test]
+    fn format_output_md_wraps() -> Result<()> {
+        init_logger();
+        let temp_project_dir = TempDir::new()?;
+
+        let settings = FileResolverSettings {
+            exclude: FilePatternSet::try_from_iter(DEFAULT_EXCLUDES.to_vec()).unwrap(),
+            extend_exclude: FilePatternSet::default(),
+            project_root: temp_project_dir.path().to_path_buf(),
+        };
+
+        let mermaider = Mermaider::new(settings, true, OutputFormat::Md);
+        let md = mermaider.format_output("classDiagram\n  class A\n");
+        assert!(md.starts_with("```mermaid\n"));
+        assert!(md.contains("classDiagram"));
+        assert!(md.ends_with("```\n"));
+        Ok(())
+    }
+
+    #[test]
+    fn format_output_mmd_is_raw() -> Result<()> {
+        init_logger();
+        let temp_project_dir = TempDir::new()?;
+
+        let settings = FileResolverSettings {
+            exclude: FilePatternSet::try_from_iter(DEFAULT_EXCLUDES.to_vec()).unwrap(),
+            extend_exclude: FilePatternSet::default(),
+            project_root: temp_project_dir.path().to_path_buf(),
+        };
+
+        let mermaider = Mermaider::new(settings, true, OutputFormat::Mmd);
+        let mmd = mermaider.format_output("classDiagram\n  class A\n");
+        assert!(!mmd.contains("```mermaid"));
+        assert!(mmd.contains("classDiagram"));
+        assert!(mmd.ends_with('\n'));
+        Ok(())
+    }
+
+    #[test]
     fn test_single_file() -> Result<()> {
         init_logger();
         let temp_project_dir = TempDir::new()?;
         let mut test_file = std::fs::File::create(temp_project_dir.path().join("test.py"))?;
         test_file.write_all(b"class Test: ...")?;
 
-        let temp_output_dir = TempDir::new()?;
-
         let settings = FileResolverSettings {
             exclude: FilePatternSet::try_from_iter(DEFAULT_EXCLUDES.to_vec()).unwrap(),
             extend_exclude: FilePatternSet::default(),
             project_root: temp_project_dir.path().to_path_buf(),
-            output_directory: temp_output_dir.path().to_path_buf(),
         };
 
-        let mut mermaider = Mermaider::new(settings, true, OutputFormat::Md);
-
-        mermaider.process();
-
-        assert_eq!(mermaider.get_written_files(), 1);
+        let mermaider = Mermaider::new(settings, true, OutputFormat::Md);
+        let diagrams = mermaider.generate_diagrams();
+        assert_eq!(diagrams.len(), 1);
 
         Ok(())
     }
@@ -229,8 +233,6 @@ mod tests {
         let temp_project_dir = TempDir::new()?;
         let mut test_file = std::fs::File::create(temp_project_dir.path().join("test.py"))?;
         test_file.write_all(b"class Test: ...")?;
-
-        let temp_output_dir = TempDir::new()?;
 
         let temp_excluded_dir = Builder::new()
             .prefix("exclude-me-")
@@ -249,14 +251,11 @@ mod tests {
                 absolute,
             )])?,
             project_root: temp_project_dir.path().to_path_buf(),
-            output_directory: temp_output_dir.path().to_path_buf(),
         };
 
-        let mut mermaider = Mermaider::new(settings, true, OutputFormat::Md);
-
-        mermaider.process();
-
-        assert_eq!(mermaider.get_written_files(), 1);
+        let mermaider = Mermaider::new(settings, true, OutputFormat::Md);
+        let diagrams = mermaider.generate_diagrams();
+        assert_eq!(diagrams.len(), 1);
 
         Ok(())
     }

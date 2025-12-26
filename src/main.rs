@@ -14,11 +14,13 @@ mod type_analyzer;
 use std::path::PathBuf;
 
 use clap::Parser;
+use log::info;
 use mermaider::Mermaider;
 use output_format::OutputFormat;
 use ruff_linter::settings::types::{FilePattern, FilePatternSet, GlobPath};
 use ruff_python_ast::{self as ast};
 use settings::{FileResolverSettings, DEFAULT_EXCLUDES};
+use std::io::Write as _;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -46,6 +48,12 @@ struct Args {
     #[arg(long, value_enum, default_value_t = OutputFormat::Md)]
     output_format: OutputFormat,
 
+    /// Output file path. Use '-' to write to stdout.
+    ///
+    /// If omitted, output is written to files under --output-dir (the default behavior).
+    #[arg(long)]
+    output: Option<String>,
+
     /// List of paths, used to omit files and/or directories from analysis.
     #[arg(
         long,
@@ -70,10 +78,10 @@ fn main() {
     let args = Args::parse();
 
     let project_root = PathBuf::from(args.path);
+    let output_dir_path = PathBuf::from(&args.output_dir);
 
     let file_settings = FileResolverSettings {
         project_root: project_root.clone(),
-        output_directory: args.output_dir.into(),
         exclude: FilePatternSet::try_from_iter(args.exclude.map_or(
             DEFAULT_EXCLUDES.to_vec(),
             |paths| {
@@ -103,11 +111,63 @@ fn main() {
         .unwrap(),
     };
 
-    let mut mermaider = Mermaider::new(file_settings, args.multiple_files, args.output_format);
+    let mermaider = Mermaider::new(file_settings, args.multiple_files, args.output_format);
 
-    mermaider.process();
+    let diagrams = mermaider.generate_diagrams();
 
-    let written = mermaider.get_written_files();
+    // If --output is provided, render a single diagram to stdout or a specific file.
+    // This is only valid when we're generating a single diagram (i.e. not multiple per-file outputs).
+    if let Some(output) = args.output {
+        if diagrams.len() > 1 {
+            eprintln!("--output is not compatible with --multiple-files (it would produce multiple outputs). Use --output-dir instead.");
+            std::process::exit(2);
+        }
 
-    println!("Files written: {written}");
+        let raw = diagrams
+            .first()
+            .and_then(|d| d.render())
+            .unwrap_or_default();
+        let content = mermaider.format_output(&raw);
+
+        if output == "-" {
+            std::io::stdout()
+                .write_all(content.as_bytes())
+                .unwrap_or_else(|e| panic!("Failed to write stdout: {e}"));
+        } else {
+            std::fs::write(&output, content)
+                .unwrap_or_else(|e| panic!("Failed to write file {output:?}: {e}"));
+        }
+    } else {
+        let extension = args.output_format.extension();
+        let output_dir = output_dir_path;
+
+        let mut written = 0usize;
+        for diagram in &diagrams {
+            if diagram.is_empty() {
+                info!("No classes found for {0:?}.", diagram.path);
+                continue;
+            }
+
+            let path = format!(
+                "{0}/{1}.{2}",
+                output_dir.to_string_lossy(),
+                diagram.path,
+                extension
+            );
+
+            if let Some(parent_dir) = std::path::Path::new(&path).parent() {
+                std::fs::create_dir_all(parent_dir)
+                    .unwrap_or_else(|e| panic!("Failed to create directory {parent_dir:?}: {e}"));
+            }
+
+            let raw = diagram.render().unwrap_or_default();
+            let content = mermaider.format_output(&raw);
+            std::fs::write(&path, content)
+                .unwrap_or_else(|e| panic!("Failed to write file {path:?}: {e}"));
+            eprintln!("Mermaid file written to: {path:?}");
+            written += 1;
+        }
+
+        eprintln!("Files written: {written}");
+    }
 }

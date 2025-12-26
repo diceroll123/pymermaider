@@ -7,7 +7,6 @@ pub struct FileResolverSettings {
     pub exclude: FilePatternSet,
     pub extend_exclude: FilePatternSet,
     pub project_root: PathBuf,
-    pub output_directory: PathBuf,
 }
 
 pub static DEFAULT_EXCLUDES: &[FilePattern] = &[

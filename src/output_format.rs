@@ -11,7 +11,6 @@ pub enum OutputFormat {
     Mmd,
 }
 
-#[allow(clippy::derivable_impls)]
 impl OutputFormat {
     #[cfg(feature = "cli")]
     pub const fn extension(self) -> &'static str {

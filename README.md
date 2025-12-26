@@ -52,6 +52,9 @@ pymermaider [OPTIONS] <PATH>
   - `mmd`: writes `*.mmd` files containing raw Mermaid text (no Markdown fences)
     - *this may become the default in the future, depending on user feedback*
 
+- `--output <OUTPUT>`
+  Write a single output to a file path, or use `-` to write to stdout. Not compatible with `--multiple-files`.
+
 - `-h, --help`
   Display help information for the command.
 
@@ -75,6 +78,16 @@ This command will exclude any folders within the subdirectories of `/path/to/dir
 
 ```bash
 pymermaider /path/to/dir --output-dir ./output --output-format mmd
+```
+
+### Piping examples
+
+```bash
+# file -> stdout
+pymermaider my_file.py --output -
+
+# directory -> stdout (single combined diagram)
+pymermaider ./my_project --output - > diagram.md
 ```
 
 ---
