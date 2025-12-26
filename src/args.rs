@@ -6,7 +6,7 @@ use crate::output_format::OutputFormat;
 #[command(version, about, long_about = None)]
 pub struct Args {
     /// Path to a file or directory. Use '-' to read Python source from stdin.
-    #[arg()]
+    #[arg(verbatim_doc_comment)]
     pub path: String,
 
     #[arg(
@@ -18,25 +18,23 @@ pub struct Args {
     pub multiple_files: bool,
 
     /// Output directory for mermaid files.
-    #[arg(short, long, default_value = "./output")]
+    #[arg(short, long, default_value = "./output", verbatim_doc_comment)]
     pub output_dir: String,
 
     /// Output file format.
-    ///
-    /// - md: writes `*.md` files containing a fenced ```mermaid code block
-    /// - mmd: writes `*.mmd` files containing raw Mermaid text (no fences)
-    #[arg(long, value_enum, default_value_t = OutputFormat::Md)]
+    #[arg(long, value_enum, verbatim_doc_comment, default_value_t = OutputFormat::Md)]
     pub output_format: OutputFormat,
 
     /// Output file path. Use '-' to write to stdout.
     ///
     /// If omitted, output is written to files under --output-dir (the default behavior).
-    #[arg(long)]
+    #[arg(long, verbatim_doc_comment)]
     pub output: Option<String>,
 
     /// List of paths, used to omit files and/or directories from analysis.
     #[arg(
         long,
+        verbatim_doc_comment,
         value_delimiter = ',',
         value_name = "FILE_PATTERN",
         help_heading = "File selection"
@@ -46,6 +44,7 @@ pub struct Args {
     /// Like --exclude, but adds additional files and directories on top of those already excluded.
     #[arg(
         long,
+        verbatim_doc_comment,
         value_delimiter = ',',
         value_name = "FILE_PATTERN",
         help_heading = "File selection"
