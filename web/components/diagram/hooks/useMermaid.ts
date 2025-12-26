@@ -202,7 +202,7 @@ export function useMermaid({
     };
 
     renderWithNewTheme();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+
   }, [themeMounted, colorMode, mermaidCode]);
 
   return {
