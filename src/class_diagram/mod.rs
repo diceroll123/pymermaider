@@ -18,7 +18,6 @@ use ruff_python_semantic::analyze::visibility::{
 };
 use ruff_python_semantic::{Module, ModuleKind, ModuleSource, SemanticModel};
 use ruff_python_stdlib::typing::simple_magic_return_type;
-use std::collections::HashSet;
 use std::path::{Path, PathBuf};
 
 /// Represents a class member (attribute or method) during processing
@@ -30,8 +29,6 @@ enum ClassMember {
 
 pub struct ClassDiagram {
     diagram: Diagram,
-    protocol_classes: HashSet<String>,
-    abstract_classes: HashSet<String>,
     pub path: String,
 }
 
@@ -45,8 +42,6 @@ impl ClassDiagram {
     pub fn new() -> Self {
         Self {
             diagram: Diagram::new(None),
-            protocol_classes: HashSet::new(),
-            abstract_classes: HashSet::new(),
             path: String::new(),
         }
     }
@@ -130,14 +125,6 @@ impl ClassDiagram {
         let detector = ClassTypeDetector::new(checker);
         let class_type = detector.detect_type(class);
 
-        // Track protocols and abstract classes for relationship detection
-        if matches!(class_type, ClassType::Interface) {
-            self.protocol_classes.insert(class_name.clone());
-        }
-        if matches!(class_type, ClassType::Abstract) {
-            self.abstract_classes.insert(class_name.clone());
-        }
-
         // Split members into attributes and methods
         let mut attributes = Vec::new();
         let mut methods = Vec::new();
@@ -201,12 +188,8 @@ impl ClassDiagram {
             .to_string();
 
             // Check if the base class is abstract or a protocol (either built-in or user-defined)
-            let base_is_abstract_or_protocol = detector.is_base_abstract_or_protocol(
-                &base_display,
-                base,
-                &self.protocol_classes,
-                &self.abstract_classes,
-            );
+            let base_is_abstract_or_protocol = self.diagram.is_abstract_or_interface(&base_display)
+                || detector.is_stdlib_abstract_or_protocol(base);
 
             let rel = RelationshipEdge {
                 from: class_name.clone(),

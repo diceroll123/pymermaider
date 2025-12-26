@@ -156,6 +156,12 @@ impl Diagram {
         self.compositions.push(composition);
     }
 
+    pub fn is_abstract_or_interface(&self, name: &str) -> bool {
+        self.classes.iter().any(|c| {
+            c.name == name && matches!(c.class_type, ClassType::Abstract | ClassType::Interface)
+        })
+    }
+
     /// Sort classes topologically based on their relationships and compositions.
     /// This ensures that base classes and composed classes appear before derived/container classes.
     pub fn sort_classes_topologically(&mut self) {
