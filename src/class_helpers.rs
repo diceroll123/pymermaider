@@ -42,10 +42,6 @@ impl ClassDefHelpers for ast::StmtClassDef {
             return false;
         };
 
-        if args.len() + keywords.len() != 1 {
-            return false;
-        }
-
         for base in args.iter().chain(keywords.iter().map(|kw| &kw.value)) {
             if let Some(qualified_name) = semantic.resolve_qualified_name(base) {
                 if matches!(
@@ -102,5 +98,116 @@ impl ClassDefHelpers for ast::StmtClassDef {
             }
         }
         false
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::checker::Checker;
+    use ruff_linter::source_kind::SourceKind;
+    use ruff_linter::Locator;
+    use ruff_python_ast::PySourceType;
+    use ruff_python_codegen::Stylist;
+    use ruff_python_parser::parse_unchecked_source;
+    use ruff_python_semantic::{Module, ModuleKind, ModuleSource, SemanticModel};
+    use std::path::Path;
+    use std::path::PathBuf;
+
+    fn find_class<'a>(python_ast: &'a [ast::Stmt], name: &str) -> &'a ast::StmtClassDef {
+        python_ast
+            .iter()
+            .find_map(|stmt| match stmt {
+                ast::Stmt::ClassDef(class) if class.name.as_str() == name => Some(class),
+                _ => None,
+            })
+            .unwrap_or_else(|| panic!("expected {name} class"))
+    }
+
+    #[test]
+    fn is_abstract_true_when_any_base_is_abc() {
+        let source = r#"
+from abc import ABC
+class Mixin: ...
+class Thing(ABC, Mixin): ...
+"#;
+
+        let file = PathBuf::from("test.py");
+        let source_kind = SourceKind::Python(source.to_string());
+        let locator = Locator::new(source_kind.source_code());
+        let parsed = parse_unchecked_source(source_kind.source_code(), PySourceType::from(&file));
+        let stylist = Stylist::from_tokens(parsed.tokens(), source_kind.source_code());
+        let python_ast = parsed.into_suite();
+        let module = Module {
+            kind: ModuleKind::Module,
+            source: ModuleSource::File(Path::new(&file)),
+            python_ast: &python_ast,
+            name: None,
+        };
+        let semantic = SemanticModel::new(&[], Path::new(&file), module);
+        let mut checker = Checker::new(&stylist, &locator, semantic);
+        checker.see_imports(&python_ast);
+
+        let thing = find_class(&python_ast, "Thing");
+
+        assert!(thing.is_abstract(checker.semantic()));
+    }
+
+    #[test]
+    fn is_abstract_false_when_no_bases_are_abc() {
+        let source = r#"
+class A: ...
+class B: ...
+class Thing(A, B): ...
+"#;
+
+        let file = PathBuf::from("test.py");
+        let source_kind = SourceKind::Python(source.to_string());
+        let locator = Locator::new(source_kind.source_code());
+        let parsed = parse_unchecked_source(source_kind.source_code(), PySourceType::from(&file));
+        let stylist = Stylist::from_tokens(parsed.tokens(), source_kind.source_code());
+        let python_ast = parsed.into_suite();
+        let module = Module {
+            kind: ModuleKind::Module,
+            source: ModuleSource::File(Path::new(&file)),
+            python_ast: &python_ast,
+            name: None,
+        };
+        let semantic = SemanticModel::new(&[], Path::new(&file), module);
+        let mut checker = Checker::new(&stylist, &locator, semantic);
+        checker.see_imports(&python_ast);
+
+        let thing = find_class(&python_ast, "Thing");
+
+        assert!(!thing.is_abstract(checker.semantic()));
+    }
+
+    #[test]
+    fn is_abstract_true_for_abc_abcmeta_metaclass() {
+        let source = r#"
+from abc import ABCMeta
+class Mixin: ...
+class Thing(Mixin, metaclass=ABCMeta): ...
+"#;
+
+        let file = PathBuf::from("test.py");
+        let source_kind = SourceKind::Python(source.to_string());
+        let locator = Locator::new(source_kind.source_code());
+        let parsed = parse_unchecked_source(source_kind.source_code(), PySourceType::from(&file));
+        let stylist = Stylist::from_tokens(parsed.tokens(), source_kind.source_code());
+        let python_ast = parsed.into_suite();
+        let module = Module {
+            kind: ModuleKind::Module,
+            source: ModuleSource::File(Path::new(&file)),
+            python_ast: &python_ast,
+            name: None,
+        };
+        let semantic = SemanticModel::new(&[], Path::new(&file), module);
+        let mut checker = Checker::new(&stylist, &locator, semantic);
+        checker.see_imports(&python_ast);
+
+        let thing = find_class(&python_ast, "Thing");
+
+        assert!(thing.is_abstract(checker.semantic()));
     }
 }
