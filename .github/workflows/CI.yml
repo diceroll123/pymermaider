@@ -200,8 +200,7 @@ jobs:
     needs:
       - linux
       - linux-cross
-      - macos-x86_64
-      - macos-universal
+      - macos
       - musllinux
       - musllinux-cross
       - windows
