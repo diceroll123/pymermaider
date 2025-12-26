@@ -80,7 +80,7 @@ This command will exclude any folders within the subdirectories of `/path/to/dir
 pymermaider /path/to/dir --output-dir ./output --output-format mmd
 ```
 
-### Piping examples
+### I/O Examples
 
 ```bash
 # py file -> stdout
