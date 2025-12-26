@@ -83,11 +83,14 @@ pymermaider /path/to/dir --output-dir ./output --output-format mmd
 ### Piping examples
 
 ```bash
-# file -> stdout
+# py file -> stdout
 pymermaider my_file.py --output -
 
 # stdin -> stdout
 cat my_file.py | pymermaider - --output -
+
+# py file -> file (raw Mermaid)
+pymermaider my_file.py --output-format mmd --output diagram.mmd
 
 # directory -> stdout (single combined diagram)
 pymermaider ./my_project --output - > diagram.md
