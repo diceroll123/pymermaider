@@ -27,6 +27,15 @@ enum ClassMember {
     Method(MethodSignature),
 }
 
+#[derive(Debug, Clone, PartialEq, Eq)]
+enum BaseKind {
+    Skip,
+    InheritanceTarget {
+        name: String,
+        is_abstract_or_protocol: bool,
+    },
+}
+
 pub struct ClassDiagram {
     diagram: Diagram,
     pub path: String,
@@ -123,6 +132,7 @@ impl ClassDiagram {
         // Detect class type using ClassTypeDetector
         let detector = ClassTypeDetector::new(checker);
         let class_type = detector.detect_type(class);
+        let class_is_enum = class.is_enum(checker.semantic());
 
         // Split members into attributes and methods
         let mut attributes = Vec::new();
@@ -146,59 +156,24 @@ impl ClassDiagram {
 
         // Handle inheritance relationships
         for base in class.bases() {
-            // skip if it's a generic type or a built-in type or an ABC or an enum or a Protocol
-            let should_skip = type_analyzer::extract_generic_params(base, checker).is_some()
-                || checker
-                    .semantic()
-                    .resolve_qualified_name(base)
-                    .is_some_and(|name| {
-                        matches!(name.segments(), ["typing", "Generic"])
-                            || matches!(name.segments(), ["" | "builtins", "object"])
-                            || matches!(name.segments(), ["abc", "ABC" | "ABCMeta"])
-                            || matches!(name.segments(), ["typing", "Protocol"])
-                            || matches!(name.segments(), ["typing_extensions", "Protocol"])
-                    })
-                || class.is_enum(checker.semantic());
-
-            if should_skip {
-                continue;
-            }
-
-            let base_name = match checker.semantic().resolve_qualified_name(base) {
-                Some(base_name) => base_name.normalize_name(),
-                None => {
-                    let name = checker.locator().slice(base);
-                    QualifiedName::user_defined(name).normalize_name()
+            match self.classify_base(checker, &detector, base, class_is_enum) {
+                BaseKind::Skip => continue,
+                BaseKind::InheritanceTarget {
+                    name,
+                    is_abstract_or_protocol,
+                } => {
+                    let rel = RelationshipEdge {
+                        from: class_name.clone(),
+                        to: name,
+                        relation_type: if is_abstract_or_protocol {
+                            RelationType::Implementation
+                        } else {
+                            RelationType::Inheritance
+                        },
+                    };
+                    self.diagram.add_relationship(rel);
                 }
-            };
-
-            // Extract just the base class name without the generic specialization
-            let base_display = if base_name.contains('[') {
-                base_name
-                    .split('[')
-                    .next()
-                    .unwrap_or(&base_name)
-                    .to_string()
-            } else {
-                base_name
             }
-            .trim_matches('`')
-            .to_string();
-
-            // Check if the base class is abstract or a protocol (either built-in or user-defined)
-            let base_is_abstract_or_protocol = self.diagram.is_abstract_or_interface(&base_display)
-                || detector.is_stdlib_abstract_or_protocol(base);
-
-            let rel = RelationshipEdge {
-                from: class_name.clone(),
-                to: base_display,
-                relation_type: if base_is_abstract_or_protocol {
-                    RelationType::Implementation
-                } else {
-                    RelationType::Inheritance
-                },
-            };
-            self.diagram.add_relationship(rel);
         }
 
         // Add composition relationships
@@ -340,6 +315,65 @@ impl ClassDiagram {
             }
 
             _ => None,
+        }
+    }
+
+    fn classify_base(
+        &self,
+        checker: &Checker,
+        detector: &ClassTypeDetector,
+        base: &ast::Expr,
+        class_is_enum: bool,
+    ) -> BaseKind {
+        // Enums are a special case: we don't draw inheritance relationships for enum bases.
+        if class_is_enum {
+            return BaseKind::Skip;
+        }
+
+        // Skip generic parameter carrier bases like Generic[T].
+        if type_analyzer::extract_generic_params(base, checker).is_some() {
+            return BaseKind::Skip;
+        }
+
+        if checker
+            .semantic()
+            .resolve_qualified_name(base)
+            .is_some_and(|name| {
+                matches!(name.segments(), ["typing", "Generic"])
+                    || matches!(name.segments(), ["" | "builtins", "object"])
+                    || matches!(name.segments(), ["abc", "ABC" | "ABCMeta"])
+                    || matches!(
+                        name.segments(),
+                        ["typing" | "typing_extensions", "Protocol"]
+                    )
+            })
+        {
+            return BaseKind::Skip;
+        }
+
+        let base_name = match checker.semantic().resolve_qualified_name(base) {
+            Some(base_name) => base_name.normalize_name(),
+            None => {
+                let name = checker.locator().slice(base);
+                QualifiedName::user_defined(name).normalize_name()
+            }
+        };
+
+        // Extract just the base class name without the generic specialization.
+        let base_display = base_name
+            .split('[')
+            .next()
+            .unwrap_or(&base_name)
+            .trim_matches('`')
+            .to_string();
+
+        // Check if the base class is abstract or a protocol (either built-in or user-defined).
+        let base_is_abstract_or_protocol = self.diagram.is_abstract_or_interface(&base_display)
+            || detector.is_stdlib_abstract_or_protocol(base);
+
+        BaseKind::InheritanceTarget {
+            name: base_display,
+            is_abstract_or_protocol: base_is_abstract_or_protocol,
         }
     }
 
