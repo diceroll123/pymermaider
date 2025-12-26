@@ -56,29 +56,13 @@ impl<'a> ClassTypeDetector<'a> {
         class.bases().iter().any(|base| {
             self.semantic
                 .resolve_qualified_name(base)
-                .is_some_and(|name| {
-                    matches!(
-                        name.segments(),
-                        ["abc", "ABC" | "ABCMeta"] | ["typing", "ABC"]
-                    )
-                })
+                .is_some_and(|name| matches!(name.segments(), ["abc", "ABC" | "ABCMeta"]))
         })
     }
 
     /// Check if a base class is abstract or a protocol.
     /// Used for determining relationship types (solid vs dotted lines).
-    pub fn is_base_abstract_or_protocol(
-        &self,
-        base_name: &str,
-        base_expr: &ast::Expr,
-        protocol_classes: &std::collections::HashSet<String>,
-        abstract_classes: &std::collections::HashSet<String>,
-    ) -> bool {
-        // Check if it's in our tracked sets (user-defined classes)
-        if protocol_classes.contains(base_name) || abstract_classes.contains(base_name) {
-            return true;
-        }
-
+    pub fn is_stdlib_abstract_or_protocol(&self, base_expr: &ast::Expr) -> bool {
         // Check if it's a standard library Protocol or ABC
         self.semantic
             .resolve_qualified_name(base_expr)

@@ -1,77 +1,19 @@
-mod checker;
-mod class_diagram;
-mod class_helpers;
-mod class_type_detector;
-mod mermaid_escape;
-mod mermaid_renderer;
+mod args;
 mod mermaider;
 mod output_format;
-mod parameter_generator;
-mod renderer;
 mod settings;
-mod type_analyzer;
 
 use std::path::PathBuf;
 
+use args::Args;
 use clap::Parser;
 use log::info;
 use mermaider::Mermaider;
-use output_format::OutputFormat;
+use pymermaider_lib::class_diagram;
 use ruff_linter::settings::types::{FilePattern, FilePatternSet, GlobPath};
-use ruff_python_ast::{self as ast};
 use settings::{FileResolverSettings, DEFAULT_EXCLUDES};
 use std::io::Read as _;
 use std::io::Write as _;
-
-#[derive(Parser, Debug)]
-#[command(version, about, long_about = None)]
-struct Args {
-    /// Path to a file or directory. Use '-' to read Python source from stdin.
-    #[arg()]
-    path: String,
-
-    #[arg(
-        short,
-        long,
-        default_value = "false",
-        long_help = "Process each file individually, outputting a mermaid file for each file. Only used when path is a directory."
-    )]
-    multiple_files: bool,
-
-    /// Output directory for mermaid files.
-    #[arg(short, long, default_value = "./output")]
-    output_dir: String,
-
-    /// Output file format.
-    ///
-    /// - md: writes `*.md` files containing a fenced ```mermaid code block
-    /// - mmd: writes `*.mmd` files containing raw Mermaid text (no fences)
-    #[arg(long, value_enum, default_value_t = OutputFormat::Md)]
-    output_format: OutputFormat,
-
-    /// Output file path. Use '-' to write to stdout.
-    ///
-    /// If omitted, output is written to files under --output-dir (the default behavior).
-    #[arg(long)]
-    output: Option<String>,
-
-    /// List of paths, used to omit files and/or directories from analysis.
-    #[arg(
-        long,
-        value_delimiter = ',',
-        value_name = "FILE_PATTERN",
-        help_heading = "File selection"
-    )]
-    pub exclude: Option<Vec<String>>,
-    /// Like --exclude, but adds additional files and directories on top of those already excluded.
-    #[arg(
-        long,
-        value_delimiter = ',',
-        value_name = "FILE_PATTERN",
-        help_heading = "File selection"
-    )]
-    pub extend_exclude: Option<Vec<String>>,
-}
 
 fn main() {
     env_logger::init();

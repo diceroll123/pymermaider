@@ -1,15 +1,16 @@
-mod checker;
-mod class_diagram;
-mod class_helpers;
-mod class_type_detector;
-mod mermaid_escape;
-mod mermaid_renderer;
-mod parameter_generator;
-mod renderer;
-mod type_analyzer;
+pub mod checker;
+pub mod class_diagram;
+pub mod class_helpers;
+pub mod class_type_detector;
+pub mod mermaid_escape;
+pub mod mermaid_renderer;
+pub mod parameter_generator;
+pub mod renderer;
+pub mod type_analyzer;
+
+pub use ruff_python_ast as ast;
 
 use class_diagram::ClassDiagram;
-use ruff_python_ast as ast;
 use std::path::PathBuf;
 use wasm_bindgen::prelude::*;
 

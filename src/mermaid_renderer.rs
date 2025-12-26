@@ -1,220 +1,217 @@
 use crate::mermaid_escape::MermaidEscape;
 use crate::renderer::*;
-use itertools::Itertools;
+use indexmap::IndexSet;
 
 const TAB: &str = "    ";
 
-/// Mermaid-specific renderer implementation
-pub struct MermaidRenderer {
-    indent_level: usize,
+fn indent(indent_level: usize) -> String {
+    TAB.repeat(indent_level)
 }
 
-impl MermaidRenderer {
-    pub fn new() -> Self {
-        Self { indent_level: 1 }
-    }
-
-    fn indent(&self) -> String {
-        TAB.repeat(self.indent_level)
-    }
-
-    fn format_visibility(&self, visibility: Visibility) -> char {
-        match visibility {
-            Visibility::Public => '+',
-            Visibility::Private => '-',
-            Visibility::Protected => '#',
-        }
-    }
-
-    fn format_class_type(&self, class_type: ClassType) -> Option<&'static str> {
-        match class_type {
-            ClassType::Regular => None,
-            ClassType::Abstract => Some("<<abstract>>"),
-            ClassType::Interface => Some("<<interface>>"),
-            ClassType::Enumeration => Some("<<enumeration>>"),
-            ClassType::Dataclass => Some("<<dataclass>>"),
-            ClassType::Final => Some("<<final>>"),
-        }
+fn format_visibility(visibility: Visibility) -> char {
+    match visibility {
+        Visibility::Public => '+',
+        Visibility::Private => '-',
+        Visibility::Protected => '#',
     }
 }
 
-impl Default for MermaidRenderer {
-    fn default() -> Self {
-        Self::new()
+fn format_class_type(class_type: ClassType) -> Option<&'static str> {
+    match class_type {
+        ClassType::Regular => None,
+        ClassType::Abstract => Some("<<abstract>>"),
+        ClassType::Interface => Some("<<interface>>"),
+        ClassType::Enumeration => Some("<<enumeration>>"),
+        ClassType::Dataclass => Some("<<dataclass>>"),
+        ClassType::Final => Some("<<final>>"),
     }
 }
 
-impl DiagramRenderer for MermaidRenderer {
-    fn render_header(&self, title: Option<&str>) -> String {
-        let mut output = String::new();
+fn has_class_body(class: &ClassNode) -> bool {
+    !class.attributes.is_empty()
+        || !class.methods.is_empty()
+        || class.class_type != ClassType::Regular
+}
 
-        if let Some(title) = title {
-            output.push_str("---\n");
-            output.push_str(&format!("title: {}\n", title));
-            output.push_str("---\n");
-        }
-
-        output.push_str("classDiagram\n");
-        output
-    }
-
-    fn render_class(&self, class: &ClassNode) -> String {
-        let mut output = String::new();
-        let indent = self.indent();
-
-        // Class declaration
-        output.push_str(&indent);
-        output.push_str("class ");
-        output.push_str(&class.name);
-
-        // Type parameters (generics)
-        if let Some(ref type_params) = class.type_params {
-            output.push_str(&format!(" ~{}~", type_params));
-        }
-
-        // Check if we need a body
-        let has_content = !class.attributes.is_empty()
-            || !class.methods.is_empty()
-            || class.class_type != ClassType::Regular;
-
-        if has_content {
-            output.push_str(" {\n");
-
-            // Class type annotation
-            if let Some(annotation) = self.format_class_type(class.class_type) {
-                output.push_str(&indent);
-                output.push_str(&indent);
-                output.push_str(annotation);
-                output.push('\n');
-            }
-
-            // Attributes
-            for attr in &class.attributes {
-                output.push_str(&indent);
-                output.push_str(&indent);
-                output.push(self.format_visibility(attr.visibility));
-                output.push(' ');
-                output.push_str(&attr.type_annotation);
-                output.push(' ');
-                output.push_str(&attr.name.escape_underscores());
-                output.push('\n');
-            }
-
-            // Methods
-            for method in &class.methods {
-                output.push_str(&indent);
-                output.push_str(&indent);
-                output.push(self.format_visibility(method.visibility));
-                output.push(' ');
-
-                // Decorators
-                for decorator in &method.decorators {
-                    output.push_str(decorator);
-                    output.push(' ');
-                }
-
-                // Async modifier
-                if method.is_async {
-                    output.push_str("async ");
-                }
-
-                // Method signature
-                output.push_str(&method.name.escape_underscores());
-                output.push('(');
-                output.push_str(&method.parameters);
-                output.push(')');
-
-                // Return type
-                if let Some(ref return_type) = method.return_type {
-                    output.push(' ');
-                    output.push_str(return_type);
-                }
-
-                // Classifiers
-                if method.is_abstract {
-                    output.push('*');
-                } else if method.is_static {
-                    output.push('$');
-                }
-
-                output.push('\n');
-            }
-
-            output.push_str(&indent);
-            output.push('}');
-        }
-
-        output.push_str("\n\n");
-        output
-    }
-
-    fn render_relationship(&self, relationship: &RelationshipEdge) -> String {
-        let symbol = match relationship.relation_type {
-            RelationType::Inheritance => "--|>",
-            RelationType::Implementation => "..|>",
-        };
-
-        format!(
-            "{}{} {} {}\n",
-            self.indent(),
-            relationship.from,
-            symbol,
-            relationship.to
-        )
-    }
-
-    fn render_composition(&self, composition: &CompositionEdge) -> String {
-        format!(
-            "{}{} *-- {}\n",
-            self.indent(),
-            composition.container,
-            composition.contained
-        )
-    }
-
-    fn render_diagram(&self, diagram: &Diagram) -> Option<String> {
-        if diagram.is_empty() {
-            return None;
-        }
-
-        let mut output = String::with_capacity(1024);
-
-        // Header
-        output.push_str(&self.render_header(diagram.title.as_deref()));
-
-        // Classes (deduplicated)
-        for class in diagram.classes.iter().unique_by(|c| &c.name) {
-            output.push_str(&self.render_class(class));
-        }
-
-        // Relationships (deduplicated)
-        let unique_relationships: Vec<_> = diagram.relationships.iter().unique().collect();
-        if !unique_relationships.is_empty() {
-            let relationship_strs: Vec<String> = unique_relationships
-                .iter()
-                .map(|rel| self.render_relationship(rel))
-                .collect();
-            output.push_str(&relationship_strs.join("\n"));
-        }
-
-        // Compositions (deduplicated)
-        let unique_compositions: Vec<_> = diagram.compositions.iter().unique().collect();
-        if !unique_compositions.is_empty() {
-            if !unique_relationships.is_empty() {
-                output.push('\n');
-            }
-            let composition_strs: Vec<String> = unique_compositions
-                .iter()
-                .map(|comp| self.render_composition(comp))
-                .collect();
-            output.push_str(&composition_strs.join("\n"));
-        }
-
-        output = output.trim_end().to_owned();
+fn render_class_annotation(output: &mut String, inner_indent: &str, class_type: ClassType) {
+    if let Some(annotation) = format_class_type(class_type) {
+        output.push_str(inner_indent);
+        output.push_str(annotation);
         output.push('\n');
-
-        Some(output)
     }
+}
+
+fn render_attribute(output: &mut String, inner_indent: &str, attr: &Attribute) {
+    output.push_str(inner_indent);
+    output.push(format_visibility(attr.visibility));
+    output.push(' ');
+    output.push_str(&attr.type_annotation);
+    output.push(' ');
+    output.push_str(&attr.name.escape_underscores());
+    output.push('\n');
+}
+
+fn render_method(output: &mut String, inner_indent: &str, method: &MethodSignature) {
+    output.push_str(inner_indent);
+    output.push(format_visibility(method.visibility));
+    output.push(' ');
+
+    // Decorators
+    for decorator in &method.decorators {
+        output.push_str(decorator);
+        output.push(' ');
+    }
+
+    // Async modifier
+    if method.is_async {
+        output.push_str("async ");
+    }
+
+    // Method signature
+    output.push_str(&method.name.escape_underscores());
+    output.push('(');
+    output.push_str(&method.parameters);
+    output.push(')');
+
+    // Return type
+    if let Some(ref return_type) = method.return_type {
+        output.push(' ');
+        output.push_str(return_type);
+    }
+
+    // Classifiers
+    if method.is_abstract {
+        output.push('*');
+    } else if method.is_static {
+        output.push('$');
+    }
+
+    output.push('\n');
+}
+
+fn render_relationship_symbol(relation_type: RelationType) -> &'static str {
+    match relation_type {
+        RelationType::Inheritance => "--|>",
+        RelationType::Implementation => "..|>",
+    }
+}
+
+pub fn render_header(title: Option<&str>) -> String {
+    let mut output = String::new();
+
+    if let Some(title) = title {
+        output.push_str("---\n");
+        output.push_str(&format!("title: {}\n", title));
+        output.push_str("---\n");
+    }
+
+    output.push_str("classDiagram\n");
+    output
+}
+
+pub fn render_class(class: &ClassNode) -> String {
+    let mut output = String::new();
+    let outer_indent = indent(1);
+    let inner_indent = indent(2);
+
+    // Class declaration
+    output.push_str(&outer_indent);
+    output.push_str("class ");
+    output.push_str(&class.name);
+
+    // Type parameters (generics)
+    if let Some(ref type_params) = class.type_params {
+        output.push_str(&format!(" ~{}~", type_params));
+    }
+
+    if has_class_body(class) {
+        output.push_str(" {\n");
+
+        // Class type annotation
+        render_class_annotation(&mut output, &inner_indent, class.class_type);
+
+        // Attributes
+        for attr in &class.attributes {
+            render_attribute(&mut output, &inner_indent, attr);
+        }
+
+        // Methods
+        for method in &class.methods {
+            render_method(&mut output, &inner_indent, method);
+        }
+
+        output.push_str(&outer_indent);
+        output.push('}');
+    }
+
+    output.push_str("\n\n");
+    output
+}
+
+pub fn render_relationship(relationship: &RelationshipEdge) -> String {
+    let symbol = render_relationship_symbol(relationship.relation_type);
+
+    format!(
+        "{}{} {} {}\n",
+        indent(1),
+        relationship.from,
+        symbol,
+        relationship.to
+    )
+}
+
+pub fn render_composition(composition: &CompositionEdge) -> String {
+    format!(
+        "{}{} *-- {}\n",
+        indent(1),
+        composition.container,
+        composition.contained
+    )
+}
+/// Render a full Mermaid class diagram. `title_override` takes precedence over `diagram.title`.
+pub fn render_diagram(diagram: &Diagram, title_override: Option<&str>) -> Option<String> {
+    if diagram.is_empty() {
+        return None;
+    }
+
+    let title = title_override.or(diagram.title.as_deref());
+
+    let mut output = String::with_capacity(1024);
+    output.push_str(&render_header(title));
+
+    for class in diagram.classes_topologically_sorted_unique() {
+        output.push_str(&render_class(class));
+    }
+
+    // Relationships (deduped; stable order)
+    let unique_relationships: IndexSet<_> = diagram.relationships.iter().collect();
+    if !unique_relationships.is_empty() {
+        for (idx, rel) in unique_relationships.iter().enumerate() {
+            output.push_str(&render_relationship(rel));
+            if idx + 1 < unique_relationships.len() {
+                output.push('\n');
+            }
+        }
+    }
+
+    // Compositions (deduped; stable order)
+    let unique_compositions: IndexSet<_> = diagram.compositions.iter().collect();
+    if !unique_compositions.is_empty() {
+        if !unique_relationships.is_empty() {
+            output.push('\n');
+        }
+
+        for (idx, comp) in unique_compositions.iter().enumerate() {
+            output.push_str(&render_composition(comp));
+            if idx + 1 < unique_compositions.len() {
+                output.push('\n');
+            }
+        }
+    }
+
+    output = output.trim_end().to_owned();
+    output.push('\n');
+    Some(output)
 }
 
 #[cfg(test)]
@@ -223,8 +220,6 @@ mod tests {
 
     #[test]
     fn test_render_simple_class() {
-        let renderer = MermaidRenderer::new();
-
         let class = ClassNode {
             name: "Person".to_string(),
             type_params: None,
@@ -246,7 +241,7 @@ mod tests {
             }],
         };
 
-        let output = renderer.render_class(&class);
+        let output = render_class(&class);
         assert!(output.contains("class Person"));
         assert!(output.contains("+ str name"));
         assert!(output.contains("+ greet(self) str"));
@@ -254,15 +249,13 @@ mod tests {
 
     #[test]
     fn test_render_relationship() {
-        let renderer = MermaidRenderer::new();
-
         let rel = RelationshipEdge {
             from: "Dog".to_string(),
             to: "Animal".to_string(),
             relation_type: RelationType::Inheritance,
         };
 
-        let output = renderer.render_relationship(&rel);
+        let output = render_relationship(&rel);
         assert!(output.contains("Dog --|> Animal"));
     }
 }

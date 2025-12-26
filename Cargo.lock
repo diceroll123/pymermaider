@@ -1320,6 +1320,7 @@ dependencies = [
  "getrandom 0.3.4",
  "globset",
  "ignore",
+ "indexmap",
  "itertools 0.14.0",
  "log",
  "ruff_linter",

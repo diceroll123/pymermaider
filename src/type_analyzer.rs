@@ -9,63 +9,61 @@ const BUILTIN_TYPES: &[&str] = &[
 ];
 
 /// Extract type names from annotations for composition relationship detection.
-/// Returns the type name if it represents a potential composition (non-builtin, non-typing class).
+/// Returns zero or more type names that represent potential compositions
+/// (non-builtin, non-typing types).
 ///
 /// # Examples
-/// - `foo: MyClass` → Some("MyClass")
-/// - `foo: list[MyClass]` → Some("MyClass")
-/// - `foo: Optional[MyClass]` → Some("MyClass")
-/// - `foo: X | Y` → Some("X")
-/// - `foo: int` → None (builtin)
-pub fn extract_composition_type(annotation: &Expr, checker: &Checker) -> Option<String> {
-    match annotation {
-        // Simple name: foo: MyClass
-        Expr::Name(name) => {
-            let type_name = name.id.to_string();
+/// - `foo: MyClass` → vec!["MyClass"]
+/// - `foo: list[MyClass]` → vec!["MyClass"]
+/// - `foo: Optional[MyClass]` → vec!["MyClass"]
+/// - `foo: X | Y` → vec!["X", "Y"]
+/// - `foo: int` → vec![] (builtin)
+pub fn extract_composition_types(annotation: &Expr, checker: &Checker) -> Vec<String> {
+    fn is_eligible_name(type_name: &str, annotation: &Expr, checker: &Checker) -> Option<String> {
+        // Skip built-in types
+        if BUILTIN_TYPES.contains(&type_name) {
+            return None;
+        }
 
-            // Skip built-in types
-            if BUILTIN_TYPES.contains(&type_name.as_str()) {
+        // Try to resolve qualified name
+        if let Some(qualified) = checker.semantic().resolve_qualified_name(annotation) {
+            let segments = qualified.segments();
+            // Skip built-in types and typing module types
+            if matches!(segments[0], "builtins" | "typing" | "") {
                 return None;
             }
+            Some(segments.join("."))
+        } else {
+            // If we can't resolve it, it might be a local class - return the name
+            Some(type_name.to_string())
+        }
+    }
 
-            // Try to resolve qualified name
-            if let Some(qualified) = checker.semantic().resolve_qualified_name(annotation) {
-                let segments = qualified.segments();
-                // Skip built-in types and typing module types
-                if matches!(segments[0], "builtins" | "typing" | "") {
-                    return None;
-                }
-                Some(segments.join("."))
-            } else {
-                // If we can't resolve it, it might be a local class - return the name
-                Some(type_name)
-            }
-        }
-        // Subscript: foo: list[MyClass], Optional[MyClass], etc.
-        Expr::Subscript(subscript) => {
-            // Try to extract the inner type from containers
-            match subscript.slice.as_ref() {
-                Expr::Name(_) => extract_composition_type(subscript.slice.as_ref(), checker),
-                Expr::Tuple(tuple) => {
-                    // For Union, get first non-None type
-                    for elt in &tuple.elts {
-                        if let Some(type_name) = extract_composition_type(elt, checker) {
-                            return Some(type_name);
-                        }
-                    }
-                    None
-                }
-                _ => None,
-            }
-        }
+    match annotation {
+        // Simple name: foo: MyClass
+        Expr::Name(name) => is_eligible_name(name.id.as_ref(), annotation, checker)
+            .into_iter()
+            .collect(),
+
+        // Subscript: foo: list[MyClass], Optional[MyClass], Union[X, Y], etc.
+        Expr::Subscript(subscript) => match subscript.slice.as_ref() {
+            Expr::Name(_) => extract_composition_types(subscript.slice.as_ref(), checker),
+            Expr::Tuple(tuple) => tuple
+                .elts
+                .iter()
+                .flat_map(|elt| extract_composition_types(elt, checker))
+                .collect(),
+            _ => vec![],
+        },
+
         // Binary op for union types (X | Y)
         Expr::BinOp(binop) => {
-            if let Some(left) = extract_composition_type(binop.left.as_ref(), checker) {
-                return Some(left);
-            }
-            extract_composition_type(binop.right.as_ref(), checker)
+            let mut out = extract_composition_types(binop.left.as_ref(), checker);
+            out.extend(extract_composition_types(binop.right.as_ref(), checker));
+            out
         }
-        _ => None,
+
+        _ => vec![],
     }
 }
 

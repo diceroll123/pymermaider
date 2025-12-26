@@ -16,6 +16,7 @@ required-features = ["cli"]
 clap = { version = "4.5.51", features = ["derive"], optional = true }
 env_logger = { version = "0.11.8", default-features = false, features = ["auto-color", "color"], optional = true }
 ignore = { version = "0.4.25", features = ["simd-accel"], optional = true }
+indexmap = "2.7.0"
 itertools = "0.14.0"
 log = "0.4.28"
 ruff_python_ast = { git = "https://github.com/astral-sh/ruff.git", tag = "0.14.10" }

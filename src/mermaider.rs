@@ -1,5 +1,6 @@
 use crate::output_format::OutputFormat;
-use crate::{class_diagram::ClassDiagram, settings::FileResolverSettings};
+use crate::settings::FileResolverSettings;
+use pymermaider_lib::class_diagram::ClassDiagram;
 
 use globset::Candidate;
 use ignore::{types::TypesBuilder, WalkBuilder};
@@ -43,21 +44,21 @@ impl Mermaider {
     ///   - with `multiple_files=true`, returns one diagram per Python file.
     ///   - otherwise returns one combined diagram.
     pub fn generate_diagrams(&self) -> Vec<ClassDiagram> {
-        let path = &self.file_settings.project_root;
+        let root = self.file_settings.project_root.as_path();
 
-        if !path.exists() {
-            eprintln!("{path:?} does not exist.");
+        if !root.exists() {
+            eprintln!("{root:?} does not exist.");
             return vec![];
         }
 
-        if path.is_file() {
-            let mut diagram = self.make_mermaid(vec![path.clone()]);
-            diagram.path = path.to_string_lossy().to_string();
+        if root.is_file() {
+            let mut diagram = self.make_mermaid(vec![root.to_path_buf()]);
+            diagram.path = root.to_string_lossy().to_string();
             return vec![diagram];
         }
 
-        if path.is_dir() {
-            let parsed_files = match self.parse_folder(path) {
+        if root.is_dir() {
+            let parsed_files = match self.parse_folder(root) {
                 Ok(files) => files,
                 Err(_) => return vec![],
             };
@@ -66,16 +67,19 @@ impl Mermaider {
                 let mut diagrams = Vec::with_capacity(parsed_files.len());
                 for parsed_file in &parsed_files {
                     let mut diagram = self.make_mermaid(vec![parsed_file.clone()]);
-                    let diagram_path = Path::new(parsed_file).strip_prefix(path).unwrap();
-                    diagram.path = diagram_path.to_string_lossy().to_string();
+                    diagram.path = parsed_file
+                        .strip_prefix(root)
+                        .unwrap_or(parsed_file.as_path())
+                        .to_string_lossy()
+                        .to_string();
                     diagrams.push(diagram);
                 }
                 return diagrams;
             }
 
-            let canonical_path = match path.canonicalize() {
+            let canonical_path = match root.canonicalize() {
                 Ok(p) => p,
-                Err(_) => path.clone(),
+                Err(_) => root.to_path_buf(),
             };
 
             let mut diagram = self.make_mermaid(parsed_files);
@@ -106,7 +110,7 @@ impl Mermaider {
         class_diagram
     }
 
-    fn parse_folder(&self, path: &PathBuf) -> std::io::Result<Vec<PathBuf>> {
+    fn parse_folder(&self, path: &Path) -> std::io::Result<Vec<PathBuf>> {
         let mut parsed_files = vec![];
 
         let types = TypesBuilder::new()
@@ -149,6 +153,7 @@ impl Mermaider {
             }
         }
 
+        parsed_files.sort();
         Ok(parsed_files)
     }
 }

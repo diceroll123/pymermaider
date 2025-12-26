@@ -1,52 +1,3 @@
-/// Trait for rendering class diagrams in different formats
-pub trait DiagramRenderer {
-    /// Render the diagram header/preamble
-    fn render_header(&self, title: Option<&str>) -> String;
-
-    /// Render a single class definition
-    fn render_class(&self, class: &ClassNode) -> String;
-
-    /// Render an inheritance/implementation relationship
-    fn render_relationship(&self, relationship: &RelationshipEdge) -> String;
-
-    /// Render a composition relationship
-    fn render_composition(&self, composition: &CompositionEdge) -> String;
-
-    /// Render the complete diagram, returns None if diagram is empty
-    fn render_diagram(&self, diagram: &Diagram) -> Option<String> {
-        // Check if diagram is empty
-        if diagram.is_empty() {
-            return None;
-        }
-
-        let mut output = String::with_capacity(1024);
-
-        // Header
-        output.push_str(&self.render_header(diagram.title.as_deref()));
-
-        // Classes
-        for class in &diagram.classes {
-            output.push_str(&self.render_class(class));
-        }
-
-        // Relationships
-        if !diagram.relationships.is_empty() {
-            for relationship in &diagram.relationships {
-                output.push_str(&self.render_relationship(relationship));
-            }
-        }
-
-        // Compositions
-        if !diagram.compositions.is_empty() {
-            for composition in &diagram.compositions {
-                output.push_str(&self.render_composition(composition));
-            }
-        }
-
-        Some(output)
-    }
-}
-
 /// Represents visibility of class members (public, private, protected)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Visibility {
@@ -156,73 +107,75 @@ impl Diagram {
         self.compositions.push(composition);
     }
 
-    /// Sort classes topologically based on their relationships and compositions.
-    /// This ensures that base classes and composed classes appear before derived/container classes.
-    pub fn sort_classes_topologically(&mut self) {
+    pub fn is_abstract_or_interface(&self, name: &str) -> bool {
+        self.classes.iter().any(|c| {
+            c.name == name && matches!(c.class_type, ClassType::Abstract | ClassType::Interface)
+        })
+    }
+
+    /// Return classes in a deterministic topological order based on relationships and compositions,
+    /// without mutating the diagram. Classes are de-duplicated by name (first occurrence wins).
+    pub fn classes_topologically_sorted_unique(&self) -> Vec<&ClassNode> {
         use std::collections::{HashMap, HashSet};
 
-        let mut class_map: HashMap<String, ClassNode> = HashMap::new();
-
-        // Build a map of class names to their ClassNodes
+        // Build a name -> first ClassNode map (stable de-dupe).
+        let mut class_map: HashMap<&str, &ClassNode> = HashMap::new();
         for class in &self.classes {
-            class_map.insert(class.name.clone(), class.clone());
+            class_map.entry(class.name.as_str()).or_insert(class);
         }
 
-        // Build dependency graph from relationships and compositions
-        let mut dependencies: HashMap<String, HashSet<String>> = HashMap::new();
+        // Build dependency graph from relationships and compositions.
+        let mut dependencies: HashMap<&str, HashSet<&str>> = HashMap::new();
 
         for relationship in &self.relationships {
             dependencies
-                .entry(relationship.from.clone())
+                .entry(relationship.from.as_str())
                 .or_default()
-                .insert(relationship.to.clone());
+                .insert(relationship.to.as_str());
         }
 
         for composition in &self.compositions {
             dependencies
-                .entry(composition.container.clone())
+                .entry(composition.container.as_str())
                 .or_default()
-                .insert(composition.contained.clone());
+                .insert(composition.contained.as_str());
         }
 
-        // Topological sort with grouping
-        let mut visited = HashSet::new();
-        let mut sorted = Vec::new();
-
-        fn visit(
-            name: &str,
-            dependencies: &HashMap<String, HashSet<String>>,
-            visited: &mut HashSet<String>,
-            sorted: &mut Vec<String>,
+        // Topological sort with deterministic iteration.
+        fn visit<'a>(
+            name: &'a str,
+            dependencies: &HashMap<&'a str, HashSet<&'a str>>,
+            visited: &mut HashSet<&'a str>,
+            sorted: &mut Vec<&'a str>,
         ) {
             if visited.contains(name) {
                 return;
             }
-            visited.insert(name.to_string());
+            visited.insert(name);
 
-            // Visit dependencies first in sorted order for consistency
             if let Some(deps) = dependencies.get(name) {
-                let mut sorted_deps: Vec<_> = deps.iter().cloned().collect();
+                let mut sorted_deps: Vec<_> = deps.iter().copied().collect();
                 sorted_deps.sort();
                 for dep in sorted_deps {
-                    visit(&dep, dependencies, visited, sorted);
+                    visit(dep, dependencies, visited, sorted);
                 }
             }
 
-            sorted.push(name.to_string());
+            sorted.push(name);
         }
 
-        // Visit all classes in sorted order for consistent output
-        let mut class_names: Vec<_> = class_map.keys().cloned().collect();
+        let mut visited: HashSet<&str> = HashSet::new();
+        let mut sorted_names: Vec<&str> = Vec::new();
+
+        let mut class_names: Vec<&str> = class_map.keys().copied().collect();
         class_names.sort();
         for name in class_names {
-            visit(&name, &dependencies, &mut visited, &mut sorted);
+            visit(name, &dependencies, &mut visited, &mut sorted_names);
         }
 
-        // Replace classes with sorted version
-        self.classes = sorted
-            .iter()
-            .filter_map(|name| class_map.get(name).cloned())
-            .collect();
+        sorted_names
+            .into_iter()
+            .filter_map(|name| class_map.get(name).copied())
+            .collect()
     }
 }
