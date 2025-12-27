@@ -177,16 +177,18 @@ pub fn render_composition(composition: &CompositionEdge) -> String {
         composition.contained
     )
 }
-/// Render a full Mermaid class diagram. `title_override` takes precedence over `diagram.title`.
-pub fn render_diagram(diagram: &Diagram, title_override: Option<&str>) -> Option<String> {
+/// Render a full Mermaid class diagram.
+pub fn render_diagram(
+    diagram: &Diagram,
+    title: Option<&str>,
+    direction: DiagramDirection,
+) -> Option<String> {
     if diagram.is_empty() {
         return None;
     }
 
-    let title = title_override.or(diagram.title.as_deref());
-
     let mut output = String::with_capacity(1024);
-    output.push_str(&render_header(title, diagram.direction));
+    output.push_str(&render_header(title, direction));
 
     for class in diagram.classes_topologically_sorted_unique() {
         output.push_str(&render_class(class));

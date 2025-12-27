@@ -40,6 +40,7 @@ enum BaseKind {
 
 pub struct ClassDiagram {
     diagram: Diagram,
+    direction: DiagramDirection,
     pub path: String,
 }
 
@@ -52,7 +53,8 @@ impl Default for ClassDiagram {
 impl ClassDiagram {
     pub fn new(direction: DiagramDirection) -> Self {
         Self {
-            diagram: Diagram::new(None, direction),
+            diagram: Diagram::new(),
+            direction,
             path: String::new(),
         }
     }
@@ -72,7 +74,7 @@ impl ClassDiagram {
             Some(self.path.as_str())
         };
 
-        crate::mermaid_renderer::render_diagram(&self.diagram, title)
+        crate::mermaid_renderer::render_diagram(&self.diagram, title, self.direction)
     }
 
     pub fn add_class(

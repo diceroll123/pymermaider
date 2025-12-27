@@ -114,24 +114,16 @@ impl std::str::FromStr for DiagramDirection {
 }
 
 /// The complete diagram structure
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct Diagram {
-    pub title: Option<String>,
-    pub direction: DiagramDirection,
     pub classes: Vec<ClassNode>,
     pub relationships: Vec<RelationshipEdge>,
     pub compositions: Vec<CompositionEdge>,
 }
 
 impl Diagram {
-    pub fn new(title: Option<String>, direction: DiagramDirection) -> Self {
-        Self {
-            title,
-            direction,
-            classes: Vec::new(),
-            relationships: Vec::new(),
-            compositions: Vec::new(),
-        }
+    pub fn new() -> Self {
+        Self::default()
     }
 
     pub fn is_empty(&self) -> bool {
