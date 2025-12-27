@@ -53,6 +53,9 @@ pymermaider [OPTIONS] <PATH>
 - `--output <OUTPUT>`
   Output file path. Use '-' to write to stdout. Not compatible with `--multiple-files`.
 
+- `--direction <DIRECTION>`
+  Class diagram direction. [default: TB] [possible values: TB, BT, LR, RL]
+
 - `-h, --help`
   Display help information for the command.
 

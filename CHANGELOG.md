@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- `--direction` flag to set class diagram direction (TB, BT, LR, RL).
 
 ### Changed
 

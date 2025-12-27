@@ -61,7 +61,12 @@ fn main() {
         .unwrap(),
     };
 
-    let mermaider = Mermaider::new(file_settings, args.multiple_files, args.output_format);
+    let mermaider = Mermaider::new(
+        file_settings,
+        args.multiple_files,
+        args.output_format,
+        args.direction,
+    );
 
     let diagrams = if is_stdin {
         if args.multiple_files {
@@ -74,7 +79,7 @@ fn main() {
             .read_to_string(&mut source)
             .unwrap_or_else(|e| panic!("Failed to read stdin: {e}"));
 
-        let mut diagram = class_diagram::ClassDiagram::new();
+        let mut diagram = class_diagram::ClassDiagram::new(args.direction);
         diagram.add_source(source);
 
         vec![diagram]

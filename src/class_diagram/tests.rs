@@ -601,6 +601,22 @@ class FancyStore(Store[datetime], Generic[FancyStorage]):
     test_diagram(source, expected_output);
 }
 
+#[test]
+fn test_non_default_direction_emitted() {
+    use crate::renderer::DiagramDirection;
+
+    let source = "class Thing: ...";
+    let expected = "classDiagram
+    direction LR
+
+    class Thing
+";
+    let mut diagram = ClassDiagram::new(DiagramDirection::LR);
+    diagram.add_source(source.to_owned());
+    let output = diagram.render().unwrap_or_default();
+    assert_eq!(output.trim(), expected.trim());
+}
+
 fn test_diagram(source: &str, expected_output: &str) {
     let mut diagram = ClassDiagram::default();
     diagram.add_source(source.to_owned());

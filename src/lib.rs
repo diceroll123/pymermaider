@@ -11,6 +11,7 @@ pub mod type_analyzer;
 pub use ruff_python_ast as ast;
 
 use class_diagram::ClassDiagram;
+use renderer::DiagramDirection;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -27,7 +28,7 @@ impl PyMermaider {
         console_error_panic_hook::set_once();
 
         Self {
-            diagram: ClassDiagram::new(),
+            diagram: ClassDiagram::new(DiagramDirection::default()),
         }
     }
 
@@ -35,7 +36,7 @@ impl PyMermaider {
     #[wasm_bindgen(js_name = processPythonCode)]
     pub fn process_python_code(&mut self, source: &str) -> Result<String, JsValue> {
         // Reset the diagram for fresh processing
-        self.diagram = ClassDiagram::new();
+        self.diagram = ClassDiagram::new(DiagramDirection::default());
 
         // Add the source to the diagram
         self.diagram.add_source(source.to_string());
