@@ -32,9 +32,8 @@ class TestClass:
         return x + y
 "#;
 
-    let mut diagram = ClassDiagram::new();
-    diagram.path = "example.py".to_string();
-    diagram.add_to_diagram(source.to_string(), &PathBuf::from("example.py"));
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source.to_string());
 
     let raw = diagram.render().unwrap_or_default();
 
@@ -603,8 +602,8 @@ class FancyStore(Store[datetime], Generic[FancyStorage]):
 }
 
 fn test_diagram(source: &str, expected_output: &str) {
-    let mut diagram = ClassDiagram::new();
-    diagram.add_to_diagram(source.to_owned(), &PathBuf::from("test.py"));
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source.to_owned());
     let output = diagram.render().unwrap_or_default();
     assert_eq!(output.trim(), expected_output.trim());
 }
@@ -612,8 +611,8 @@ fn test_diagram(source: &str, expected_output: &str) {
 #[expect(dead_code)]
 fn test_diagram_print(source: &str) {
     // for making new tests and debugging :P
-    let mut diagram = ClassDiagram::new();
-    diagram.add_to_diagram(source.to_owned(), &PathBuf::from("test.py"));
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source.to_owned());
     println!("{}", diagram.render().unwrap_or_default());
     assert_eq!(1, 2);
 }

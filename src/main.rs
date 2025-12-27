@@ -75,8 +75,7 @@ fn main() {
             .unwrap_or_else(|e| panic!("Failed to read stdin: {e}"));
 
         let mut diagram = class_diagram::ClassDiagram::new();
-        let stdin_path = PathBuf::from("stdin.py");
-        diagram.add_to_diagram(source, &stdin_path);
+        diagram.add_source(source);
 
         vec![diagram]
     } else {

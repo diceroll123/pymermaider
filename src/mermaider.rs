@@ -104,7 +104,7 @@ impl Mermaider {
                 Err(_) => continue,
             };
 
-            class_diagram.add_to_diagram(source, file);
+            class_diagram.add_file(source, file);
         }
 
         class_diagram
