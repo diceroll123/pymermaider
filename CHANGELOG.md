@@ -4,6 +4,7 @@
 
 ### Added
 - `--direction` flag to set class diagram direction (TB, BT, LR, RL).
+- `--no-title` flag to omit the title from diagram output.
 
 ### Changed
 

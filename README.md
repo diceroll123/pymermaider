@@ -56,6 +56,9 @@ pymermaider [OPTIONS] <PATH>
 - `--direction <DIRECTION>`
   Class diagram direction. [default: TB] [possible values: TB, BT, LR, RL]
 
+- `--no-title`
+  Omit the title from the diagram output.
+
 - `-h, --help`
   Display help information for the command.
 

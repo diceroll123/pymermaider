@@ -55,4 +55,8 @@ pub struct Args {
     /// Class diagram direction (TB, BT, LR, RL).
     #[arg(long, verbatim_doc_comment, default_value = "TB")]
     pub direction: DiagramDirection,
+
+    /// Omit the title from the diagram output.
+    #[arg(long, verbatim_doc_comment, default_value = "false")]
+    pub no_title: bool,
 }
