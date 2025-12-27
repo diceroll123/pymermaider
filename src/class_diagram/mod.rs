@@ -17,7 +17,7 @@ use ruff_python_semantic::analyze::visibility::{
 };
 use ruff_python_semantic::{Module, ModuleKind, ModuleSource, SemanticModel};
 use ruff_python_stdlib::typing::simple_magic_return_type;
-use std::path::{Path, PathBuf};
+use std::path::Path;
 
 /// Represents a class member (attribute or method) during processing
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -371,16 +371,32 @@ impl ClassDiagram {
         }
     }
 
-    pub fn add_to_diagram(&mut self, source: String, file: &PathBuf) {
-        let source_kind = SourceKind::Python(source);
-        let file_path = Path::new(file);
+    /// Add source code to the diagram (for stdin/WASM - uses Python defaults)
+    pub fn add_source(&mut self, source: String) {
+        self.add_source_with_options(source, PySourceType::Python, ModuleKind::Module);
+    }
 
-        let parsed = Self::parse_python(source_kind.source_code(), file_path);
+    /// Add source code from a file path (infers source type and module kind)
+    pub fn add_file(&mut self, source: String, path: &Path) {
+        let source_type = PySourceType::from(path);
+        let module_kind = Self::module_kind_for_path(path);
+        self.add_source_with_options(source, source_type, module_kind);
+    }
+
+    fn add_source_with_options(
+        &mut self,
+        source: String,
+        source_type: PySourceType,
+        module_kind: ModuleKind,
+    ) {
+        let source_kind = SourceKind::Python(source);
+
+        let parsed = Self::parse_python(source_kind.source_code(), source_type);
         let mut checker = Self::build_checker(
             &parsed.stylist,
             &parsed.locator,
             &parsed.python_ast,
-            file_path,
+            module_kind,
         );
         checker.see_imports(&parsed.python_ast);
 
@@ -396,16 +412,15 @@ impl ClassDiagram {
         }
     }
 
-    fn module_kind_for_file(file: &Path) -> ModuleKind {
-        if file.ends_with("__init__.py") {
+    fn module_kind_for_path(path: &Path) -> ModuleKind {
+        if path.ends_with("__init__.py") {
             ModuleKind::Package
         } else {
             ModuleKind::Module
         }
     }
 
-    fn parse_python<'a>(source: &'a str, file: &Path) -> ParsedPython<'a> {
-        let source_type = PySourceType::from(file);
+    fn parse_python(source: &str, source_type: PySourceType) -> ParsedPython<'_> {
         let parsed = parse_unchecked_source(source, source_type);
         let stylist = Stylist::from_tokens(parsed.tokens(), source);
         let python_ast = parsed.into_suite();
@@ -421,15 +436,19 @@ impl ClassDiagram {
         stylist: &'a Stylist<'a>,
         locator: &'a Locator<'a>,
         python_ast: &'a [ast::Stmt],
-        file: &'a Path,
+        module_kind: ModuleKind,
     ) -> Checker<'a> {
+        // Use a static dummy path for the semantic model (it's only used for diagnostics)
+        static DUMMY_PATH: &str = "";
+        let dummy = Path::new(DUMMY_PATH);
+
         let module = Module {
-            kind: Self::module_kind_for_file(file),
-            source: ModuleSource::File(file),
+            kind: module_kind,
+            source: ModuleSource::File(dummy),
             python_ast,
             name: None,
         };
-        let semantic = SemanticModel::new(&[], file, module);
+        let semantic = SemanticModel::new(&[], dummy, module);
         Checker::new(stylist, locator, semantic)
     }
 }

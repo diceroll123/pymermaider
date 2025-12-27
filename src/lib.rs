@@ -11,7 +11,6 @@ pub mod type_analyzer;
 pub use ruff_python_ast as ast;
 
 use class_diagram::ClassDiagram;
-use std::path::PathBuf;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
@@ -38,11 +37,8 @@ impl PyMermaider {
         // Reset the diagram for fresh processing
         self.diagram = ClassDiagram::new();
 
-        // Create a dummy path for the source
-        let dummy_path = PathBuf::from("input.py");
-
         // Add the source to the diagram
-        self.diagram.add_to_diagram(source.to_string(), &dummy_path);
+        self.diagram.add_source(source.to_string());
 
         // Return the mermaid diagram as a string, or empty string if None
         Ok(self.diagram.render().unwrap_or_default())
