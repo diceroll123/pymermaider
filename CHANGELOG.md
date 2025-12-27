@@ -3,6 +3,12 @@
 ## [Unreleased]
 
 ### Added
+
+### Changed
+
+## [0.1.6] - 2025-12-27
+
+### Added
 - Support for .mmd output format using the `--output-format` flag.
 - Support for single input file stdin using `-` as the path.
 - Support for single output file using the `--output` flag and `-` as the path.
