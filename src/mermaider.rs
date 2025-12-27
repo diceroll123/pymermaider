@@ -1,6 +1,7 @@
 use crate::output_format::OutputFormat;
 use crate::settings::FileResolverSettings;
 use pymermaider_lib::class_diagram::ClassDiagram;
+use pymermaider_lib::renderer::DiagramDirection;
 
 use globset::Candidate;
 use ignore::{types::TypesBuilder, WalkBuilder};
@@ -11,17 +12,20 @@ pub struct Mermaider {
     file_settings: FileResolverSettings,
     multiple_files: bool,
     output_format: OutputFormat,
+    direction: DiagramDirection,
 }
 impl Mermaider {
     pub const fn new(
         file_settings: FileResolverSettings,
         multiple_files: bool,
         output_format: OutputFormat,
+        direction: DiagramDirection,
     ) -> Self {
         Self {
             file_settings,
             multiple_files,
             output_format,
+            direction,
         }
     }
 
@@ -96,7 +100,7 @@ impl Mermaider {
     }
 
     fn make_mermaid(&self, parsed_files: Vec<PathBuf>) -> ClassDiagram {
-        let mut class_diagram = ClassDiagram::new();
+        let mut class_diagram = ClassDiagram::new(self.direction);
 
         for file in &parsed_files {
             let source = match std::fs::read_to_string(file) {
@@ -185,7 +189,12 @@ mod tests {
             project_root: temp_project_dir.path().to_path_buf(),
         };
 
-        let mermaider = Mermaider::new(settings, true, OutputFormat::Md);
+        let mermaider = Mermaider::new(
+            settings,
+            true,
+            OutputFormat::Md,
+            DiagramDirection::default(),
+        );
         let md = mermaider.format_output("classDiagram\n  class A\n");
         assert!(md.starts_with("```mermaid\n"));
         assert!(md.contains("classDiagram"));
@@ -204,7 +213,12 @@ mod tests {
             project_root: temp_project_dir.path().to_path_buf(),
         };
 
-        let mermaider = Mermaider::new(settings, true, OutputFormat::Mmd);
+        let mermaider = Mermaider::new(
+            settings,
+            true,
+            OutputFormat::Mmd,
+            DiagramDirection::default(),
+        );
         let mmd = mermaider.format_output("classDiagram\n  class A\n");
         assert!(!mmd.contains("```mermaid"));
         assert!(mmd.contains("classDiagram"));
@@ -225,7 +239,12 @@ mod tests {
             project_root: temp_project_dir.path().to_path_buf(),
         };
 
-        let mermaider = Mermaider::new(settings, true, OutputFormat::Md);
+        let mermaider = Mermaider::new(
+            settings,
+            true,
+            OutputFormat::Md,
+            DiagramDirection::default(),
+        );
         let diagrams = mermaider.generate_diagrams();
         assert_eq!(diagrams.len(), 1);
 
@@ -258,7 +277,12 @@ mod tests {
             project_root: temp_project_dir.path().to_path_buf(),
         };
 
-        let mermaider = Mermaider::new(settings, true, OutputFormat::Md);
+        let mermaider = Mermaider::new(
+            settings,
+            true,
+            OutputFormat::Md,
+            DiagramDirection::default(),
+        );
         let diagrams = mermaider.generate_diagrams();
         assert_eq!(diagrams.len(), 1);
 

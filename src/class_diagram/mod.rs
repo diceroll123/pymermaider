@@ -3,7 +3,10 @@ use crate::checker::Checker;
 use crate::class_helpers::{ClassDefHelpers, QualifiedNameHelpers};
 use crate::class_type_detector::ClassTypeDetector;
 use crate::parameter_generator::ParameterGenerator;
-use crate::renderer::*;
+use crate::renderer::{
+    Attribute, ClassNode, CompositionEdge, Diagram, DiagramDirection, MethodSignature,
+    RelationType, RelationshipEdge, Visibility,
+};
 use crate::type_analyzer;
 use indexmap::IndexSet;
 use ruff_linter::source_kind::SourceKind;
@@ -42,14 +45,14 @@ pub struct ClassDiagram {
 
 impl Default for ClassDiagram {
     fn default() -> Self {
-        Self::new()
+        Self::new(DiagramDirection::default())
     }
 }
 
 impl ClassDiagram {
-    pub fn new() -> Self {
+    pub fn new(direction: DiagramDirection) -> Self {
         Self {
-            diagram: Diagram::new(None),
+            diagram: Diagram::new(None, direction),
             path: String::new(),
         }
     }

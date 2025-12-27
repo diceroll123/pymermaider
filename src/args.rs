@@ -1,6 +1,7 @@
 use clap::Parser;
 
 use crate::output_format::OutputFormat;
+use pymermaider_lib::renderer::DiagramDirection;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -50,4 +51,8 @@ pub struct Args {
         help_heading = "File selection"
     )]
     pub extend_exclude: Option<Vec<String>>,
+
+    /// Class diagram direction (TB, BT, LR, RL).
+    #[arg(long, verbatim_doc_comment, default_value = "TB")]
+    pub direction: DiagramDirection,
 }

@@ -72,19 +72,62 @@ pub struct CompositionEdge {
     pub contained: String,
 }
 
+/// Class diagram direction.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub enum DiagramDirection {
+    /// Top to bottom (default)
+    #[default]
+    TB,
+    /// Bottom to top
+    BT,
+    /// Left to right
+    LR,
+    /// Right to left
+    RL,
+}
+
+impl std::fmt::Display for DiagramDirection {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            DiagramDirection::TB => write!(f, "TB"),
+            DiagramDirection::BT => write!(f, "BT"),
+            DiagramDirection::LR => write!(f, "LR"),
+            DiagramDirection::RL => write!(f, "RL"),
+        }
+    }
+}
+
+impl std::str::FromStr for DiagramDirection {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s.to_uppercase().as_str() {
+            "TB" => Ok(Self::TB),
+            "BT" => Ok(Self::BT),
+            "LR" => Ok(Self::LR),
+            "RL" => Ok(Self::RL),
+            _ => Err(format!(
+                "invalid direction: {s} (expected TB, BT, LR, or RL)"
+            )),
+        }
+    }
+}
+
 /// The complete diagram structure
 #[derive(Debug, Clone)]
 pub struct Diagram {
     pub title: Option<String>,
+    pub direction: DiagramDirection,
     pub classes: Vec<ClassNode>,
     pub relationships: Vec<RelationshipEdge>,
     pub compositions: Vec<CompositionEdge>,
 }
 
 impl Diagram {
-    pub fn new(title: Option<String>) -> Self {
+    pub fn new(title: Option<String>, direction: DiagramDirection) -> Self {
         Self {
             title,
+            direction,
             classes: Vec::new(),
             relationships: Vec::new(),
             compositions: Vec::new(),
