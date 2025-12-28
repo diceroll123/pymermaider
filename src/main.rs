@@ -18,7 +18,7 @@ use std::io::Write as _;
 fn main() {
     env_logger::init();
 
-    let args = Args::parse();
+    let mut args = Args::parse();
 
     // Special-case stdin input: `pymermaider -` reads Python source from stdin.
     // For path normalization in exclude patterns, use the current working directory.
@@ -30,9 +30,12 @@ fn main() {
     };
     let output_dir_path = PathBuf::from(&args.output_dir);
 
+    // Take ownership of exclude patterns (Mermaider doesn't need them after FileResolverSettings is built)
+    let exclude_patterns = args.exclude.take();
+    let extend_exclude_patterns = args.extend_exclude.take();
+
     let file_settings = FileResolverSettings {
-        project_root: project_root.clone(),
-        exclude: FilePatternSet::try_from_iter(args.exclude.map_or(
+        exclude: FilePatternSet::try_from_iter(exclude_patterns.map_or(
             DEFAULT_EXCLUDES.to_vec(),
             |paths| {
                 paths
@@ -46,7 +49,7 @@ fn main() {
         ))
         .unwrap(),
         extend_exclude: FilePatternSet::try_from_iter(
-            args.extend_exclude
+            extend_exclude_patterns
                 .map(|paths| {
                     paths
                         .into_iter()
@@ -59,17 +62,13 @@ fn main() {
                 .unwrap_or_default(),
         )
         .unwrap(),
+        project_root,
     };
 
-    let mermaider = Mermaider::new(
-        file_settings,
-        args.multiple_files,
-        args.output_format,
-        args.direction,
-    );
+    let mermaider = Mermaider::new(args, file_settings);
 
     let diagrams = if is_stdin {
-        if args.multiple_files {
+        if mermaider.args().multiple_files {
             eprintln!("--multiple-files is not compatible with stdin input (PATH='-').");
             std::process::exit(2);
         }
@@ -79,7 +78,7 @@ fn main() {
             .read_to_string(&mut source)
             .unwrap_or_else(|e| panic!("Failed to read stdin: {e}"));
 
-        let mut diagram = class_diagram::ClassDiagram::new(args.direction);
+        let mut diagram = class_diagram::ClassDiagram::new(mermaider.args().direction);
         diagram.add_source(source);
 
         vec![diagram]
@@ -89,7 +88,7 @@ fn main() {
 
     // If --output is provided, render a single diagram to stdout or a specific file.
     // This is only valid when we're generating a single diagram (i.e. not multiple per-file outputs).
-    if let Some(output) = args.output {
+    if let Some(ref output) = mermaider.args().output {
         if diagrams.len() > 1 {
             eprintln!("--output is not compatible with --multiple-files (it would produce multiple outputs). Use --output-dir instead.");
             std::process::exit(2);
@@ -106,11 +105,11 @@ fn main() {
                 .write_all(content.as_bytes())
                 .unwrap_or_else(|e| panic!("Failed to write stdout: {e}"));
         } else {
-            std::fs::write(&output, content)
+            std::fs::write(output, content)
                 .unwrap_or_else(|e| panic!("Failed to write file {output:?}: {e}"));
         }
     } else {
-        let extension = args.output_format.extension();
+        let extension = mermaider.args().output_format.extension();
         let output_dir = output_dir_path;
 
         let mut written = 0usize;

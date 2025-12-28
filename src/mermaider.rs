@@ -1,7 +1,7 @@
+use crate::args::Args;
 use crate::output_format::OutputFormat;
 use crate::settings::FileResolverSettings;
 use pymermaider_lib::class_diagram::ClassDiagram;
-use pymermaider_lib::renderer::DiagramDirection;
 
 use globset::Candidate;
 use ignore::{types::TypesBuilder, WalkBuilder};
@@ -9,24 +9,20 @@ use log::{debug, error};
 use std::path::{Path, PathBuf};
 
 pub struct Mermaider {
+    args: Args,
     file_settings: FileResolverSettings,
-    multiple_files: bool,
-    output_format: OutputFormat,
-    direction: DiagramDirection,
 }
+
 impl Mermaider {
-    pub const fn new(
-        file_settings: FileResolverSettings,
-        multiple_files: bool,
-        output_format: OutputFormat,
-        direction: DiagramDirection,
-    ) -> Self {
+    pub fn new(args: Args, file_settings: FileResolverSettings) -> Self {
         Self {
+            args,
             file_settings,
-            multiple_files,
-            output_format,
-            direction,
         }
+    }
+
+    pub fn args(&self) -> &Args {
+        &self.args
     }
 
     /// Format raw Mermaid output according to the configured `output_format`.
@@ -35,7 +31,7 @@ impl Mermaider {
     /// - `Mmd`: emits raw Mermaid and ensures a trailing newline.
     pub fn format_output(&self, raw: &str) -> String {
         let raw = raw.trim_end();
-        match self.output_format {
+        match self.args.output_format {
             OutputFormat::Md => format!("```mermaid\n{raw}\n```\n"),
             OutputFormat::Mmd => format!("{raw}\n"),
         }
@@ -57,7 +53,9 @@ impl Mermaider {
 
         if root.is_file() {
             let mut diagram = self.make_mermaid(vec![root.to_path_buf()]);
-            diagram.path = root.to_string_lossy().to_string();
+            if !self.args.no_title {
+                diagram.path = root.to_string_lossy().to_string();
+            }
             return vec![diagram];
         }
 
@@ -67,31 +65,34 @@ impl Mermaider {
                 Err(_) => return vec![],
             };
 
-            if self.multiple_files {
+            if self.args.multiple_files {
                 let mut diagrams = Vec::with_capacity(parsed_files.len());
                 for parsed_file in &parsed_files {
                     let mut diagram = self.make_mermaid(vec![parsed_file.clone()]);
-                    diagram.path = parsed_file
-                        .strip_prefix(root)
-                        .unwrap_or(parsed_file.as_path())
-                        .to_string_lossy()
-                        .to_string();
+                    if !self.args.no_title {
+                        diagram.path = parsed_file
+                            .strip_prefix(root)
+                            .unwrap_or(parsed_file.as_path())
+                            .to_string_lossy()
+                            .to_string();
+                    }
                     diagrams.push(diagram);
                 }
                 return diagrams;
             }
 
-            let canonical_path = match root.canonicalize() {
-                Ok(p) => p,
-                Err(_) => root.to_path_buf(),
-            };
-
             let mut diagram = self.make_mermaid(parsed_files);
-            diagram.path = canonical_path
-                .file_name()
-                .and_then(|n| n.to_str())
-                .unwrap_or("diagram")
-                .to_owned();
+            if !self.args.no_title {
+                let canonical_path = match root.canonicalize() {
+                    Ok(p) => p,
+                    Err(_) => root.to_path_buf(),
+                };
+                diagram.path = canonical_path
+                    .file_name()
+                    .and_then(|n| n.to_str())
+                    .unwrap_or("diagram")
+                    .to_owned();
+            }
 
             return vec![diagram];
         }
@@ -100,7 +101,7 @@ impl Mermaider {
     }
 
     fn make_mermaid(&self, parsed_files: Vec<PathBuf>) -> ClassDiagram {
-        let mut class_diagram = ClassDiagram::new(self.direction);
+        let mut class_diagram = ClassDiagram::new(self.args.direction);
 
         for file in &parsed_files {
             let source = match std::fs::read_to_string(file) {
@@ -164,37 +165,49 @@ impl Mermaider {
 
 #[cfg(test)]
 mod tests {
-    use ruff_linter::settings::types::GlobPath;
+    use pymermaider_lib::renderer::DiagramDirection;
+    use ruff_linter::settings::types::{FilePattern, FilePatternSet, GlobPath};
     use std::io::Write as _;
+    use std::path::Path;
 
     use crate::settings::DEFAULT_EXCLUDES;
 
     use super::*;
     use anyhow::Result;
-    use ruff_linter::settings::types::{FilePattern, FilePatternSet};
     use tempfile::{Builder, TempDir};
 
     fn init_logger() {
         let _ = env_logger::builder().is_test(true).try_init();
     }
 
+    fn default_args() -> Args {
+        Args {
+            path: String::new(),
+            multiple_files: false,
+            output_dir: "./output".to_string(),
+            output_format: OutputFormat::default(),
+            output: None,
+            exclude: None,
+            extend_exclude: None,
+            direction: DiagramDirection::default(),
+            no_title: false,
+        }
+    }
+
+    fn default_settings(project_root: &Path) -> FileResolverSettings {
+        FileResolverSettings {
+            exclude: FilePatternSet::try_from_iter(DEFAULT_EXCLUDES.to_vec()).unwrap(),
+            extend_exclude: FilePatternSet::default(),
+            project_root: project_root.to_path_buf(),
+        }
+    }
+
     #[test]
     fn format_output_md_wraps() -> Result<()> {
         init_logger();
-        let temp_project_dir = TempDir::new()?;
+        let temp = TempDir::new()?;
+        let mermaider = Mermaider::new(default_args(), default_settings(temp.path()));
 
-        let settings = FileResolverSettings {
-            exclude: FilePatternSet::try_from_iter(DEFAULT_EXCLUDES.to_vec()).unwrap(),
-            extend_exclude: FilePatternSet::default(),
-            project_root: temp_project_dir.path().to_path_buf(),
-        };
-
-        let mermaider = Mermaider::new(
-            settings,
-            true,
-            OutputFormat::Md,
-            DiagramDirection::default(),
-        );
         let md = mermaider.format_output("classDiagram\n  class A\n");
         assert!(md.starts_with("```mermaid\n"));
         assert!(md.contains("classDiagram"));
@@ -205,20 +218,11 @@ mod tests {
     #[test]
     fn format_output_mmd_is_raw() -> Result<()> {
         init_logger();
-        let temp_project_dir = TempDir::new()?;
+        let temp = TempDir::new()?;
+        let mut args = default_args();
+        args.output_format = OutputFormat::Mmd;
+        let mermaider = Mermaider::new(args, default_settings(temp.path()));
 
-        let settings = FileResolverSettings {
-            exclude: FilePatternSet::try_from_iter(DEFAULT_EXCLUDES.to_vec()).unwrap(),
-            extend_exclude: FilePatternSet::default(),
-            project_root: temp_project_dir.path().to_path_buf(),
-        };
-
-        let mermaider = Mermaider::new(
-            settings,
-            true,
-            OutputFormat::Mmd,
-            DiagramDirection::default(),
-        );
         let mmd = mermaider.format_output("classDiagram\n  class A\n");
         assert!(!mmd.contains("```mermaid"));
         assert!(mmd.contains("classDiagram"));
@@ -229,63 +233,58 @@ mod tests {
     #[test]
     fn test_single_file() -> Result<()> {
         init_logger();
-        let temp_project_dir = TempDir::new()?;
-        let mut test_file = std::fs::File::create(temp_project_dir.path().join("test.py"))?;
-        test_file.write_all(b"class Test: ...")?;
+        let temp = TempDir::new()?;
+        std::fs::File::create(temp.path().join("test.py"))?.write_all(b"class Test: ...")?;
 
-        let settings = FileResolverSettings {
-            exclude: FilePatternSet::try_from_iter(DEFAULT_EXCLUDES.to_vec()).unwrap(),
-            extend_exclude: FilePatternSet::default(),
-            project_root: temp_project_dir.path().to_path_buf(),
-        };
-
-        let mermaider = Mermaider::new(
-            settings,
-            true,
-            OutputFormat::Md,
-            DiagramDirection::default(),
-        );
+        let mermaider = Mermaider::new(default_args(), default_settings(temp.path()));
         let diagrams = mermaider.generate_diagrams();
         assert_eq!(diagrams.len(), 1);
-
         Ok(())
     }
 
     #[test]
     fn test_exclude_files() -> Result<()> {
         init_logger();
-        let temp_project_dir = TempDir::new()?;
-        let mut test_file = std::fs::File::create(temp_project_dir.path().join("test.py"))?;
-        test_file.write_all(b"class Test: ...")?;
+        let temp = TempDir::new()?;
+        std::fs::File::create(temp.path().join("test.py"))?.write_all(b"class Test: ...")?;
 
-        let temp_excluded_dir = Builder::new()
+        let excluded_dir = Builder::new()
             .prefix("exclude-me-")
-            .tempdir_in(temp_project_dir.path())?;
-
-        let mut excluded_file =
-            std::fs::File::create(temp_excluded_dir.path().join("exclusion_test.py"))?;
-        excluded_file.write_all(b"class ExclusionTest: ...")?;
-
-        let absolute = GlobPath::normalize("exclude-me-*", &temp_project_dir);
+            .tempdir_in(temp.path())?;
+        std::fs::File::create(excluded_dir.path().join("exclusion_test.py"))?
+            .write_all(b"class ExclusionTest: ...")?;
 
         let settings = FileResolverSettings {
             exclude: FilePatternSet::try_from_iter(DEFAULT_EXCLUDES.to_vec()).unwrap(),
             extend_exclude: FilePatternSet::try_from_iter(vec![FilePattern::User(
                 "exclude-me-*".to_owned(),
-                absolute,
+                GlobPath::normalize("exclude-me-*", &temp),
             )])?,
-            project_root: temp_project_dir.path().to_path_buf(),
+            project_root: temp.path().to_path_buf(),
         };
 
-        let mermaider = Mermaider::new(
-            settings,
-            true,
-            OutputFormat::Md,
-            DiagramDirection::default(),
-        );
+        let mermaider = Mermaider::new(default_args(), settings);
         let diagrams = mermaider.generate_diagrams();
         assert_eq!(diagrams.len(), 1);
+        Ok(())
+    }
 
+    #[test]
+    fn test_no_title_omits_path() -> Result<()> {
+        init_logger();
+        let temp = TempDir::new()?;
+        std::fs::File::create(temp.path().join("test.py"))?.write_all(b"class Test: ...")?;
+
+        let mut args = default_args();
+        args.no_title = true;
+        let mermaider = Mermaider::new(args, default_settings(temp.path()));
+        let diagrams = mermaider.generate_diagrams();
+
+        assert_eq!(diagrams.len(), 1);
+        assert!(diagrams[0].path.is_empty());
+
+        let rendered = diagrams[0].render().unwrap();
+        assert!(!rendered.contains("title:"));
         Ok(())
     }
 }
