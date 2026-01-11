@@ -313,6 +313,7 @@ export default function DiagramEditor() {
                       >
                         <SegmentGroup.Indicator css={{ transitionDuration: "0ms" }} />
                         <SegmentGroup.Items
+                          css={{ cursor: "pointer" }}
                           items={[
                             { value: "TB", label: <LuArrowDown title="Top to Bottom" /> },
                             { value: "BT", label: <LuArrowUp title="Bottom to Top" /> },
