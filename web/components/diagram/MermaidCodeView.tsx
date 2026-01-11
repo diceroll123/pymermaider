@@ -35,8 +35,8 @@ export function MermaidCodeView({
       {hasContent ? (
         <CodeBlock.AdapterProvider value={shikiAdapter}>
           <CodeBlock.Root
-            code={mermaidCode}
             language="mermaid"
+            code={"```mermaid\n" + mermaidCode + "\n```"}
             meta={{ showLineNumbers: true, colorScheme: colorMode }}
           >
             <CodeBlock.Header>
