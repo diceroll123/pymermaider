@@ -1,5 +1,9 @@
+export type DiagramDirection = "TB" | "BT" | "LR" | "RL";
+
 export type PyMermaiderClass = {
   processPythonCode(code: string): string;
+  setDirection(direction: DiagramDirection): void;
+  getDirection(): DiagramDirection;
 };
 
 // File tree types for the explorer
