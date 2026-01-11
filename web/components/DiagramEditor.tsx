@@ -2,7 +2,7 @@
 
 import { useState, useRef, useCallback } from "react";
 import { Flex, VStack, Box, Text, Tabs, IconButton, Popover, Portal, SegmentGroup } from "@chakra-ui/react";
-import { LuPanelLeftClose, LuPanelLeft, LuSettings } from "react-icons/lu";
+import { LuPanelLeftClose, LuPanelLeft, LuSettings, LuArrowDown, LuArrowUp, LuArrowRight, LuArrowLeft } from "react-icons/lu";
 import { useColorMode } from "@/components/ui/color-mode";
 import { DEFAULT_PYTHON_CODE, DiagramDirection } from "./diagram/types";
 import { useWasm } from "./diagram/hooks/useWasm";
@@ -312,11 +312,15 @@ export default function DiagramEditor() {
                           onValueChange={(e) => setDirection(e.value as DiagramDirection)}
                         >
                           <SegmentGroup.Indicator />
-                          <SegmentGroup.Items items={["TB", "BT", "LR", "RL"]} />
+                          <SegmentGroup.Items
+                            items={[
+                              { value: "TB", label: <LuArrowDown title="Top to Bottom" /> },
+                              { value: "BT", label: <LuArrowUp title="Bottom to Top" /> },
+                              { value: "LR", label: <LuArrowRight title="Left to Right" /> },
+                              { value: "RL", label: <LuArrowLeft title="Right to Left" /> },
+                            ]}
+                          />
                         </SegmentGroup.Root>
-                        <Text fontSize="xs" color="fg.muted" mt={2}>
-                          TB = Top-Bottom, LR = Left-Right
-                        </Text>
                       </Popover.Body>
                     </Popover.Content>
                   </Popover.Positioner>
