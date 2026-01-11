@@ -23,3 +23,13 @@ body {
 .npm__react-simple-code-editor__textarea:focus {
   outline: none !important;
 }
+
+/* Spinner animation for loading states */
+@keyframes spin {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}

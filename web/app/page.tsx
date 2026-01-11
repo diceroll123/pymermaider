@@ -8,7 +8,7 @@ import { FaGithub } from "react-icons/fa";
 export default function Home() {
   return (
     <Container maxW="100vw" p={0} h="100vh">
-      <VStack h="100%" gap={0}>
+      <VStack h="100%" gap={0} overflow="hidden">
         <Box
           w="100%"
           p={4}
@@ -16,6 +16,7 @@ export default function Home() {
           color="white"
           borderBottomWidth="2px"
           borderBottomColor="blue.700"
+          flexShrink={0}
         >
           <Flex justify="space-between" align="center">
             <Box>
