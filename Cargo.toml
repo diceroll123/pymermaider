@@ -7,7 +7,7 @@ repository = "https://github.com/diceroll123/pymermaider"
 license = "MIT"
 
 [lib]
-name = "pymermaider_lib"
+name = "pymermaider_wasm"
 crate-type = ["cdylib", "rlib"]
 
 [[bin]]

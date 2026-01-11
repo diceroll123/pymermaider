@@ -1,7 +1,7 @@
 use crate::args::Args;
 use crate::output_format::OutputFormat;
 use crate::settings::FileResolverSettings;
-use pymermaider_lib::class_diagram::ClassDiagram;
+use pymermaider_wasm::class_diagram::ClassDiagram;
 
 use globset::Candidate;
 use ignore::{types::TypesBuilder, WalkBuilder};
@@ -165,7 +165,7 @@ impl Mermaider {
 
 #[cfg(test)]
 mod tests {
-    use pymermaider_lib::renderer::DiagramDirection;
+    use pymermaider_wasm::renderer::DiagramDirection;
     use ruff_linter::settings::types::{FilePattern, FilePatternSet, GlobPath};
     use std::io::Write as _;
     use std::path::Path;

@@ -9,7 +9,7 @@ use args::Args;
 use clap::Parser;
 use log::info;
 use mermaider::Mermaider;
-use pymermaider_lib::class_diagram;
+use pymermaider_wasm::class_diagram;
 use ruff_linter::settings::types::{FilePattern, FilePatternSet, GlobPath};
 use settings::{FileResolverSettings, DEFAULT_EXCLUDES};
 use std::io::Read as _;
