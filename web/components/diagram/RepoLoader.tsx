@@ -13,6 +13,7 @@ import {
   List,
   Tooltip,
   Portal,
+  Separator,
 } from "@chakra-ui/react";
 import { LuFolderInput, LuGithub, LuX, LuInfo } from "react-icons/lu";
 
@@ -167,8 +168,12 @@ export function RepoLoader({
             <Text fontSize="sm" fontWeight="medium">
               Drop folder or GitHub link
             </Text>
-            <Text fontSize="xs" color="fg.muted">
+            <Text fontSize="xs" color="fg.muted" fontStyle="italic">
               Or click to select a folder
+            </Text>
+            <Separator w="full" />
+            <Text fontSize="xs" color="fg.muted" fontStyle="italic">
+              Private by design, nothing is uploaded anywhere.
             </Text>
           </VStack>
         )}
