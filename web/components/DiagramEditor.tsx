@@ -302,9 +302,9 @@ export default function DiagramEditor() {
                 </Popover.Trigger>
                 <Portal>
                   <Popover.Positioner>
-                    <Popover.Content>
+                    <Popover.Content width="auto" minW="unset">
                       <Popover.Arrow />
-                      <Popover.Body>
+                      <Popover.Body p={3}>
                         <Text fontWeight="medium" mb={3}>Direction</Text>
                         <SegmentGroup.Root
                           size="sm"
