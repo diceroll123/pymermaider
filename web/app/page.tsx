@@ -12,10 +12,9 @@ export default function Home() {
         <Box
           w="100%"
           p={4}
-          bg="blue.600"
-          color="white"
-          borderBottomWidth="2px"
-          borderBottomColor="blue.700"
+          bg={{ base: "white", _dark: "black" }}
+          borderBottomWidth="1px"
+          borderBottomColor="border.muted"
           flexShrink={0}
         >
           <Flex justify="space-between" align="center">
@@ -36,7 +35,6 @@ export default function Home() {
                   aria-label="View on GitHub"
                   size="lg"
                   variant="ghost"
-                  colorScheme="whiteAlpha"
                 >
                   <FaGithub size={24} />
                 </IconButton>
