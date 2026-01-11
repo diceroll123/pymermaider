@@ -84,13 +84,9 @@ jobs:
           NODE_ENV: production
           NEXT_PUBLIC_BASE_PATH: /pymermaider/pr-preview/pr-${{ github.event.pull_request.number }}
 
-      - name: Debug - List out folder
+      - name: Remove wasm .gitignore (wasm-pack artifact)
         if: github.event.action != 'closed'
-        run: |
-          echo "=== web/out contents ==="
-          ls -la web/out/
-          echo "=== web/out/wasm contents (if exists) ==="
-          ls -la web/out/wasm/ || echo "wasm folder not found in out/"
+        run: rm -f web/out/wasm/.gitignore
 
       - name: Deploy PR preview
         uses: rossjrw/pr-preview-action@v1

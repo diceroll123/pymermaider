@@ -63,6 +63,9 @@ jobs:
           NODE_ENV: production
           NEXT_PUBLIC_BASE_PATH: /pymermaider
 
+      - name: Remove wasm .gitignore (wasm-pack artifact)
+        run: rm -f web/out/wasm/.gitignore
+
       - name: Deploy to GitHub Pages
         uses: JamesIves/github-pages-deploy-action@v4
         with:
