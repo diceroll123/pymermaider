@@ -16,6 +16,7 @@ export default function Home() {
           color="white"
           borderBottomWidth="2px"
           borderBottomColor="blue.700"
+          flexShrink={0}
         >
           <Flex justify="space-between" align="center">
             <Box>

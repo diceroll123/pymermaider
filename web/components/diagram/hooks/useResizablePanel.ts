@@ -1,6 +1,9 @@
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, RefObject } from "react";
 
-export function useResizablePanel(initialWidth: number = 50) {
+export function useResizablePanel(
+  initialWidth: number = 50,
+  containerRef?: RefObject<HTMLDivElement | null>
+) {
   const [leftPanelWidth, setLeftPanelWidth] = useState(initialWidth);
   const [isDragging, setIsDragging] = useState(false);
 
@@ -13,13 +16,24 @@ export function useResizablePanel(initialWidth: number = 50) {
   const handleMouseMove = useCallback((e: MouseEvent) => {
     if (!isDraggingRef.current) return;
 
-    const containerWidth = window.innerWidth;
-    const newWidth = (e.clientX / containerWidth) * 100;
+    // Use container bounds if ref provided, otherwise fall back to window
+    const container = containerRef?.current;
+    let containerLeft = 0;
+    let containerWidth = window.innerWidth;
+
+    if (container) {
+      const rect = container.getBoundingClientRect();
+      containerLeft = rect.left;
+      containerWidth = rect.width;
+    }
+
+    const relativeX = e.clientX - containerLeft;
+    const newWidth = (relativeX / containerWidth) * 100;
 
     // Constrain between 20% and 80%
     const constrainedWidth = Math.min(Math.max(newWidth, 20), 80);
     setLeftPanelWidth(constrainedWidth);
-  }, []);
+  }, [containerRef]);
 
   const handleMouseUp = useCallback(() => {
     isDraggingRef.current = false;
