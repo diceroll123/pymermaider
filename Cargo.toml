@@ -2,6 +2,9 @@
 name = "pymermaider"
 version = "0.1.6"
 edition = "2021"
+description = "Generate Mermaid class diagrams from Python source code"
+repository = "https://github.com/diceroll123/pymermaider"
+license = "MIT"
 
 [lib]
 name = "pymermaider_lib"
