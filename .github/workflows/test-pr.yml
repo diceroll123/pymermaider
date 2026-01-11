@@ -92,3 +92,18 @@ jobs:
         uses: rossjrw/pr-preview-action@v1
         with:
           source-dir: ./web/out
+
+      # Workaround for https://github.com/rossjrw/pr-preview-action/issues/15
+      # The action leaves .nojekyll files behind, causing empty directories to persist
+      - name: Cleanup leftover .nojekyll on PR close
+        if: github.event.action == 'closed'
+        run: |
+          git fetch origin gh-pages
+          git checkout gh-pages
+          PR_DIR="pr-preview/pr-${{ github.event.pull_request.number }}"
+          if [ -d "$PR_DIR" ]; then
+            rm -rf "$PR_DIR"
+            git add -A
+            git commit -m "Cleanup preview directory for PR ${{ github.event.pull_request.number }}" || echo "Nothing to commit"
+            git push origin gh-pages
+          fi
