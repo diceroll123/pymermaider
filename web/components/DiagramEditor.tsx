@@ -1,10 +1,10 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import { Flex, VStack, Box, Text, Tabs, IconButton } from "@chakra-ui/react";
-import { LuPanelLeftClose, LuPanelLeft } from "react-icons/lu";
+import { Flex, VStack, Box, Text, Tabs, IconButton, Popover, Portal, SegmentGroup } from "@chakra-ui/react";
+import { LuPanelLeftClose, LuPanelLeft, LuSettings } from "react-icons/lu";
 import { useColorMode } from "@/components/ui/color-mode";
-import { DEFAULT_PYTHON_CODE } from "./diagram/types";
+import { DEFAULT_PYTHON_CODE, DiagramDirection } from "./diagram/types";
 import { useWasm } from "./diagram/hooks/useWasm";
 import { useMermaid } from "./diagram/hooks/useMermaid";
 import { useSyntaxHighlighter } from "./diagram/hooks/useSyntaxHighlighter";
@@ -28,6 +28,7 @@ export default function DiagramEditor() {
   const editorPanelsRef = useRef<HTMLDivElement>(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
+  const [direction, setDirection] = useState<DiagramDirection>("TB");
 
   // Load WASM
   const { wasmRef, isWasmLoaded, error: wasmError } = useWasm();
@@ -54,6 +55,7 @@ export default function DiagramEditor() {
     isWasmLoaded,
     colorMode,
     themeMounted,
+    direction,
   });
 
   // Syntax highlighting for Python editor
@@ -286,20 +288,56 @@ export default function DiagramEditor() {
 
           {/* Right Panel - Tabbed View */}
           <VStack w={`${100 - leftPanelWidth}%`} h="100%" px={4} gap={4} align="stretch">
-            <Tabs.Root value={activeTab} onValueChange={(e) => setActiveTab(e.value)} fitted>
-              <Tabs.List>
-                <Tabs.Trigger value="diagram">
-                  <Text fontSize="md" fontWeight="medium">
-                    Diagram
-                  </Text>
-                </Tabs.Trigger>
-                <Tabs.Trigger value="code">
-                  <Text fontSize="md" fontWeight="medium">
-                    Mermaid Code
-                  </Text>
-                </Tabs.Trigger>
-              </Tabs.List>
-            </Tabs.Root>
+            <Flex align="center" gap={2}>
+              {/* Settings Popover */}
+              <Popover.Root>
+                <Popover.Trigger asChild>
+                  <IconButton
+                    aria-label="Settings"
+                    size="sm"
+                    variant="ghost"
+                  >
+                    <LuSettings />
+                  </IconButton>
+                </Popover.Trigger>
+                <Portal>
+                  <Popover.Positioner>
+                    <Popover.Content>
+                      <Popover.Arrow />
+                      <Popover.Body>
+                        <Text fontWeight="medium" mb={3}>Direction</Text>
+                        <SegmentGroup.Root
+                          size="sm"
+                          value={direction}
+                          onValueChange={(e) => setDirection(e.value as DiagramDirection)}
+                        >
+                          <SegmentGroup.Indicator />
+                          <SegmentGroup.Items items={["TB", "BT", "LR", "RL"]} />
+                        </SegmentGroup.Root>
+                        <Text fontSize="xs" color="fg.muted" mt={2}>
+                          TB = Top-Bottom, LR = Left-Right
+                        </Text>
+                      </Popover.Body>
+                    </Popover.Content>
+                  </Popover.Positioner>
+                </Portal>
+              </Popover.Root>
+
+              <Tabs.Root value={activeTab} onValueChange={(e) => setActiveTab(e.value)} fitted flex={1}>
+                <Tabs.List>
+                  <Tabs.Trigger value="diagram">
+                    <Text fontSize="md" fontWeight="medium">
+                      Diagram
+                    </Text>
+                  </Tabs.Trigger>
+                  <Tabs.Trigger value="code">
+                    <Text fontSize="md" fontWeight="medium">
+                      Mermaid Code
+                    </Text>
+                  </Tabs.Trigger>
+                </Tabs.List>
+              </Tabs.Root>
+            </Flex>
 
             <div style={{ position: "relative", flex: 1, minHeight: 0 }}>
               <div style={{ height: "100%", display: "flex", visibility: activeTab === "diagram" ? "visible" : "hidden", position: "absolute", top: 0, left: 0, right: 0, bottom: 0 }}>

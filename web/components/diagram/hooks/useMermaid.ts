@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from "react";
 import mermaid from "mermaid";
-import type { PyMermaiderClass } from "../types";
+import type { DiagramDirection, PyMermaiderClass } from "../types";
 
 interface UseMermaidProps {
   wasmRef: React.RefObject<PyMermaiderClass | null>;
@@ -8,6 +8,7 @@ interface UseMermaidProps {
   isWasmLoaded: boolean;
   colorMode: string | undefined;
   themeMounted: boolean;
+  direction: DiagramDirection;
 }
 
 export function useMermaid({
@@ -16,6 +17,7 @@ export function useMermaid({
   isWasmLoaded,
   colorMode,
   themeMounted,
+  direction,
 }: UseMermaidProps) {
   const [mermaidCode, setMermaidCode] = useState("");
   const [diagramSvg, setDiagramSvg] = useState<string>("");
@@ -53,6 +55,13 @@ export function useMermaid({
     setDiagramSvg(""); // Clear previous diagram
 
     try {
+      // Set direction before processing
+      try {
+        wasmRef.current.setDirection(direction);
+      } catch (e) {
+        console.warn("Failed to set direction:", e);
+      }
+
       // Try to process the Python code
       let diagram: string;
       try {
@@ -123,7 +132,7 @@ export function useMermaid({
     } finally {
       setIsProcessing(false);
     }
-  }, [pythonCode, wasmRef]);
+  }, [pythonCode, wasmRef, direction]);
 
   // Auto-generate on code change (debounced)
   useEffect(() => {

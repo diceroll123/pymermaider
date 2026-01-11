@@ -17,6 +17,7 @@ use wasm_bindgen::prelude::*;
 #[wasm_bindgen]
 pub struct PyMermaider {
     diagram: ClassDiagram,
+    direction: DiagramDirection,
 }
 
 #[wasm_bindgen]
@@ -27,16 +28,33 @@ impl PyMermaider {
         #[cfg(feature = "console_error_panic_hook")]
         console_error_panic_hook::set_once();
 
+        let direction = DiagramDirection::default();
         Self {
-            diagram: ClassDiagram::new(DiagramDirection::default()),
+            diagram: ClassDiagram::new(direction),
+            direction,
         }
+    }
+
+    /// Set the diagram direction (TB, BT, LR, RL)
+    #[wasm_bindgen(js_name = setDirection)]
+    pub fn set_direction(&mut self, direction: &str) -> Result<(), JsValue> {
+        self.direction = direction
+            .parse()
+            .map_err(|e: String| JsValue::from_str(&e))?;
+        Ok(())
+    }
+
+    /// Get the current diagram direction
+    #[wasm_bindgen(js_name = getDirection)]
+    pub fn get_direction(&self) -> String {
+        self.direction.to_string()
     }
 
     /// Process Python source code and return the Mermaid diagram as a string (or empty string if no diagram)
     #[wasm_bindgen(js_name = processPythonCode)]
     pub fn process_python_code(&mut self, source: &str) -> Result<String, JsValue> {
-        // Reset the diagram for fresh processing
-        self.diagram = ClassDiagram::new(DiagramDirection::default());
+        // Reset the diagram for fresh processing (preserving direction)
+        self.diagram = ClassDiagram::new(self.direction);
 
         // Add the source to the diagram
         self.diagram.add_source(source.to_string());
