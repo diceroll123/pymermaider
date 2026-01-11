@@ -13,8 +13,8 @@ export function useWasm() {
       try {
         console.log("Loading WASM module...");
         const basePath = process.env.NEXT_PUBLIC_BASE_PATH || "";
-        const jsUrl = `${basePath}/wasm/pymermaider.js`;
-        const wasmUrl = `${basePath}/wasm/pymermaider_bg.wasm`;
+        const jsUrl = `${basePath}/wasm/pymermaider_wasm.js`;
+        const wasmUrl = `${basePath}/wasm/pymermaider_wasm_bg.wasm`;
 
         console.log("WASM JS URL:", jsUrl);
         console.log("WASM binary URL:", wasmUrl);

@@ -6,7 +6,7 @@ default:
 
 # Build WASM module for web
 build-wasm:
-    wasm-pack build --target web --out-dir web/public/wasm --no-typescript --no-default-features
+    cd web && npm run build:wasm
 
 # Install web dependencies
 web-install:
@@ -77,16 +77,12 @@ clean:
 # Clean and rebuild everything
 rebuild: clean web-setup
 
-# Install wasm-pack if not present
-install-wasm-pack:
-    @command -v wasm-pack >/dev/null || curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
-
 # Add wasm32 target if not present
 add-wasm-target:
     rustup target add wasm32-unknown-unknown
 
 # Setup development environment
-setup: install-wasm-pack add-wasm-target web-install
+setup: add-wasm-target web-install
     @echo "✅ Development environment ready!"
 
 # Verify setup
@@ -95,8 +91,6 @@ verify:
     @cargo --version
     @echo "Checking wasm32 target..."
     @rustup target list | grep "wasm32-unknown-unknown (installed)"
-    @echo "Checking wasm-pack..."
-    @wasm-pack --version
     @echo "Checking Node.js..."
     @node --version
     @echo "✅ All checks passed!"

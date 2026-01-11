@@ -54,24 +54,11 @@ jobs:
             ${{ runner.os }}-${{ steps.rust_version.outputs.rustc }}-wasm32-unknown-unknown-
             ${{ runner.os }}-
 
-      - name: Install wasm-bindgen-cli
-        run: |
-          if ! command -v wasm-bindgen &> /dev/null; then
-            cargo install wasm-bindgen-cli --version 0.2.105 --locked
-          fi
-
-      - name: Build WASM module
-        run: |
-          cargo build --lib --release --target wasm32-unknown-unknown --no-default-features
-          wasm-bindgen --target web --out-dir web/public/wasm target/wasm32-unknown-unknown/release/pymermaider_lib.wasm --out-name pymermaider
-          echo "WASM module built successfully"
-          ls -lh web/public/wasm/
-
       - name: Install npm dependencies
         working-directory: ./web
         run: npm ci
 
-      - name: Build Next.js application
+      - name: Build (WASM + Next.js)
         working-directory: ./web
         run: npm run build
         env:
