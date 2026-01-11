@@ -308,6 +308,7 @@ export default function DiagramEditor() {
                         <Text fontWeight="medium" mb={3}>Direction</Text>
                         <SegmentGroup.Root
                           size="sm"
+                          defaultValue="TB"
                           value={direction}
                           onValueChange={(e) => setDirection(e.value as DiagramDirection)}
                         >
