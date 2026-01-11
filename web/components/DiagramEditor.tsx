@@ -290,7 +290,7 @@ export default function DiagramEditor() {
           <VStack w={`${100 - leftPanelWidth}%`} h="100%" px={4} gap={4} align="stretch">
             <Flex align="center" gap={2}>
               {/* Settings Popover */}
-              <Popover.Root>
+              <Popover.Root lazyMount={false}>
                 <Popover.Trigger asChild>
                   <IconButton
                     aria-label="Settings"
@@ -300,32 +300,30 @@ export default function DiagramEditor() {
                     <LuSettings />
                   </IconButton>
                 </Popover.Trigger>
-                <Portal>
-                  <Popover.Positioner>
-                    <Popover.Content width="auto" minW="unset">
-                      <Popover.Arrow />
-                      <Popover.Body p={3}>
-                        <Text fontWeight="medium" mb={3}>Direction</Text>
-                        <SegmentGroup.Root
-                          size="sm"
-                          defaultValue="TB"
-                          value={direction}
-                          onValueChange={(e) => setDirection(e.value as DiagramDirection)}
-                        >
-                          <SegmentGroup.Indicator />
-                          <SegmentGroup.Items
-                            items={[
-                              { value: "TB", label: <LuArrowDown title="Top to Bottom" /> },
-                              { value: "BT", label: <LuArrowUp title="Bottom to Top" /> },
-                              { value: "LR", label: <LuArrowRight title="Left to Right" /> },
-                              { value: "RL", label: <LuArrowLeft title="Right to Left" /> },
-                            ]}
-                          />
-                        </SegmentGroup.Root>
-                      </Popover.Body>
-                    </Popover.Content>
-                  </Popover.Positioner>
-                </Portal>
+                <Popover.Positioner>
+                  <Popover.Content width="auto" minW="unset">
+                    <Popover.Arrow />
+                    <Popover.Body p={3}>
+                      <Text fontWeight="medium" mb={3}>Diagram Direction</Text>
+                      <SegmentGroup.Root
+                        size="sm"
+                        defaultValue="TB"
+                        value={direction}
+                        onValueChange={(e) => setDirection(e.value as DiagramDirection)}
+                      >
+                        <SegmentGroup.Indicator css={{ transitionDuration: "0ms" }} />
+                        <SegmentGroup.Items
+                          items={[
+                            { value: "TB", label: <LuArrowDown title="Top to Bottom" /> },
+                            { value: "BT", label: <LuArrowUp title="Bottom to Top" /> },
+                            { value: "LR", label: <LuArrowRight title="Left to Right" /> },
+                            { value: "RL", label: <LuArrowLeft title="Right to Left" /> },
+                          ]}
+                        />
+                      </SegmentGroup.Root>
+                    </Popover.Body>
+                  </Popover.Content>
+                </Popover.Positioner>
               </Popover.Root>
 
               <Tabs.Root value={activeTab} onValueChange={(e) => setActiveTab(e.value)} fitted flex={1}>
