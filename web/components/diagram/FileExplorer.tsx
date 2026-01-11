@@ -65,7 +65,7 @@ export function FileExplorer({
   }
 
   return (
-    <Box h="100%" overflow="auto">
+    <Box>
       {repoSource && (
         <Box
           px={3}
