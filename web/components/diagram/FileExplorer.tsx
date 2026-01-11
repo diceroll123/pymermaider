@@ -114,22 +114,26 @@ export function FileExplorer({
             render={({ node, nodeState }) =>
               nodeState.isBranch ? (
                 <TreeView.BranchControl>
-                  {nodeState.loading ? (
-                    <LuLoaderCircle style={{ animation: "spin 1s infinite" }} />
-                  ) : nodeState.expanded ? (
-                    <LuFolderOpen style={{ color: "var(--chakra-colors-yellow-500)" }} />
-                  ) : (
-                    <LuFolder style={{ color: "var(--chakra-colors-yellow-500)" }} />
-                  )}
+                  <Box as="span" color="yellow.500" display="inline-flex">
+                    {nodeState.loading ? (
+                      <LuLoaderCircle style={{ animation: "spin 1s infinite" }} />
+                    ) : nodeState.expanded ? (
+                      <LuFolderOpen />
+                    ) : (
+                      <LuFolder />
+                    )}
+                  </Box>
                   <TreeView.BranchText>{node.name}</TreeView.BranchText>
                 </TreeView.BranchControl>
               ) : (
-                <TreeView.Item>
-                  {node.isPython ? (
-                    <LuFileCode style={{ color: "var(--chakra-colors-blue-400)" }} />
-                  ) : (
-                    <LuFile />
-                  )}
+                <TreeView.Item
+                  opacity={node.isPython ? 1 : 0.5}
+                  cursor={node.isPython ? "pointer" : "not-allowed"}
+                  pointerEvents={node.isPython ? "auto" : "none"}
+                >
+                  <Box as="span" color={node.isPython ? "blue.400" : "fg.muted"} display="inline-flex">
+                    {node.isPython ? <LuFileCode /> : <LuFile />}
+                  </Box>
                   <TreeView.ItemText
                     fontWeight={node.isPython ? "medium" : "normal"}
                     color={node.isPython ? "fg" : "fg.muted"}

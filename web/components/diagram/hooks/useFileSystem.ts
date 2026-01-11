@@ -71,21 +71,27 @@ async function processEntry(
   const isPython = entry.name.endsWith(".py");
 
   if (entry.isFile) {
-    // Only process Python files
-    if (!isPython) return null;
-
-    try {
-      const content = await readFileContent(entry);
-      fileContents.set(fullPath, content);
-      return {
-        id: fullPath,
-        name: entry.name,
-        content,
-        isPython: true,
-      };
-    } catch {
-      return null;
+    // Store content for Python files
+    if (isPython) {
+      try {
+        const content = await readFileContent(entry);
+        fileContents.set(fullPath, content);
+        return {
+          id: fullPath,
+          name: entry.name,
+          content,
+          isPython: true,
+        };
+      } catch {
+        return null;
+      }
     }
+    // Include non-Python files as disabled items
+    return {
+      id: fullPath,
+      name: entry.name,
+      isPython: false,
+    };
   }
 
   if (entry.isDirectory) {
@@ -224,16 +230,18 @@ export function useFileSystem(): UseFileSystemResult {
           rootName = parts[0];
         }
 
-        // Skip non-Python files
-        if (!file.name.endsWith(".py")) continue;
-
         // Skip files in excluded directories
         if (parts.some(part => skipDirs.includes(part))) continue;
 
-        // Read file content
-        const content = await file.text();
-        const fullPath = relativePath;
-        fileContents.set(fullPath, content);
+        const isPython = file.name.endsWith(".py");
+        let content: string | undefined;
+
+        // Read file content for Python files
+        if (isPython) {
+          content = await file.text();
+          const fullPath = relativePath;
+          fileContents.set(fullPath, content);
+        }
 
         // Build tree structure
         let currentPath = "";
@@ -248,7 +256,7 @@ export function useFileSystem(): UseFileSystemResult {
               id: currentPath,
               name: part,
               content,
-              isPython: true,
+              isPython,
             };
             tree.set(currentPath, fileNode);
 

@@ -100,13 +100,10 @@ export function useGitHubRepo(): UseGitHubRepoResult {
       const isPython = item.name.endsWith(".py");
 
       if (item.type === "file") {
-        // Only include Python files
-        if (!isPython) continue;
-
         nodes.push({
           id: item.path,
           name: item.name,
-          isPython: true,
+          isPython,
         });
       } else if (item.type === "dir") {
         // Include all directories (we'll prune empty ones later or use lazy loading)
