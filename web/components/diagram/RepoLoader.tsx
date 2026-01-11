@@ -279,8 +279,7 @@ export function RepoLoader({
           bg="red.50"
           _dark={{ bg: "red.900/20" }}
           borderWidth="1px"
-          borderColor="red.200"
-          _darkBorderColor="red.800"
+          borderColor={{ base: "red.200", _dark: "red.800" }}
         >
           <Text fontSize="xs" color="red.600" _dark={{ color: "red.300" }}>
             {error}
