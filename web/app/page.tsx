@@ -8,7 +8,7 @@ import { FaGithub } from "react-icons/fa";
 export default function Home() {
   return (
     <Container maxW="100vw" p={0} h="100vh">
-      <VStack h="100%" gap={0} overflow="hidden">
+      <VStack h="100%" gap={0}>
         <Box
           w="100%"
           p={4}
