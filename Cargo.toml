@@ -22,14 +22,14 @@ ignore = { version = "0.4.25", features = ["simd-accel"], optional = true }
 indexmap = "2.7.0"
 itertools = "0.14.0"
 log = "0.4.28"
-ruff_python_ast = { git = "https://github.com/astral-sh/ruff.git", tag = "0.14.11" }
-ruff_python_codegen = { git = "https://github.com/astral-sh/ruff.git", tag = "0.14.11" }
-ruff_python_parser = { git = "https://github.com/astral-sh/ruff.git", tag = "0.14.11" }
-ruff_python_semantic = { git = "https://github.com/astral-sh/ruff.git", tag = "0.14.11" }
-ruff_python_stdlib = { git = "https://github.com/astral-sh/ruff.git", tag = "0.14.11" }
-ruff_source_file = { git = "https://github.com/astral-sh/ruff.git", tag = "0.14.11" }
-ruff_text_size = { git = "https://github.com/astral-sh/ruff.git", tag = "0.14.11" }
-ruff_linter = { git = "https://github.com/astral-sh/ruff.git", tag = "0.14.11" }
+ruff_python_ast = { git = "https://github.com/astral-sh/ruff.git", tag = "0.14.13" }
+ruff_python_codegen = { git = "https://github.com/astral-sh/ruff.git", tag = "0.14.13" }
+ruff_python_parser = { git = "https://github.com/astral-sh/ruff.git", tag = "0.14.13" }
+ruff_python_semantic = { git = "https://github.com/astral-sh/ruff.git", tag = "0.14.13" }
+ruff_python_stdlib = { git = "https://github.com/astral-sh/ruff.git", tag = "0.14.13" }
+ruff_source_file = { git = "https://github.com/astral-sh/ruff.git", tag = "0.14.13" }
+ruff_text_size = { git = "https://github.com/astral-sh/ruff.git", tag = "0.14.13" }
+ruff_linter = { git = "https://github.com/astral-sh/ruff.git", tag = "0.14.13" }
 globset = "0.4.18"
 wasm-bindgen = "0.2"
 console_error_panic_hook = { version = "0.1", optional = true }
