@@ -34,6 +34,6 @@
     "eslint": "^9",
     "eslint-config-next": "16.1.4",
     "typescript": "^5",
-    "wasm-pack": "^0.13.1"
+    "wasm-pack": "^0.14.0"
   }
 }
