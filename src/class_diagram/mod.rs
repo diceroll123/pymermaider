@@ -394,7 +394,10 @@ impl ClassDiagram {
         source_type: PySourceType,
         module_kind: ModuleKind,
     ) {
-        let source_kind = SourceKind::Python(source);
+        let source_kind = SourceKind::Python {
+            code: source,
+            is_stub: false,
+        };
 
         let parsed = Self::parse_python(source_kind.source_code(), source_type);
         let mut checker = Self::build_checker(

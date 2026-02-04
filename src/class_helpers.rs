@@ -133,7 +133,10 @@ class Thing(ABC, Mixin): ...
 "#;
 
         let file = PathBuf::from("test.py");
-        let source_kind = SourceKind::Python(source.to_string());
+        let source_kind = SourceKind::Python {
+            code: source.to_string(),
+            is_stub: false,
+        };
         let locator = Locator::new(source_kind.source_code());
         let parsed = parse_unchecked_source(source_kind.source_code(), PySourceType::from(&file));
         let stylist = Stylist::from_tokens(parsed.tokens(), source_kind.source_code());
@@ -162,7 +165,10 @@ class Thing(A, B): ...
 "#;
 
         let file = PathBuf::from("test.py");
-        let source_kind = SourceKind::Python(source.to_string());
+        let source_kind = SourceKind::Python {
+            code: source.to_string(),
+            is_stub: false,
+        };
         let locator = Locator::new(source_kind.source_code());
         let parsed = parse_unchecked_source(source_kind.source_code(), PySourceType::from(&file));
         let stylist = Stylist::from_tokens(parsed.tokens(), source_kind.source_code());
@@ -191,7 +197,10 @@ class Thing(Mixin, metaclass=ABCMeta): ...
 "#;
 
         let file = PathBuf::from("test.py");
-        let source_kind = SourceKind::Python(source.to_string());
+        let source_kind = SourceKind::Python {
+            code: source.to_string(),
+            is_stub: false,
+        };
         let locator = Locator::new(source_kind.source_code());
         let parsed = parse_unchecked_source(source_kind.source_code(), PySourceType::from(&file));
         let stylist = Stylist::from_tokens(parsed.tokens(), source_kind.source_code());
