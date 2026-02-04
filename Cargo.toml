@@ -35,7 +35,7 @@ wasm-bindgen = "0.2"
 console_error_panic_hook = { version = "0.1", optional = true }
 
 # Ensure getrandom and uuid work with WASM
-getrandom = { version = "0.4", features = ["wasm_js"] }
+getrandom = { version = "0.3", features = ["wasm_js"] }
 uuid = { version = "1", features = ["v4", "js"] }
 
 [dev-dependencies]
