@@ -331,8 +331,9 @@ export default function DiagramEditor() {
                           onCheckedChange={(e) => setHidePrivateMembers(!!e.checked)}
                         >
                           <Switch.HiddenInput />
-                          <Switch.Control />
-                          <Switch.Thumb />
+                          <Switch.Control>
+                            <Switch.Thumb />
+                          </Switch.Control>
                           <Switch.Label>Hide private members</Switch.Label>
                         </Switch.Root>
                       </Flex>
