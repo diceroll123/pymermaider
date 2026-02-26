@@ -7,6 +7,7 @@
 - `--no-title` flag to omit the title from diagram output.
 
 ### Changed
+- Property decorator handling: `@property` getters are now shown as attributes (e.g. `+ str name`) instead of methods. Property setters and deleters (`@name.setter`, `@name.deleter`) are omitted from the diagram.
 
 ## [0.1.6] - 2025-12-27
 

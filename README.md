@@ -140,10 +140,6 @@ classDiagram
 - Import/type resolution powered by [ty](https://github.com/astral-sh/ty)
 - More language support, maybe?? 😳🤔
 
-## Known Issues
-
-- methods with property-setter decorators can be confusing in the output
-
 ## Contributing
 
 Contributions are more than welcome, just make a PR and we'll go from there!

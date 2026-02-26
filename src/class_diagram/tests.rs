@@ -492,6 +492,48 @@ class Thing:
 }
 
 #[test]
+fn test_property_as_attribute() {
+    let source = "
+class Person:
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @name.setter
+    def name(self, value: str) -> None:
+        self._name = value
+
+    @name.deleter
+    def name(self) -> None:
+        del self._name
+";
+    let expected_output = "classDiagram
+    class Person {
+        + str name
+    }
+";
+
+    test_diagram(source, expected_output);
+}
+
+#[test]
+fn test_property_no_return_annotation() {
+    let source = "
+class Thing:
+    @property
+    def value(self):
+        return 42
+";
+    let expected_output = "classDiagram
+    class Thing {
+        + Any value
+    }
+";
+
+    test_diagram(source, expected_output);
+}
+
+#[test]
 fn test_concrete_generic_base() {
     let source = r#"
 from typing import TypeVar, Generic
