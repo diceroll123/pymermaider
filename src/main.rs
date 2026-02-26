@@ -78,7 +78,11 @@ fn main() {
             .read_to_string(&mut source)
             .unwrap_or_else(|e| panic!("Failed to read stdin: {e}"));
 
-        let mut diagram = class_diagram::ClassDiagram::new(mermaider.args().direction);
+        let options = pymermaider_wasm::mermaid_renderer::RenderOptions {
+            direction: mermaider.args().direction,
+            hide_private_members: mermaider.args().hide_private_members,
+        };
+        let mut diagram = class_diagram::ClassDiagram::new(options);
         diagram.add_source(source);
 
         vec![diagram]

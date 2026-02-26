@@ -2,6 +2,7 @@ use crate::args::Args;
 use crate::output_format::OutputFormat;
 use crate::settings::FileResolverSettings;
 use pymermaider_wasm::class_diagram::ClassDiagram;
+use pymermaider_wasm::mermaid_renderer::RenderOptions;
 
 use globset::Candidate;
 use ignore::{types::TypesBuilder, WalkBuilder};
@@ -101,7 +102,11 @@ impl Mermaider {
     }
 
     fn make_mermaid(&self, parsed_files: Vec<PathBuf>) -> ClassDiagram {
-        let mut class_diagram = ClassDiagram::new(self.args.direction);
+        let options = RenderOptions {
+            direction: self.args.direction,
+            hide_private_members: self.args.hide_private_members,
+        };
+        let mut class_diagram = ClassDiagram::new(options);
 
         for file in &parsed_files {
             let source = match std::fs::read_to_string(file) {
@@ -191,6 +196,7 @@ mod tests {
             extend_exclude: None,
             direction: DiagramDirection::default(),
             no_title: false,
+            hide_private_members: false,
         }
     }
 

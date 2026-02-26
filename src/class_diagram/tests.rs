@@ -645,6 +645,7 @@ class FancyStore(Store[datetime], Generic[FancyStorage]):
 
 #[test]
 fn test_non_default_direction_emitted() {
+    use crate::mermaid_renderer::RenderOptions;
     use crate::renderer::DiagramDirection;
 
     let source = "class Thing: ...";
@@ -653,10 +654,57 @@ fn test_non_default_direction_emitted() {
 
     class Thing
 ";
-    let mut diagram = ClassDiagram::new(DiagramDirection::LR);
+    let options = RenderOptions {
+        direction: DiagramDirection::LR,
+        hide_private_members: false,
+    };
+    let mut diagram = ClassDiagram::new(options);
     diagram.add_source(source.to_owned());
     let output = diagram.render().unwrap_or_default();
     assert_eq!(output.trim(), expected.trim());
+}
+
+#[test]
+fn test_hide_private_members() {
+    use crate::mermaid_renderer::RenderOptions;
+
+    let source = "
+class Foo:
+    x: int
+    _private: str
+    def bar(self) -> None: ...
+    def _helper(self) -> None: ...
+";
+    let mut diagram = ClassDiagram::new(RenderOptions::default());
+    diagram.add_source(source.to_owned());
+    let with_private = diagram.render().unwrap_or_default();
+    assert!(
+        with_private.contains("_private"),
+        "private attr should appear when not hidden; got: {with_private}"
+    );
+    assert!(
+        with_private.contains("_helper"),
+        "private method should appear when not hidden; got: {with_private}"
+    );
+
+    diagram.set_hide_private_members(true);
+    let without_private = diagram.render().unwrap_or_default();
+    assert!(
+        without_private.contains("+ int x"),
+        "public attr should appear"
+    );
+    assert!(
+        without_private.contains("+ bar(self)"),
+        "public method should appear"
+    );
+    assert!(
+        !without_private.contains("_private"),
+        "private attr should be hidden; got: {without_private}"
+    );
+    assert!(
+        !without_private.contains("_helper"),
+        "private method should be hidden; got: {without_private}"
+    );
 }
 
 fn test_diagram(source: &str, expected_output: &str) {

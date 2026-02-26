@@ -4,8 +4,8 @@ use crate::class_helpers::{ClassDefHelpers, QualifiedNameHelpers};
 use crate::class_type_detector::ClassTypeDetector;
 use crate::parameter_generator::ParameterGenerator;
 use crate::renderer::{
-    Attribute, ClassNode, CompositionEdge, Diagram, DiagramDirection, MethodSignature,
-    RelationType, RelationshipEdge, Visibility,
+    Attribute, ClassNode, CompositionEdge, Diagram, MethodSignature, RelationType,
+    RelationshipEdge, Visibility,
 };
 use crate::type_analyzer;
 use indexmap::IndexSet;
@@ -40,23 +40,27 @@ enum BaseKind {
 
 pub struct ClassDiagram {
     diagram: Diagram,
-    direction: DiagramDirection,
+    options: crate::mermaid_renderer::RenderOptions,
     pub path: String,
 }
 
 impl Default for ClassDiagram {
     fn default() -> Self {
-        Self::new(DiagramDirection::default())
+        Self::new(crate::mermaid_renderer::RenderOptions::default())
     }
 }
 
 impl ClassDiagram {
-    pub fn new(direction: DiagramDirection) -> Self {
+    pub fn new(options: crate::mermaid_renderer::RenderOptions) -> Self {
         Self {
             diagram: Diagram::new(),
-            direction,
+            options,
             path: String::new(),
         }
+    }
+
+    pub fn set_hide_private_members(&mut self, hide: bool) {
+        self.options.hide_private_members = hide;
     }
 
     pub fn is_empty(&self) -> bool {
@@ -74,7 +78,7 @@ impl ClassDiagram {
             Some(self.path.as_str())
         };
 
-        crate::mermaid_renderer::render_diagram(&self.diagram, title, self.direction)
+        crate::mermaid_renderer::render_diagram(&self.diagram, title, &self.options)
     }
 
     pub fn add_class(

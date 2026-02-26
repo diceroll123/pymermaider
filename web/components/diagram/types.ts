@@ -4,6 +4,7 @@ export type PyMermaiderClass = {
   processPythonCode(code: string): string;
   setDirection(direction: DiagramDirection): void;
   getDirection(): DiagramDirection;
+  setHidePrivateMembers(hide: boolean): void;
 };
 
 // File tree types for the explorer
