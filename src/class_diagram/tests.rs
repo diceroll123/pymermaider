@@ -15,7 +15,7 @@ class TestClass:
 
     let expected_output = r"classDiagram
     class TestClass {
-        - \_\_init__(self, x, y) None
+        + \_\_init__(self, x, y) None
         + add(self, x, y) int
         + subtract(self, x, y) int
     }
@@ -376,8 +376,8 @@ class Thing:
 
     let expected_output = r"classDiagram
     class Thing {
-        - @overload \_\_init__(self, x, y) None
-        - \_\_init__(self, x, y) None
+        + @overload \_\_init__(self, x, y) None
+        + \_\_init__(self, x, y) None
     }
 ";
 
@@ -407,8 +407,8 @@ class Thing:
 
     let expected_output = r"classDiagram
     class Thing {
-        - \_\_complex__(self) complex
-        - \_\_bytes__(self) bytes
+        + \_\_complex__(self) complex
+        + \_\_bytes__(self) bytes
     }
 ";
 
@@ -628,7 +628,7 @@ class FancyStore(Store[datetime], Generic[FancyStorage]):
     }
 
     class FancyStore ~FancyStorage~ {
-        - \_\_init__(self, fancy_store) None
+        + \_\_init__(self, fancy_store) None
         + insert(self, data) None
     }
 
