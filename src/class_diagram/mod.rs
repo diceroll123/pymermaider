@@ -222,7 +222,9 @@ impl ClassDiagram {
 
                 let target_name = target.to_string();
                 let annotation_name = checker.generator().expr(annotation.as_ref());
-                let is_private = target_name.starts_with('_');
+                let is_dunder =
+                    target_name.starts_with("__") && target_name.ends_with("__");
+                let is_private = target_name.starts_with('_') && !is_dunder;
 
                 Some(ClassMember::Attribute(Attribute {
                     name: target_name,
@@ -289,7 +291,8 @@ impl ClassDiagram {
                     return None;
                 }
 
-                let is_private = name.starts_with('_');
+                let is_dunder = name.starts_with("__") && name.ends_with("__");
+                let is_private = name.starts_with('_') && !is_dunder;
                 let is_static = is_staticmethod(decorator_list, checker.semantic());
 
                 // @property getters: show as attributes (read-only) instead of methods
