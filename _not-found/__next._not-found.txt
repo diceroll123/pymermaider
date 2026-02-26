@@ -1,4 +1,4 @@
 1:"$Sreact.fragment"
 2:I[39756,["/pymermaider/_next/static/chunks/a1d4c80f3059277a.js","/pymermaider/_next/static/chunks/edaab5a819ac9e90.js","/pymermaider/_next/static/chunks/1a1a109ce32932b3.js"],"default"]
 3:I[37457,["/pymermaider/_next/static/chunks/a1d4c80f3059277a.js","/pymermaider/_next/static/chunks/edaab5a819ac9e90.js","/pymermaider/_next/static/chunks/1a1a109ce32932b3.js"],"default"]
-0:{"buildId":"Z7iXeBz6U3NwmXJxhWmjr","rsc":["$","$1","c",{"children":[null,["$","$L2",null,{"parallelRouterKey":"children","template":["$","$L3",null,{}]}]]}],"loading":null,"isPartial":false}
+0:{"buildId":"vwKcaQ4x1nvWRM82a0aCY","rsc":["$","$1","c",{"children":[null,["$","$L2",null,{"parallelRouterKey":"children","template":["$","$L3",null,{}]}]]}],"loading":null,"isPartial":false}
