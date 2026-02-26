@@ -11,12 +11,12 @@ use crate::type_analyzer;
 use indexmap::IndexSet;
 use ruff_linter::source_kind::SourceKind;
 use ruff_linter::Locator;
-use ruff_python_ast::name::QualifiedName;
+use ruff_python_ast::name::{QualifiedName, UnqualifiedName};
 use ruff_python_ast::{Expr, Number, PySourceType};
 use ruff_python_codegen::Stylist;
 use ruff_python_parser::parse_unchecked_source;
 use ruff_python_semantic::analyze::visibility::{
-    is_abstract, is_classmethod, is_final, is_overload, is_override, is_staticmethod,
+    is_abstract, is_classmethod, is_final, is_overload, is_override, is_property, is_staticmethod,
 };
 use ruff_python_semantic::{Module, ModuleKind, ModuleSource, SemanticModel};
 use ruff_python_stdlib::typing::simple_magic_return_type;
@@ -188,6 +188,17 @@ impl ClassDiagram {
         }
     }
 
+    /// Returns true if the function is a property setter or deleter (e.g. @name.setter, @name.deleter).
+    /// These are implementation details and should be omitted from the diagram.
+    fn is_property_setter_or_deleter(decorator_list: &[ast::Decorator], fn_name: &str) -> bool {
+        decorator_list.iter().any(|decorator| {
+            UnqualifiedName::from_expr(&decorator.expression).is_some_and(|name| {
+                let segs = name.segments();
+                (segs == [fn_name, "setter"]) || (segs == [fn_name, "deleter"])
+            })
+        })
+    }
+
     /// Process a statement into an Attribute or MethodSignature
     fn process_stmt_to_member(&self, checker: &Checker, stmt: &ast::Stmt) -> Option<ClassMember> {
         match stmt {
@@ -269,8 +280,36 @@ impl ClassDiagram {
                 decorator_list,
                 ..
             }) => {
+                // Skip property setters and deleters - they're implementation details of the property
+                if Self::is_property_setter_or_deleter(decorator_list, name.as_str()) {
+                    return None;
+                }
+
                 let is_private = name.starts_with('_');
                 let is_static = is_staticmethod(decorator_list, checker.semantic());
+
+                // @property getters: show as attributes (read-only) instead of methods
+                if is_property(
+                    decorator_list,
+                    std::iter::empty::<QualifiedName>(),
+                    checker.semantic(),
+                ) {
+                    let return_type = match returns {
+                        Some(target) => checker.generator().expr(target.as_ref()),
+                        None => simple_magic_return_type(name)
+                            .map(String::from)
+                            .unwrap_or_else(|| "Any".to_string()),
+                    };
+                    return Some(ClassMember::Attribute(Attribute {
+                        name: name.to_string(),
+                        type_annotation: return_type,
+                        visibility: if is_private {
+                            Visibility::Private
+                        } else {
+                            Visibility::Public
+                        },
+                    }));
+                }
 
                 let mut param_gen = ParameterGenerator::new();
                 param_gen.unparse_parameters(parameters);
