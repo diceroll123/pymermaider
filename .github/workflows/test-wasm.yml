@@ -3,19 +3,7 @@ name: Test WASM Build
 on:
   push:
     branches: [main, develop]
-    paths:
-      - 'src/**'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - '**/package.json'
-      - '**/package-lock.json'
   pull_request:
-    paths:
-      - 'src/**'
-      - 'Cargo.toml'
-      - 'Cargo.lock'
-      - '**/package.json'
-      - '**/package-lock.json'
   workflow_dispatch:
 
 concurrency:
