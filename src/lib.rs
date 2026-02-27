@@ -8,16 +8,16 @@ pub mod parameter_generator;
 pub mod renderer;
 pub mod type_analyzer;
 
+pub use mermaid_renderer::RenderOptions;
 pub use ruff_python_ast as ast;
 
 use class_diagram::ClassDiagram;
-use renderer::DiagramDirection;
 use wasm_bindgen::prelude::*;
 
 #[wasm_bindgen]
 pub struct PyMermaider {
     diagram: ClassDiagram,
-    direction: DiagramDirection,
+    options: RenderOptions,
 }
 
 #[wasm_bindgen]
@@ -28,17 +28,16 @@ impl PyMermaider {
         #[cfg(feature = "console_error_panic_hook")]
         console_error_panic_hook::set_once();
 
-        let direction = DiagramDirection::default();
         Self {
-            diagram: ClassDiagram::new(direction),
-            direction,
+            diagram: ClassDiagram::new(RenderOptions::default()),
+            options: RenderOptions::default(),
         }
     }
 
     /// Set the diagram direction (TB, BT, LR, RL)
     #[wasm_bindgen(js_name = setDirection)]
     pub fn set_direction(&mut self, direction: &str) -> Result<(), JsValue> {
-        self.direction = direction
+        self.options.direction = direction
             .parse()
             .map_err(|e: String| JsValue::from_str(&e))?;
         Ok(())
@@ -47,14 +46,20 @@ impl PyMermaider {
     /// Get the current diagram direction
     #[wasm_bindgen(js_name = getDirection)]
     pub fn get_direction(&self) -> String {
-        self.direction.to_string()
+        self.options.direction.to_string()
+    }
+
+    /// Set whether to hide private members (fields and methods with names starting with _) in the diagram. Off by default.
+    #[wasm_bindgen(js_name = setHidePrivateMembers)]
+    pub fn set_hide_private_members(&mut self, hide: bool) {
+        self.options.hide_private_members = hide;
     }
 
     /// Process Python source code and return the Mermaid diagram as a string (or empty string if no diagram)
     #[wasm_bindgen(js_name = processPythonCode)]
     pub fn process_python_code(&mut self, source: &str) -> Result<String, JsValue> {
-        // Reset the diagram for fresh processing (preserving direction)
-        self.diagram = ClassDiagram::new(self.direction);
+        // Reset the diagram for fresh processing (preserving options)
+        self.diagram = ClassDiagram::new(self.options);
 
         // Add the source to the diagram
         self.diagram.add_source(source.to_string());

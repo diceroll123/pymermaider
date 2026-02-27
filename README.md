@@ -59,6 +59,9 @@ pymermaider [OPTIONS] <PATH>
 - `--no-title`
   Omit the title from the diagram output.
 
+- `--hide-private-members`
+  Hide private members (fields and methods with names starting with `_`) from the diagram.
+
 - `-h, --help`
   Display help information for the command.
 
@@ -98,6 +101,9 @@ pymermaider my_file.py --output-format mmd --output diagram.mmd
 
 # directory -> stdout (single combined diagram)
 pymermaider ./my_project --output - > diagram.md
+
+# hide private members (fields and methods with names starting with _)
+pymermaider my_file.py --hide-private-members --output -
 ```
 
 ---

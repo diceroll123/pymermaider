@@ -59,4 +59,8 @@ pub struct Args {
     /// Omit the title from the diagram output.
     #[arg(long, verbatim_doc_comment, default_value = "false")]
     pub no_title: bool,
+
+    /// Hide private members (fields and methods with names starting with _) from the diagram.
+    #[arg(long, verbatim_doc_comment, default_value = "false")]
+    pub hide_private_members: bool,
 }

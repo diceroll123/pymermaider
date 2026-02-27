@@ -9,6 +9,7 @@ interface UseMermaidProps {
   colorMode: string | undefined;
   themeMounted: boolean;
   direction: DiagramDirection;
+  hidePrivateMembers: boolean;
 }
 
 export function useMermaid({
@@ -18,6 +19,7 @@ export function useMermaid({
   colorMode,
   themeMounted,
   direction,
+  hidePrivateMembers,
 }: UseMermaidProps) {
   const [mermaidCode, setMermaidCode] = useState("");
   const [diagramSvg, setDiagramSvg] = useState<string>("");
@@ -55,11 +57,12 @@ export function useMermaid({
     setDiagramSvg(""); // Clear previous diagram
 
     try {
-      // Set direction before processing
+      // Set options before processing
       try {
         wasmRef.current.setDirection(direction);
+        wasmRef.current.setHidePrivateMembers(hidePrivateMembers);
       } catch (e) {
-        console.warn("Failed to set direction:", e);
+        console.warn("Failed to set options:", e);
       }
 
       // Try to process the Python code
@@ -132,7 +135,7 @@ export function useMermaid({
     } finally {
       setIsProcessing(false);
     }
-  }, [pythonCode, wasmRef, direction]);
+  }, [pythonCode, wasmRef, direction, hidePrivateMembers]);
 
   // Auto-generate on code change (debounced)
   useEffect(() => {

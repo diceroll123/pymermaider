@@ -7,6 +7,12 @@ use indexmap::IndexSet;
 
 const TAB: &str = "    ";
 
+#[derive(Clone, Copy, Default)]
+pub struct RenderOptions {
+    pub direction: DiagramDirection,
+    pub hide_private_members: bool,
+}
+
 fn indent(indent_level: usize) -> String {
     TAB.repeat(indent_level)
 }
@@ -30,10 +36,19 @@ fn format_class_type(class_type: ClassType) -> Option<&'static str> {
     }
 }
 
-fn has_class_body(class: &ClassNode) -> bool {
-    !class.attributes.is_empty()
-        || !class.methods.is_empty()
-        || class.class_type != ClassType::Regular
+fn has_class_body(class: &ClassNode, opts: &RenderOptions) -> bool {
+    let hide = opts.hide_private_members;
+    let n_attrs = class
+        .attributes
+        .iter()
+        .filter(|a| !hide || a.visibility != Visibility::Private)
+        .count();
+    let n_methods = class
+        .methods
+        .iter()
+        .filter(|m| !hide || m.visibility != Visibility::Private)
+        .count();
+    n_attrs > 0 || n_methods > 0 || class.class_type != ClassType::Regular
 }
 
 fn render_class_annotation(output: &mut String, inner_indent: &str, class_type: ClassType) {
@@ -118,7 +133,7 @@ pub fn render_header(title: Option<&str>, direction: DiagramDirection) -> String
     output
 }
 
-pub fn render_class(class: &ClassNode) -> String {
+pub fn render_class(class: &ClassNode, opts: &RenderOptions) -> String {
     let mut output = String::new();
     let outer_indent = indent(1);
     let inner_indent = indent(2);
@@ -133,7 +148,7 @@ pub fn render_class(class: &ClassNode) -> String {
         output.push_str(&format!(" ~{}~", type_params));
     }
 
-    if has_class_body(class) {
+    if has_class_body(class, opts) {
         output.push_str(" {\n");
 
         // Class type annotation
@@ -141,11 +156,17 @@ pub fn render_class(class: &ClassNode) -> String {
 
         // Attributes
         for attr in &class.attributes {
+            if opts.hide_private_members && attr.visibility == Visibility::Private {
+                continue;
+            }
             render_attribute(&mut output, &inner_indent, attr);
         }
 
         // Methods
         for method in &class.methods {
+            if opts.hide_private_members && method.visibility == Visibility::Private {
+                continue;
+            }
             render_method(&mut output, &inner_indent, method);
         }
 
@@ -181,17 +202,17 @@ pub fn render_composition(composition: &CompositionEdge) -> String {
 pub fn render_diagram(
     diagram: &Diagram,
     title: Option<&str>,
-    direction: DiagramDirection,
+    opts: &RenderOptions,
 ) -> Option<String> {
     if diagram.is_empty() {
         return None;
     }
 
     let mut output = String::with_capacity(1024);
-    output.push_str(&render_header(title, direction));
+    output.push_str(&render_header(title, opts.direction));
 
     for class in diagram.classes_topologically_sorted_unique() {
-        output.push_str(&render_class(class));
+        output.push_str(&render_class(class, opts));
     }
 
     // Relationships (deduped; stable order)
@@ -252,7 +273,7 @@ mod tests {
             }],
         };
 
-        let output = render_class(&class);
+        let output = render_class(&class, &RenderOptions::default());
         assert!(output.contains("class Person"));
         assert!(output.contains("+ str name"));
         assert!(output.contains("+ greet(self) str"));

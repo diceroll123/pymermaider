@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import { Flex, VStack, Box, Text, Tabs, IconButton, Popover, Portal, SegmentGroup } from "@chakra-ui/react";
+import { Flex, VStack, Box, Text, Tabs, IconButton, Popover, SegmentGroup, Switch } from "@chakra-ui/react";
 import { LuPanelLeftClose, LuPanelLeft, LuSettings, LuArrowDown, LuArrowUp, LuArrowRight, LuArrowLeft } from "react-icons/lu";
 import { useColorMode } from "@/components/ui/color-mode";
 import { DEFAULT_PYTHON_CODE, DiagramDirection } from "./diagram/types";
@@ -29,6 +29,7 @@ export default function DiagramEditor() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [direction, setDirection] = useState<DiagramDirection>("TB");
+  const [hidePrivateMembers, setHidePrivateMembers] = useState(false);
 
   // Load WASM
   const { wasmRef, isWasmLoaded, error: wasmError } = useWasm();
@@ -56,6 +57,7 @@ export default function DiagramEditor() {
     colorMode,
     themeMounted,
     direction,
+    hidePrivateMembers,
   });
 
   // Syntax highlighting for Python editor
@@ -322,6 +324,19 @@ export default function DiagramEditor() {
                           ]}
                         />
                       </SegmentGroup.Root>
+                      <Flex mt={3} align="center" gap={2}>
+                        <Switch.Root
+                          size="sm"
+                          checked={hidePrivateMembers}
+                          onCheckedChange={(e) => setHidePrivateMembers(!!e.checked)}
+                        >
+                          <Switch.HiddenInput />
+                          <Switch.Control>
+                            <Switch.Thumb />
+                          </Switch.Control>
+                          <Switch.Label>Hide private members</Switch.Label>
+                        </Switch.Root>
+                      </Flex>
                     </Popover.Body>
                   </Popover.Content>
                 </Popover.Positioner>
