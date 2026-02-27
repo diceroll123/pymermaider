@@ -84,6 +84,13 @@ export class PyMermaider {
             throw takeFromExternrefTable0(ret[0]);
         }
     }
+    /**
+     * Set whether to hide private members (fields and methods with names starting with _) in the diagram. Off by default.
+     * @param {boolean} hide
+     */
+    setHidePrivateMembers(hide) {
+        wasm.pymermaider_setHidePrivateMembers(this.__wbg_ptr, hide);
+    }
 }
 if (Symbol.dispose) PyMermaider.prototype[Symbol.dispose] = PyMermaider.prototype.free;
 
