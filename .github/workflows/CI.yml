@@ -47,7 +47,7 @@ jobs:
           target: ${{ matrix.platform.target }}
           args: ${{ matrix.platform.args }}
       - name: Upload wheels
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: ${{ matrix.platform.artifact_name }}
           path: dist
@@ -73,7 +73,7 @@ jobs:
         with:
           args: --release --find-interpreter --out dist --target ${{ matrix.platform.target }}
       - name: Upload wheels
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: wheels-${{ matrix.platform.target }}
           path: dist
@@ -99,7 +99,7 @@ jobs:
           command: build
           args: --release --find-interpreter -o dist
       - name: Upload wheels
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: wheels-${{ matrix.target }}
           path: dist
@@ -134,7 +134,7 @@ jobs:
           docker-options: ${{ matrix.platform.maturin_docker_options }}
           args: --release --find-interpreter -o dist
       - name: Upload wheels
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: wheels-${{ matrix.platform.target }}
           path: dist
@@ -159,7 +159,7 @@ jobs:
           manylinux: musllinux_1_2
           args: --release --find-interpreter -o dist
       - name: Upload wheels
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: wheels-${{ matrix.target }}
           path: dist
@@ -188,7 +188,7 @@ jobs:
           args: --release --find-interpreter -o dist
           docker-options: ${{ matrix.platform.maturin_docker_options }}
       - name: Upload wheels
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
           name: wheels-${{ matrix.platform.target }}
           path: dist
@@ -215,7 +215,7 @@ jobs:
       - all-builds-pass
     if: github.event_name == 'release'
     steps:
-      - uses: actions/download-artifact@v7
+      - uses: actions/download-artifact@v8
         with:
           pattern: wheels-*
           merge-multiple: true
