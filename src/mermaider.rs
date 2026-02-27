@@ -155,6 +155,14 @@ impl Mermaider {
                         continue;
                     }
 
+                    // When include is set, only keep files matching at least one pattern
+                    if let Some(ref include) = self.file_settings.include {
+                        if !include.is_match_candidate(&path_candidate) {
+                            debug!("Skipping path not matching include: {path:?}");
+                            continue;
+                        }
+                    }
+
                     parsed_files.push(path.to_path_buf());
                 }
                 Err(err) => {
@@ -194,6 +202,7 @@ mod tests {
             output: None,
             exclude: None,
             extend_exclude: None,
+            include: None,
             direction: DiagramDirection::default(),
             no_title: false,
             hide_private_members: false,
@@ -204,6 +213,7 @@ mod tests {
         FileResolverSettings {
             exclude: FilePatternSet::try_from_iter(DEFAULT_EXCLUDES.to_vec()).unwrap(),
             extend_exclude: FilePatternSet::default(),
+            include: None,
             project_root: project_root.to_path_buf(),
         }
     }
@@ -266,12 +276,93 @@ mod tests {
                 "exclude-me-*".to_owned(),
                 GlobPath::normalize("exclude-me-*", &temp),
             )])?,
+            include: None,
             project_root: temp.path().to_path_buf(),
         };
 
         let mermaider = Mermaider::new(default_args(), settings);
         let diagrams = mermaider.generate_diagrams();
         assert_eq!(diagrams.len(), 1);
+        let rendered = diagrams[0].render().unwrap();
+        assert!(!rendered.contains("ExclusionTest"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_include_files() -> Result<()> {
+        init_logger();
+        let temp = TempDir::new()?;
+
+        let models_dir = temp.path().join("models");
+        std::fs::create_dir_all(&models_dir)?;
+        std::fs::File::create(models_dir.join("user.py"))?.write_all(b"class User: ...")?;
+
+        let views_dir = temp.path().join("views");
+        std::fs::create_dir_all(&views_dir)?;
+        std::fs::File::create(views_dir.join("home.py"))?.write_all(b"class HomeView: ...")?;
+
+        // Include only models directory
+        let settings = FileResolverSettings {
+            exclude: FilePatternSet::try_from_iter(DEFAULT_EXCLUDES.to_vec()).unwrap(),
+            extend_exclude: FilePatternSet::default(),
+            include: Some(
+                FilePatternSet::try_from_iter(vec![FilePattern::User(
+                    "**/models/*".to_owned(),
+                    GlobPath::normalize("**/models/*", &temp),
+                )])
+                .unwrap(),
+            ),
+            project_root: temp.path().to_path_buf(),
+        };
+
+        let mermaider = Mermaider::new(default_args(), settings);
+        let diagrams = mermaider.generate_diagrams();
+
+        // Should have one combined diagram with only User (from models)
+        assert_eq!(diagrams.len(), 1);
+        let rendered = diagrams[0].render().unwrap();
+        assert!(rendered.contains("class User"));
+        assert!(!rendered.contains("class HomeView"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_include_and_exclude_same_file_exclude_wins() -> Result<()> {
+        init_logger();
+        let temp = TempDir::new()?;
+
+        let models_dir = temp.path().join("models");
+        std::fs::create_dir_all(&models_dir)?;
+        std::fs::File::create(models_dir.join("user.py"))?.write_all(b"class User: ...")?;
+        std::fs::File::create(models_dir.join("settings.py"))?.write_all(b"class Settings: ...")?;
+
+        // Include models, but exclude user.py. Both include and exclude match user.py - exclude should win.
+        let settings = FileResolverSettings {
+            exclude: FilePatternSet::try_from_iter(DEFAULT_EXCLUDES.to_vec()).unwrap(),
+            extend_exclude: FilePatternSet::try_from_iter(vec![FilePattern::User(
+                "**/models/user.py".to_owned(),
+                GlobPath::normalize("**/models/user.py", &temp),
+            )])?,
+            include: Some(
+                FilePatternSet::try_from_iter(vec![FilePattern::User(
+                    "**/models/*".to_owned(),
+                    GlobPath::normalize("**/models/*", &temp),
+                )])
+                .unwrap(),
+            ),
+            project_root: temp.path().to_path_buf(),
+        };
+
+        let mermaider = Mermaider::new(default_args(), settings);
+        let diagrams = mermaider.generate_diagrams();
+
+        assert_eq!(diagrams.len(), 1);
+        let rendered = diagrams[0].render().unwrap();
+        assert!(
+            !rendered.contains("class User"),
+            "exclude should win over include"
+        );
+        assert!(rendered.contains("class Settings"));
         Ok(())
     }
 

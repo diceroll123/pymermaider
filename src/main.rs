@@ -30,9 +30,23 @@ fn main() {
     };
     let output_dir_path = PathBuf::from(&args.output_dir);
 
-    // Take ownership of exclude patterns (Mermaider doesn't need them after FileResolverSettings is built)
+    // Take ownership of file selection patterns (Mermaider doesn't need them after FileResolverSettings is built)
     let exclude_patterns = args.exclude.take();
     let extend_exclude_patterns = args.extend_exclude.take();
+    let include_patterns = args.include.take();
+
+    let include_patterns: Option<FilePatternSet> = include_patterns.map(|paths| {
+        FilePatternSet::try_from_iter(
+            paths
+                .into_iter()
+                .map(|pattern| {
+                    let absolute = GlobPath::normalize(&pattern, &project_root);
+                    FilePattern::User(pattern, absolute)
+                })
+                .collect::<Vec<_>>(),
+        )
+        .unwrap()
+    });
 
     let file_settings = FileResolverSettings {
         exclude: FilePatternSet::try_from_iter(exclude_patterns.map_or(
@@ -62,6 +76,7 @@ fn main() {
                 .unwrap_or_default(),
         )
         .unwrap(),
+        include: include_patterns,
         project_root,
     };
 

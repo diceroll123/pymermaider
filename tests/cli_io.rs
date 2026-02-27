@@ -149,6 +149,44 @@ fn output_dir_mmd_writes_raw_file() {
 }
 
 #[test]
+fn include_flag_filters_files() {
+    let exe = env!("CARGO_BIN_EXE_pymermaider");
+
+    let dir = tempfile::TempDir::new().expect("temp dir");
+    std::fs::create_dir_all(dir.path().join("models")).expect("create models");
+    std::fs::create_dir_all(dir.path().join("views")).expect("create views");
+    std::fs::write(
+        dir.path().join("models").join("user.py"),
+        "class User: ...\n",
+    )
+    .expect("write user.py");
+    std::fs::write(
+        dir.path().join("views").join("home.py"),
+        "class HomeView: ...\n",
+    )
+    .expect("write home.py");
+
+    let output = Command::new(exe)
+        .arg(dir.path().to_string_lossy().to_string())
+        .arg("--include")
+        .arg("**/models/*")
+        .arg("--output")
+        .arg("-")
+        .output()
+        .expect("run pymermaider");
+
+    assert!(
+        output.status.success(),
+        "status={:?} stderr={}",
+        output.status.code(),
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("class User"));
+    assert!(!stdout.contains("class HomeView"));
+}
+
+#[test]
 fn multiple_files_with_stdout_errors() {
     let exe = env!("CARGO_BIN_EXE_pymermaider");
 
