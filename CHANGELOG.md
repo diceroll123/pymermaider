@@ -3,6 +3,7 @@
 ## [Unreleased]
 
 ### Added
+- `--include` flag to include only files matching the given patterns (complements `--exclude`).
 - `--direction` flag to set class diagram direction (TB, BT, LR, RL).
 - `--no-title` flag to omit the title from diagram output.
 - `--hide-private-members` flag to omit private members from class diagrams.
