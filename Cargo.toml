@@ -41,7 +41,7 @@ uuid = { version = "1", features = ["v4", "js"] }
 [dev-dependencies]
 tempfile = "3.23.0"
 anyhow = "1.0.100"
-ctor = "0.9.0"
+ctor = "0.10.0"
 
 [features]
 default = ["cli"]
