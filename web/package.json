@@ -33,7 +33,7 @@
     "@types/react-dom": "^19.0.0",
     "eslint": "^9",
     "eslint-config-next": "16.2.4",
-    "typescript": "^5",
+    "typescript": "^6.0.0",
     "wasm-pack": "^0.14.0"
   }
 }
