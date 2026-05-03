@@ -72,6 +72,7 @@ pymermaider [OPTIONS] <PATH>
 
 - `--exclude <FILE_PATTERN>`: Excludes specific files and/or directories from being analyzed.
 - `--extend-exclude <FILE_PATTERN>`: Similar to `--exclude`, but adds additional files and directories to exclude on top of those already specified.
+- `--include <FILE_PATTERN>`: Include only files and/or directories matching these patterns. When specified, only matching files are analyzed.
 
 #### Example for `--extend-exclude`:
 
@@ -80,6 +81,14 @@ pymermaider /path/to/dir --extend-exclude "**/tests/*,**/docs/*"
 ```
 
 This command will exclude any folders within the subdirectories of `/path/to/dir` that are named `tests` or `docs`.
+
+#### Example for `--include`:
+
+```bash
+pymermaider /path/to/dir --include "**/models/*,**/schemas/*"
+```
+
+This analyzes only Python files under `models/` and `schemas/` directories.
 
 ### Export raw Mermaid to `.mmd`:
 
