@@ -89,10 +89,10 @@ pub enum DiagramDirection {
 impl std::fmt::Display for DiagramDirection {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            DiagramDirection::TB => write!(f, "TB"),
-            DiagramDirection::BT => write!(f, "BT"),
-            DiagramDirection::LR => write!(f, "LR"),
-            DiagramDirection::RL => write!(f, "RL"),
+            Self::TB => write!(f, "TB"),
+            Self::BT => write!(f, "BT"),
+            Self::LR => write!(f, "LR"),
+            Self::RL => write!(f, "RL"),
         }
     }
 }
@@ -122,11 +122,13 @@ pub struct Diagram {
 }
 
 impl Diagram {
+    #[must_use]
     pub fn new() -> Self {
         Self::default()
     }
 
-    pub fn is_empty(&self) -> bool {
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
         self.classes.is_empty() && self.relationships.is_empty() && self.compositions.is_empty()
     }
 
@@ -142,6 +144,7 @@ impl Diagram {
         self.compositions.push(composition);
     }
 
+    #[must_use]
     pub fn is_abstract_or_interface(&self, name: &str) -> bool {
         self.classes.iter().any(|c| {
             c.name == name && matches!(c.class_type, ClassType::Abstract | ClassType::Interface)
@@ -150,8 +153,32 @@ impl Diagram {
 
     /// Return classes in a deterministic topological order based on relationships and compositions,
     /// without mutating the diagram. Classes are de-duplicated by name (first occurrence wins).
+    #[must_use]
     pub fn classes_topologically_sorted_unique(&self) -> Vec<&ClassNode> {
         use std::collections::{HashMap, HashSet};
+
+        // Topological sort with deterministic iteration.
+        fn visit<'a>(
+            name: &'a str,
+            dependencies: &HashMap<&'a str, HashSet<&'a str>>,
+            visited: &mut HashSet<&'a str>,
+            sorted: &mut Vec<&'a str>,
+        ) {
+            if visited.contains(name) {
+                return;
+            }
+            visited.insert(name);
+
+            if let Some(deps) = dependencies.get(name) {
+                let mut sorted_deps: Vec<_> = deps.iter().copied().collect();
+                sorted_deps.sort_unstable();
+                for dep in sorted_deps {
+                    visit(dep, dependencies, visited, sorted);
+                }
+            }
+
+            sorted.push(name);
+        }
 
         // Build a name -> first ClassNode map (stable de-dupe).
         let mut class_map: HashMap<&str, &ClassNode> = HashMap::new();
@@ -176,34 +203,11 @@ impl Diagram {
                 .insert(composition.contained.as_str());
         }
 
-        // Topological sort with deterministic iteration.
-        fn visit<'a>(
-            name: &'a str,
-            dependencies: &HashMap<&'a str, HashSet<&'a str>>,
-            visited: &mut HashSet<&'a str>,
-            sorted: &mut Vec<&'a str>,
-        ) {
-            if visited.contains(name) {
-                return;
-            }
-            visited.insert(name);
-
-            if let Some(deps) = dependencies.get(name) {
-                let mut sorted_deps: Vec<_> = deps.iter().copied().collect();
-                sorted_deps.sort();
-                for dep in sorted_deps {
-                    visit(dep, dependencies, visited, sorted);
-                }
-            }
-
-            sorted.push(name);
-        }
-
         let mut visited: HashSet<&str> = HashSet::new();
         let mut sorted_names: Vec<&str> = Vec::new();
 
         let mut class_names: Vec<&str> = class_map.keys().copied().collect();
-        class_names.sort();
+        class_names.sort_unstable();
         for name in class_names {
             visit(name, &dependencies, &mut visited, &mut sorted_names);
         }

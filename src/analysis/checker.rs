@@ -41,14 +41,17 @@ impl<'a> Checker<'a> {
         }
     }
 
+    #[must_use]
     pub fn generator(&self) -> Generator<'_> {
         Generator::new(self.stylist.indentation(), self.stylist.line_ending())
     }
 
+    #[must_use]
     pub const fn semantic(&self) -> &SemanticModel<'a> {
         &self.semantic
     }
 
+    #[must_use]
     pub const fn locator(&self) -> &Locator<'a> {
         self.locator
     }
@@ -135,6 +138,8 @@ impl<'a> Checker<'a> {
         binding_id
     }
 
+    /// # Panics
+    /// Panics if an import statement has an empty name.
     pub fn see_imports(&mut self, stmts: &'a [ast::Stmt]) {
         for stmt in stmts {
             match stmt {
