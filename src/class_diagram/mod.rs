@@ -265,7 +265,12 @@ impl ClassDiagram {
                 // For now, just handle the first target (typical for enums and simple assignments)
                 if let Some(Expr::Name(ast::ExprName { id: target, .. })) = targets.first() {
                     let target_name = target.to_string();
-                    let type_annotation = if value_type.is_empty() { "Any" } else { value_type }.to_owned();
+                    let type_annotation = if value_type.is_empty() {
+                        "Any"
+                    } else {
+                        value_type
+                    }
+                    .to_owned();
 
                     return Some(ClassMember::Attribute(Attribute {
                         name: target_name,
@@ -301,7 +306,10 @@ impl ClassDiagram {
                     checker.semantic(),
                 ) {
                     let return_type = returns.as_ref().map_or_else(
-                        || simple_magic_return_type(name).map_or_else(|| "Any".to_owned(), String::from),
+                        || {
+                            simple_magic_return_type(name)
+                                .map_or_else(|| "Any".to_owned(), String::from)
+                        },
                         |target| checker.generator().expr(target.as_ref()),
                     );
                     return Some(ClassMember::Attribute(Attribute {
@@ -319,7 +327,9 @@ impl ClassDiagram {
                 param_gen.unparse_parameters(parameters);
                 let params = param_gen.generate();
 
-                let returns = returns.as_ref().map(|target| checker.generator().expr(target.as_ref()))
+                let returns = returns
+                    .as_ref()
+                    .map(|target| checker.generator().expr(target.as_ref()))
                     .or_else(|| simple_magic_return_type(name).map(String::from));
 
                 let mut decorators = vec![];
@@ -391,16 +401,13 @@ impl ClassDiagram {
             return BaseKind::Skip;
         }
 
-        let base_name = checker
-            .semantic()
-            .resolve_qualified_name(base)
-            .map_or_else(
-                || {
-                    let name = checker.locator().slice(base);
-                    QualifiedName::user_defined(name).normalize_name()
-                },
-                |base_name| base_name.normalize_name(),
-            );
+        let base_name = checker.semantic().resolve_qualified_name(base).map_or_else(
+            || {
+                let name = checker.locator().slice(base);
+                QualifiedName::user_defined(name).normalize_name()
+            },
+            |base_name| base_name.normalize_name(),
+        );
 
         // Extract just the base class name without the generic specialization.
         let base_display = base_name

@@ -44,10 +44,7 @@ impl ClassDefHelpers for ast::StmtClassDef {
 
         for base in args.iter().chain(keywords.iter().map(|kw| &kw.value)) {
             if let Some(qualified_name) = semantic.resolve_qualified_name(base) {
-                if matches!(
-                    qualified_name.segments(),
-                    ["abc", "ABC" | "ABCMeta"]
-                ) {
+                if matches!(qualified_name.segments(), ["abc", "ABC" | "ABCMeta"]) {
                     return true;
                 }
             }

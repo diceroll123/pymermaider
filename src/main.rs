@@ -134,7 +134,10 @@ fn main() {
 
             if let Some(parent_dir) = std::path::Path::new(&path).parent() {
                 if let Err(e) = std::fs::create_dir_all(parent_dir) {
-                    eprintln!("error: failed to create directory {}: {e}", parent_dir.display());
+                    eprintln!(
+                        "error: failed to create directory {}: {e}",
+                        parent_dir.display()
+                    );
                     std::process::exit(1);
                 }
             }

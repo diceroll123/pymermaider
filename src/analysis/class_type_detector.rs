@@ -1,8 +1,8 @@
+use super::checker::Checker;
+use super::class_helpers::ClassDefHelpers;
 /// Utilities for detecting and classifying Python class types
 use crate::ast;
 use crate::render::renderer::ClassType;
-use super::checker::Checker;
-use super::class_helpers::ClassDefHelpers;
 use ruff_python_semantic::SemanticModel;
 
 /// Determines the type of a Python class based on its properties and decorators.
