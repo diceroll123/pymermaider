@@ -51,7 +51,6 @@ cli = ["clap", "env_logger", "ignore"]
 lto = "fat"
 codegen-units = 1
 opt-level = 3
-panic = "abort"
 strip = true
 
 [profile.dev.package."*"]
