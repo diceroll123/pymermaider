@@ -10,6 +10,9 @@ license = "MIT"
 name = "pymermaider_wasm"
 crate-type = ["cdylib", "rlib"]
 
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = ["-O4", "--enable-bulk-memory"]
+
 [[bin]]
 name = "pymermaider"
 path = "src/main.rs"
