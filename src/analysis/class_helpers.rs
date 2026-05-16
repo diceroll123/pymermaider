@@ -46,7 +46,7 @@ impl ClassDefHelpers for ast::StmtClassDef {
             if let Some(qualified_name) = semantic.resolve_qualified_name(base) {
                 if matches!(
                     qualified_name.segments(),
-                    ["abc", "ABC"] | ["abc", "ABCMeta"]
+                    ["abc", "ABC" | "ABCMeta"]
                 ) {
                     return true;
                 }
@@ -76,7 +76,7 @@ impl ClassDefHelpers for ast::StmtClassDef {
             if let Some(qualified_name) = semantic.resolve_qualified_name(base) {
                 if matches!(
                     qualified_name.segments(),
-                    ["typing", "Protocol"] | ["typing_extensions", "Protocol"]
+                    ["typing" | "typing_extensions", "Protocol"]
                 ) {
                     return true;
                 }
@@ -104,7 +104,7 @@ impl ClassDefHelpers for ast::StmtClassDef {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::checker::Checker;
+    use crate::analysis::checker::Checker;
     use ruff_linter::source_kind::SourceKind;
     use ruff_linter::Locator;
     use ruff_python_ast::PySourceType;

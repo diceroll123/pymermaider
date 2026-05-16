@@ -13,6 +13,7 @@ impl Default for ParameterGenerator {
 }
 
 impl ParameterGenerator {
+    #[must_use]
     pub const fn new() -> Self {
         Self {
             buffer: String::new(),
@@ -20,7 +21,7 @@ impl ParameterGenerator {
     }
 
     fn p(&mut self, s: &str) {
-        self.buffer += s;
+        self.buffer.push_str(s);
     }
 
     fn p_id(&mut self, s: &Identifier) {
@@ -75,6 +76,7 @@ impl ParameterGenerator {
         self.unparse_parameter(&parameter_with_default.parameter);
     }
 
+    #[must_use]
     pub fn generate(self) -> String {
         self.buffer
     }

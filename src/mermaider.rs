@@ -1,8 +1,8 @@
 use crate::args::Args;
-use crate::output_format::OutputFormat;
 use crate::settings::FileResolverSettings;
 use pymermaider_wasm::class_diagram::ClassDiagram;
-use pymermaider_wasm::mermaid_renderer::RenderOptions;
+use pymermaider_wasm::render::mermaid_renderer::RenderOptions;
+use pymermaider_wasm::render::output_format::OutputFormat;
 
 use globset::Candidate;
 use ignore::{types::TypesBuilder, WalkBuilder};
@@ -15,20 +15,20 @@ pub struct Mermaider {
 }
 
 impl Mermaider {
-    pub fn new(args: Args, file_settings: FileResolverSettings) -> Self {
+    pub const fn new(args: Args, file_settings: FileResolverSettings) -> Self {
         Self {
             args,
             file_settings,
         }
     }
 
-    pub fn args(&self) -> &Args {
+    pub const fn args(&self) -> &Args {
         &self.args
     }
 
     /// Format raw Mermaid output according to the configured `output_format`.
     ///
-    /// - `Md`: wraps in a fenced ```mermaid Markdown block and ensures a trailing newline.
+    /// - `Md`: wraps in a fenced Markdown `mermaid` block and ensures a trailing newline.
     /// - `Mmd`: emits raw Mermaid and ensures a trailing newline.
     pub fn format_output(&self, raw: &str) -> String {
         let raw = raw.trim_end();
@@ -48,51 +48,45 @@ impl Mermaider {
         let root = self.file_settings.project_root.as_path();
 
         if !root.exists() {
-            eprintln!("{root:?} does not exist.");
+            eprintln!("{} does not exist.", root.display());
             return vec![];
         }
 
         if root.is_file() {
-            let mut diagram = self.make_mermaid(vec![root.to_path_buf()]);
+            let mut diagram = self.make_mermaid(std::slice::from_ref(&root.to_path_buf()));
             if !self.args.no_title {
-                diagram.path = root.to_string_lossy().to_string();
+                diagram.path = root.to_string_lossy().into_owned();
             }
             return vec![diagram];
         }
 
         if root.is_dir() {
-            let parsed_files = match self.parse_folder(root) {
-                Ok(files) => files,
-                Err(_) => return vec![],
-            };
+            let parsed_files = self.parse_folder(root);
 
             if self.args.multiple_files {
                 let mut diagrams = Vec::with_capacity(parsed_files.len());
                 for parsed_file in &parsed_files {
-                    let mut diagram = self.make_mermaid(vec![parsed_file.clone()]);
+                    let mut diagram = self.make_mermaid(std::slice::from_ref(parsed_file));
                     if !self.args.no_title {
                         diagram.path = parsed_file
                             .strip_prefix(root)
                             .unwrap_or(parsed_file.as_path())
                             .to_string_lossy()
-                            .to_string();
+                            .into_owned();
                     }
                     diagrams.push(diagram);
                 }
                 return diagrams;
             }
 
-            let mut diagram = self.make_mermaid(parsed_files);
+            let mut diagram = self.make_mermaid(&parsed_files);
             if !self.args.no_title {
-                let canonical_path = match root.canonicalize() {
-                    Ok(p) => p,
-                    Err(_) => root.to_path_buf(),
-                };
-                diagram.path = canonical_path
+                let canonical_path = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
+                canonical_path
                     .file_name()
                     .and_then(|n| n.to_str())
                     .unwrap_or("diagram")
-                    .to_owned();
+                    .clone_into(&mut diagram.path);
             }
 
             return vec![diagram];
@@ -101,26 +95,24 @@ impl Mermaider {
         vec![]
     }
 
-    fn make_mermaid(&self, parsed_files: Vec<PathBuf>) -> ClassDiagram {
+    fn make_mermaid(&self, parsed_files: &[PathBuf]) -> ClassDiagram {
         let options = RenderOptions {
             direction: self.args.direction,
             hide_private_members: self.args.hide_private_members,
         };
         let mut class_diagram = ClassDiagram::new(options);
 
-        for file in &parsed_files {
-            let source = match std::fs::read_to_string(file) {
-                Ok(content) => content,
-                Err(_) => continue,
+        for file in parsed_files {
+            let Ok(source) = std::fs::read_to_string(file) else {
+                continue;
             };
-
-            class_diagram.add_file(source, file);
+            class_diagram.add_file(&source, file);
         }
 
         class_diagram
     }
 
-    fn parse_folder(&self, path: &Path) -> std::io::Result<Vec<PathBuf>> {
+    fn parse_folder(&self, path: &Path) -> Vec<PathBuf> {
         let mut parsed_files = vec![];
 
         let types = TypesBuilder::new()
@@ -133,7 +125,7 @@ impl Mermaider {
             match result {
                 Ok(entry) => {
                     let path = entry.path();
-                    debug!("Parsing path: {path:?}");
+                    debug!("Parsing path: {}", path.display());
 
                     let path_candidate = Candidate::new(path);
 
@@ -151,7 +143,7 @@ impl Mermaider {
                             .extend_exclude
                             .is_match_candidate(&path_candidate)
                     {
-                        debug!("Skipping excluded path: {path:?}");
+                        debug!("Skipping excluded path: {}", path.display());
                         continue;
                     }
 
@@ -163,14 +155,14 @@ impl Mermaider {
             }
         }
 
-        parsed_files.sort();
-        Ok(parsed_files)
+        parsed_files.sort_unstable();
+        parsed_files
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use pymermaider_wasm::renderer::DiagramDirection;
+    use pymermaider_wasm::render::renderer::DiagramDirection;
     use ruff_linter::settings::types::{FilePattern, FilePatternSet, GlobPath};
     use std::io::Write as _;
     use std::path::Path;
