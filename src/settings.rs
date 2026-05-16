@@ -6,6 +6,7 @@ use ruff_linter::settings::types::FilePatternSet;
 pub struct FileResolverSettings {
     pub exclude: FilePatternSet,
     pub extend_exclude: FilePatternSet,
+    pub include: Option<FilePatternSet>,
     pub project_root: PathBuf,
 }
 

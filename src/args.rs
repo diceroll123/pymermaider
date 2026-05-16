@@ -52,6 +52,16 @@ pub struct Args {
     )]
     pub extend_exclude: Option<Vec<String>>,
 
+    /// Include only files and/or directories matching these patterns. When specified, only matching files are analyzed.
+    #[arg(
+        long,
+        verbatim_doc_comment,
+        value_delimiter = ',',
+        value_name = "FILE_PATTERN",
+        help_heading = "File selection"
+    )]
+    pub include: Option<Vec<String>>,
+
     /// Class diagram direction (TB, BT, LR, RL).
     #[arg(long, verbatim_doc_comment, default_value = "TB")]
     pub direction: DiagramDirection,
