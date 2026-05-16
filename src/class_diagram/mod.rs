@@ -1,13 +1,13 @@
+use crate::analysis::checker::Checker;
+use crate::analysis::class_helpers::{ClassDefHelpers, QualifiedNameHelpers};
+use crate::analysis::class_type_detector::ClassTypeDetector;
+use crate::analysis::parameter_generator::ParameterGenerator;
+use crate::analysis::type_analyzer;
 use crate::ast;
-use crate::checker::Checker;
-use crate::class_helpers::{ClassDefHelpers, QualifiedNameHelpers};
-use crate::class_type_detector::ClassTypeDetector;
-use crate::parameter_generator::ParameterGenerator;
-use crate::renderer::{
+use crate::render::renderer::{
     Attribute, ClassNode, CompositionEdge, Diagram, MethodSignature, RelationType,
     RelationshipEdge, Visibility,
 };
-use crate::type_analyzer;
 use indexmap::IndexSet;
 use ruff_linter::source_kind::SourceKind;
 use ruff_linter::Locator;
@@ -40,18 +40,19 @@ enum BaseKind {
 
 pub struct ClassDiagram {
     diagram: Diagram,
-    options: crate::mermaid_renderer::RenderOptions,
+    options: crate::render::mermaid_renderer::RenderOptions,
     pub path: String,
 }
 
 impl Default for ClassDiagram {
     fn default() -> Self {
-        Self::new(crate::mermaid_renderer::RenderOptions::default())
+        Self::new(crate::render::mermaid_renderer::RenderOptions::default())
     }
 }
 
 impl ClassDiagram {
-    pub fn new(options: crate::mermaid_renderer::RenderOptions) -> Self {
+    #[must_use]
+    pub fn new(options: crate::render::mermaid_renderer::RenderOptions) -> Self {
         Self {
             diagram: Diagram::new(),
             options,
@@ -59,14 +60,16 @@ impl ClassDiagram {
         }
     }
 
-    pub fn set_hide_private_members(&mut self, hide: bool) {
+    pub const fn set_hide_private_members(&mut self, hide: bool) {
         self.options.hide_private_members = hide;
     }
 
-    pub fn is_empty(&self) -> bool {
+    #[must_use]
+    pub const fn is_empty(&self) -> bool {
         self.diagram.is_empty()
     }
 
+    #[must_use]
     pub fn render(&self) -> Option<String> {
         if self.is_empty() {
             return None;
@@ -78,7 +81,7 @@ impl ClassDiagram {
             Some(self.path.as_str())
         };
 
-        crate::mermaid_renderer::render_diagram(&self.diagram, title, &self.options)
+        crate::render::mermaid_renderer::render_diagram(&self.diagram, title, &self.options)
     }
 
     pub fn add_class(
@@ -90,28 +93,30 @@ impl ClassDiagram {
         let class_name = class.name.to_string();
 
         // Find generic type parameters - either from explicit [T] syntax or Generic[T] bases
-        let mut generic_type_var = None;
-
-        if let Some(params) = &class.type_params {
-            // Explicit type parameters via [T] syntax (Python 3.12+)
-            // Extract the raw type params from the source
-            let raw_params = checker.locator().slice(params.as_ref());
-            // Remove the brackets to get just the type names
-            generic_type_var = Some(
-                raw_params
-                    .trim_start_matches('[')
-                    .trim_end_matches(']')
-                    .to_string(),
-            );
-        } else {
-            // Check for Generic[T] in bases
-            for base in class.bases() {
-                if let Some(type_var) = type_analyzer::extract_generic_params(base, checker) {
-                    generic_type_var = Some(type_var);
-                    break;
+        let generic_type_var = class.type_params.as_ref().map_or_else(
+            || {
+                // Check for Generic[T] in bases
+                let mut found = None;
+                for base in class.bases() {
+                    if let Some(type_var) = type_analyzer::extract_generic_params(base, checker) {
+                        found = Some(type_var);
+                        break;
+                    }
                 }
-            }
-        }
+                found
+            },
+            |params| {
+                // Explicit type parameters via [T] syntax (Python 3.12+)
+                let raw_params = checker.locator().slice(params.as_ref());
+                // Remove the brackets to get just the type names
+                Some(
+                    raw_params
+                        .trim_start_matches('[')
+                        .trim_end_matches(']')
+                        .to_owned(),
+                )
+            },
+        );
 
         // Detect composition relationships from class attributes
         let mut composition_types: IndexSet<String> = IndexSet::new();
@@ -127,7 +132,7 @@ impl ClassDiagram {
         // Process class body statements
         let mut members: IndexSet<ClassMember> = IndexSet::new();
         for stmt in &class.body {
-            if let Some(member) = self.process_stmt_to_member(checker, stmt) {
+            if let Some(member) = Self::process_stmt_to_member(checker, stmt) {
                 members.insert(member);
             }
         }
@@ -159,24 +164,23 @@ impl ClassDiagram {
 
         // Handle inheritance relationships
         for base in class.bases() {
-            match self.classify_base(checker, &detector, base, class_is_enum) {
-                BaseKind::Skip => continue,
-                BaseKind::InheritanceTarget {
-                    name,
-                    is_abstract_or_protocol,
-                } => {
-                    let rel = RelationshipEdge {
-                        from: class_name.clone(),
-                        to: name,
-                        relation_type: if is_abstract_or_protocol {
-                            RelationType::Implementation
-                        } else {
-                            RelationType::Inheritance
-                        },
-                    };
-                    self.diagram.add_relationship(rel);
-                }
-            }
+            let BaseKind::InheritanceTarget {
+                name,
+                is_abstract_or_protocol,
+            } = self.classify_base(checker, &detector, base, class_is_enum)
+            else {
+                continue;
+            };
+            let rel = RelationshipEdge {
+                from: class_name.clone(),
+                to: name,
+                relation_type: if is_abstract_or_protocol {
+                    RelationType::Implementation
+                } else {
+                    RelationType::Inheritance
+                },
+            };
+            self.diagram.add_relationship(rel);
         }
 
         // Add composition relationships
@@ -203,8 +207,8 @@ impl ClassDiagram {
         })
     }
 
-    /// Process a statement into an Attribute or MethodSignature
-    fn process_stmt_to_member(&self, checker: &Checker, stmt: &ast::Stmt) -> Option<ClassMember> {
+    #[allow(clippy::too_many_lines)]
+    fn process_stmt_to_member(checker: &Checker, stmt: &ast::Stmt) -> Option<ClassMember> {
         match stmt {
             ast::Stmt::AnnAssign(ast::StmtAnnAssign {
                 target,
@@ -239,14 +243,13 @@ impl ClassDiagram {
             ast::Stmt::Assign(ast::StmtAssign { targets, value, .. }) => {
                 // Handle simple assignments (like enum members)
                 let value_type = match value.as_ref() {
-                    Expr::BoolOp(_) => "bool",
+                    Expr::BoolOp(_) | Expr::BooleanLiteral(_) => "bool",
                     Expr::BinOp(_) | Expr::UnaryOp(_) => "int",
                     Expr::Lambda(_) => "Callable",
                     Expr::DictComp(_) | Expr::Dict(_) => "dict",
                     Expr::Set(_) | Expr::SetComp(_) => "set",
                     Expr::FString(_) | Expr::StringLiteral(_) => "str",
                     Expr::NoneLiteral(_) => "None",
-                    Expr::BooleanLiteral(_) => "bool",
                     Expr::BytesLiteral(_) => "bytes",
                     Expr::EllipsisLiteral(_) => "...",
                     Expr::ListComp(_) | Expr::List(_) => "list",
@@ -262,14 +265,11 @@ impl ClassDiagram {
                 // For now, just handle the first target (typical for enums and simple assignments)
                 if let Some(Expr::Name(ast::ExprName { id: target, .. })) = targets.first() {
                     let target_name = target.to_string();
+                    let type_annotation = if value_type.is_empty() { "Any" } else { value_type }.to_owned();
 
                     return Some(ClassMember::Attribute(Attribute {
                         name: target_name,
-                        type_annotation: if value_type.is_empty() {
-                            "Any".to_string()
-                        } else {
-                            value_type.to_string()
-                        },
+                        type_annotation,
                         visibility: Visibility::Public, // Simple assignments are always public
                     }));
                 }
@@ -300,12 +300,10 @@ impl ClassDiagram {
                     std::iter::empty::<QualifiedName>(),
                     checker.semantic(),
                 ) {
-                    let return_type = match returns {
-                        Some(target) => checker.generator().expr(target.as_ref()),
-                        None => simple_magic_return_type(name)
-                            .map(String::from)
-                            .unwrap_or_else(|| "Any".to_string()),
-                    };
+                    let return_type = returns.as_ref().map_or_else(
+                        || simple_magic_return_type(name).map_or_else(|| "Any".to_owned(), String::from),
+                        |target| checker.generator().expr(target.as_ref()),
+                    );
                     return Some(ClassMember::Attribute(Attribute {
                         name: name.to_string(),
                         type_annotation: return_type,
@@ -321,10 +319,8 @@ impl ClassDiagram {
                 param_gen.unparse_parameters(parameters);
                 let params = param_gen.generate();
 
-                let returns = match returns {
-                    Some(target) => Some(checker.generator().expr(target.as_ref())),
-                    None => simple_magic_return_type(name).map(String::from),
-                };
+                let returns = returns.as_ref().map(|target| checker.generator().expr(target.as_ref()))
+                    .or_else(|| simple_magic_return_type(name).map(String::from));
 
                 let mut decorators = vec![];
                 if is_final(decorator_list, checker.semantic()) {
@@ -395,13 +391,16 @@ impl ClassDiagram {
             return BaseKind::Skip;
         }
 
-        let base_name = match checker.semantic().resolve_qualified_name(base) {
-            Some(base_name) => base_name.normalize_name(),
-            None => {
-                let name = checker.locator().slice(base);
-                QualifiedName::user_defined(name).normalize_name()
-            }
-        };
+        let base_name = checker
+            .semantic()
+            .resolve_qualified_name(base)
+            .map_or_else(
+                || {
+                    let name = checker.locator().slice(base);
+                    QualifiedName::user_defined(name).normalize_name()
+                },
+                |base_name| base_name.normalize_name(),
+            );
 
         // Extract just the base class name without the generic specialization.
         let base_display = base_name
@@ -422,12 +421,12 @@ impl ClassDiagram {
     }
 
     /// Add source code to the diagram (for stdin/WASM - uses Python defaults)
-    pub fn add_source(&mut self, source: String) {
+    pub fn add_source(&mut self, source: &str) {
         self.add_source_with_options(source, PySourceType::Python, ModuleKind::Module);
     }
 
     /// Add source code from a file path (infers source type and module kind)
-    pub fn add_file(&mut self, source: String, path: &Path) {
+    pub fn add_file(&mut self, source: &str, path: &Path) {
         let source_type = PySourceType::from(path);
         let module_kind = Self::module_kind_for_path(path);
         self.add_source_with_options(source, source_type, module_kind);
@@ -435,12 +434,12 @@ impl ClassDiagram {
 
     fn add_source_with_options(
         &mut self,
-        source: String,
+        source: &str,
         source_type: PySourceType,
         module_kind: ModuleKind,
     ) {
         let source_kind = SourceKind::Python {
-            code: source,
+            code: source.to_owned(),
             is_stub: false,
         };
 

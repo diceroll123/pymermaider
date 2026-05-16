@@ -1,5 +1,5 @@
 /// Type analysis utilities for extracting and analyzing Python types from AST
-use crate::checker::Checker;
+use super::checker::Checker;
 use ruff_python_ast::name::QualifiedName;
 use ruff_python_ast::Expr;
 
@@ -13,9 +13,9 @@ const BUILTIN_TYPES: &[&str] = &[
 /// (non-builtin, non-typing types).
 ///
 /// # Examples
-/// - `foo: MyClass` → vec!["MyClass"]
-/// - `foo: list[MyClass]` → vec!["MyClass"]
-/// - `foo: Optional[MyClass]` → vec!["MyClass"]
+/// - `foo: MyClass` → vec!["`MyClass`"]
+/// - `foo: list[MyClass]` → vec!["`MyClass`"]
+/// - `foo: Optional[MyClass]` → vec!["`MyClass`"]
 /// - `foo: X | Y` → vec!["X", "Y"]
 /// - `foo: int` → vec![] (builtin)
 pub fn extract_composition_types(annotation: &Expr, checker: &Checker) -> Vec<String> {
@@ -89,15 +89,14 @@ pub fn extract_generic_params(base: &Expr, checker: &Checker) -> Option<String> 
         return None;
     }
 
-    // Get the type string
-    let type_var = checker.locator().slice(base).to_string();
+    // Get the type string and extract just the parameter without Generic[]
+    let type_var = checker.locator().slice(base);
 
-    // For type parameter extraction, return just the parameter without Generic[]
     let start_idx = type_var.find('[').map(|idx| idx + 1)?;
     let end_idx = type_var.rfind(']')?;
 
     if start_idx < end_idx {
-        Some(type_var[start_idx..end_idx].trim().to_string())
+        Some(type_var[start_idx..end_idx].trim().to_owned())
     } else {
         None
     }
@@ -107,7 +106,7 @@ pub fn extract_generic_params(base: &Expr, checker: &Checker) -> Option<String> 
 fn is_generic_base(name: &QualifiedName) -> bool {
     matches!(
         name.segments(),
-        ["typing", "Generic"] | ["typing_extensions", "Generic"]
+        ["typing" | "typing_extensions", "Generic"]
     )
 }
 

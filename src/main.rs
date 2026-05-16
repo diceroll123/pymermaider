@@ -1,6 +1,5 @@
 mod args;
 mod mermaider;
-mod output_format;
 mod settings;
 
 use std::path::PathBuf;
@@ -15,6 +14,7 @@ use settings::{FileResolverSettings, DEFAULT_EXCLUDES};
 use std::io::Read as _;
 use std::io::Write as _;
 
+#[allow(clippy::too_many_lines)]
 fn main() {
     env_logger::init();
 
@@ -35,8 +35,8 @@ fn main() {
     let extend_exclude_patterns = args.extend_exclude.take();
 
     let file_settings = FileResolverSettings {
-        exclude: FilePatternSet::try_from_iter(exclude_patterns.map_or(
-            DEFAULT_EXCLUDES.to_vec(),
+        exclude: FilePatternSet::try_from_iter(exclude_patterns.map_or_else(
+            || DEFAULT_EXCLUDES.to_vec(),
             |paths| {
                 paths
                     .into_iter()
@@ -74,16 +74,17 @@ fn main() {
         }
 
         let mut source = String::new();
-        std::io::stdin()
-            .read_to_string(&mut source)
-            .unwrap_or_else(|e| panic!("Failed to read stdin: {e}"));
+        if let Err(e) = std::io::stdin().read_to_string(&mut source) {
+            eprintln!("error: failed to read stdin: {e}");
+            std::process::exit(1);
+        }
 
-        let options = pymermaider_wasm::mermaid_renderer::RenderOptions {
+        let options = pymermaider_wasm::render::mermaid_renderer::RenderOptions {
             direction: mermaider.args().direction,
             hide_private_members: mermaider.args().hide_private_members,
         };
         let mut diagram = class_diagram::ClassDiagram::new(options);
-        diagram.add_source(source);
+        diagram.add_source(&source);
 
         vec![diagram]
     } else {
@@ -100,17 +101,18 @@ fn main() {
 
         let raw = diagrams
             .first()
-            .and_then(|d| d.render())
+            .and_then(pymermaider_wasm::class_diagram::ClassDiagram::render)
             .unwrap_or_default();
         let content = mermaider.format_output(&raw);
 
         if output == "-" {
-            std::io::stdout()
-                .write_all(content.as_bytes())
-                .unwrap_or_else(|e| panic!("Failed to write stdout: {e}"));
-        } else {
-            std::fs::write(output, content)
-                .unwrap_or_else(|e| panic!("Failed to write file {output:?}: {e}"));
+            if let Err(e) = std::io::stdout().write_all(content.as_bytes()) {
+                eprintln!("error: failed to write stdout: {e}");
+                std::process::exit(1);
+            }
+        } else if let Err(e) = std::fs::write(output, content) {
+            eprintln!("error: failed to write file {output:?}: {e}");
+            std::process::exit(1);
         }
     } else {
         let extension = mermaider.args().output_format.extension();
@@ -131,14 +133,18 @@ fn main() {
             );
 
             if let Some(parent_dir) = std::path::Path::new(&path).parent() {
-                std::fs::create_dir_all(parent_dir)
-                    .unwrap_or_else(|e| panic!("Failed to create directory {parent_dir:?}: {e}"));
+                if let Err(e) = std::fs::create_dir_all(parent_dir) {
+                    eprintln!("error: failed to create directory {}: {e}", parent_dir.display());
+                    std::process::exit(1);
+                }
             }
 
             let raw = diagram.render().unwrap_or_default();
             let content = mermaider.format_output(&raw);
-            std::fs::write(&path, content)
-                .unwrap_or_else(|e| panic!("Failed to write file {path:?}: {e}"));
+            if let Err(e) = std::fs::write(&path, content) {
+                eprintln!("error: failed to write file {path:?}: {e}");
+                std::process::exit(1);
+            }
             eprintln!("Mermaid file written to: {path:?}");
             written += 1;
         }

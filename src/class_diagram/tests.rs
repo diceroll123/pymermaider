@@ -33,7 +33,7 @@ class TestClass:
 "#;
 
     let mut diagram = ClassDiagram::default();
-    diagram.add_source(source.to_string());
+    diagram.add_source(source);
 
     let raw = diagram.render().unwrap_or_default();
 
@@ -645,8 +645,8 @@ class FancyStore(Store[datetime], Generic[FancyStorage]):
 
 #[test]
 fn test_non_default_direction_emitted() {
-    use crate::mermaid_renderer::RenderOptions;
-    use crate::renderer::DiagramDirection;
+    use crate::render::mermaid_renderer::RenderOptions;
+    use crate::render::renderer::DiagramDirection;
 
     let source = "class Thing: ...";
     let expected = "classDiagram
@@ -659,14 +659,14 @@ fn test_non_default_direction_emitted() {
         hide_private_members: false,
     };
     let mut diagram = ClassDiagram::new(options);
-    diagram.add_source(source.to_owned());
+    diagram.add_source(source);
     let output = diagram.render().unwrap_or_default();
     assert_eq!(output.trim(), expected.trim());
 }
 
 #[test]
 fn test_hide_private_members() {
-    use crate::mermaid_renderer::RenderOptions;
+    use crate::render::mermaid_renderer::RenderOptions;
 
     let source = "
 class Foo:
@@ -676,7 +676,7 @@ class Foo:
     def _helper(self) -> None: ...
 ";
     let mut diagram = ClassDiagram::new(RenderOptions::default());
-    diagram.add_source(source.to_owned());
+    diagram.add_source(source);
     let with_private = diagram.render().unwrap_or_default();
     assert!(
         with_private.contains("_private"),
@@ -709,7 +709,7 @@ class Foo:
 
 fn test_diagram(source: &str, expected_output: &str) {
     let mut diagram = ClassDiagram::default();
-    diagram.add_source(source.to_owned());
+    diagram.add_source(source);
     let output = diagram.render().unwrap_or_default();
     assert_eq!(output.trim(), expected_output.trim());
 }
@@ -718,7 +718,7 @@ fn test_diagram(source: &str, expected_output: &str) {
 fn test_diagram_print(source: &str) {
     // for making new tests and debugging :P
     let mut diagram = ClassDiagram::default();
-    diagram.add_source(source.to_owned());
+    diagram.add_source(source);
     println!("{}", diagram.render().unwrap_or_default());
     assert_eq!(1, 2);
 }

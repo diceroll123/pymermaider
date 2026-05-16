@@ -15,7 +15,7 @@ impl MermaidEscape for str {
                 &self[leading_underscores..]
             )
         } else {
-            self.to_string()
+            self.to_owned()
         }
     }
 }

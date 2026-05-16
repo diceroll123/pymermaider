@@ -1,5 +1,7 @@
-use crate::mermaid_escape::MermaidEscape;
-use crate::renderer::{
+use std::fmt::Write as _;
+
+use super::mermaid_escape::MermaidEscape;
+use super::renderer::{
     Attribute, ClassNode, ClassType, CompositionEdge, Diagram, DiagramDirection, MethodSignature,
     RelationType, RelationshipEdge, Visibility,
 };
@@ -17,7 +19,7 @@ fn indent(indent_level: usize) -> String {
     TAB.repeat(indent_level)
 }
 
-fn format_visibility(visibility: Visibility) -> char {
+const fn format_visibility(visibility: Visibility) -> char {
     match visibility {
         Visibility::Public => '+',
         Visibility::Private => '-',
@@ -25,7 +27,7 @@ fn format_visibility(visibility: Visibility) -> char {
     }
 }
 
-fn format_class_type(class_type: ClassType) -> Option<&'static str> {
+const fn format_class_type(class_type: ClassType) -> Option<&'static str> {
     match class_type {
         ClassType::Regular => None,
         ClassType::Abstract => Some("<<abstract>>"),
@@ -36,7 +38,7 @@ fn format_class_type(class_type: ClassType) -> Option<&'static str> {
     }
 }
 
-fn has_class_body(class: &ClassNode, opts: &RenderOptions) -> bool {
+fn has_class_body(class: &ClassNode, opts: RenderOptions) -> bool {
     let hide = opts.hide_private_members;
     let n_attrs = class
         .attributes
@@ -107,19 +109,22 @@ fn render_method(output: &mut String, inner_indent: &str, method: &MethodSignatu
     output.push('\n');
 }
 
-fn render_relationship_symbol(relation_type: RelationType) -> &'static str {
+const fn render_relationship_symbol(relation_type: RelationType) -> &'static str {
     match relation_type {
         RelationType::Inheritance => "--|>",
         RelationType::Implementation => "..|>",
     }
 }
 
+#[must_use]
 pub fn render_header(title: Option<&str>, direction: DiagramDirection) -> String {
     let mut output = String::new();
 
     if let Some(title) = title {
         output.push_str("---\n");
-        output.push_str(&format!("title: {}\n", title));
+        output.push_str("title: ");
+        output.push_str(title);
+        output.push('\n');
         output.push_str("---\n");
     }
 
@@ -127,12 +132,13 @@ pub fn render_header(title: Option<&str>, direction: DiagramDirection) -> String
 
     // Only emit direction if non-default
     if direction != DiagramDirection::default() {
-        output.push_str(&format!("{}direction {}\n\n", indent(1), direction));
+        let _ = write!(output, "{}direction {direction}\n\n", indent(1));
     }
 
     output
 }
 
+#[must_use]
 pub fn render_class(class: &ClassNode, opts: &RenderOptions) -> String {
     let mut output = String::new();
     let outer_indent = indent(1);
@@ -145,10 +151,12 @@ pub fn render_class(class: &ClassNode, opts: &RenderOptions) -> String {
 
     // Type parameters (generics)
     if let Some(ref type_params) = class.type_params {
-        output.push_str(&format!(" ~{}~", type_params));
+        output.push_str(" ~");
+        output.push_str(type_params);
+        output.push('~');
     }
 
-    if has_class_body(class, opts) {
+    if has_class_body(class, *opts) {
         output.push_str(" {\n");
 
         // Class type annotation
@@ -178,6 +186,7 @@ pub fn render_class(class: &ClassNode, opts: &RenderOptions) -> String {
     output
 }
 
+#[must_use]
 pub fn render_relationship(relationship: &RelationshipEdge) -> String {
     let symbol = render_relationship_symbol(relationship.relation_type);
 
@@ -190,6 +199,7 @@ pub fn render_relationship(relationship: &RelationshipEdge) -> String {
     )
 }
 
+#[must_use]
 pub fn render_composition(composition: &CompositionEdge) -> String {
     format!(
         "{}{} *-- {}\n",
@@ -198,7 +208,9 @@ pub fn render_composition(composition: &CompositionEdge) -> String {
         composition.contained
     )
 }
+
 /// Render a full Mermaid class diagram.
+#[must_use]
 pub fn render_diagram(
     diagram: &Diagram,
     title: Option<&str>,
@@ -241,7 +253,8 @@ pub fn render_diagram(
         }
     }
 
-    output = output.trim_end().to_owned();
+    let trimmed_len = output.trim_end().len();
+    output.truncate(trimmed_len);
     output.push('\n');
     Some(output)
 }
