@@ -1,7 +1,7 @@
 use clap::Parser;
 
-use crate::output_format::OutputFormat;
-use pymermaider_wasm::renderer::DiagramDirection;
+use pymermaider_wasm::render::output_format::OutputFormat;
+use pymermaider_wasm::render::renderer::DiagramDirection;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]

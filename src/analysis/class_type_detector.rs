@@ -1,8 +1,8 @@
+use super::checker::Checker;
+use super::class_helpers::ClassDefHelpers;
 /// Utilities for detecting and classifying Python class types
 use crate::ast;
-use crate::checker::Checker;
-use crate::class_helpers::ClassDefHelpers;
-use crate::renderer::ClassType;
+use crate::render::renderer::ClassType;
 use ruff_python_semantic::SemanticModel;
 
 /// Determines the type of a Python class based on its properties and decorators.
@@ -19,13 +19,14 @@ pub struct ClassTypeDetector<'a> {
 }
 
 impl<'a> ClassTypeDetector<'a> {
-    pub fn new(checker: &'a Checker) -> Self {
+    #[must_use]
+    pub const fn new(checker: &'a Checker) -> Self {
         Self {
             semantic: checker.semantic(),
         }
     }
 
-    /// Determine the ClassType for a given class definition
+    /// Determine the `ClassType` for a given class definition
     pub fn detect_type(&self, class: &ast::StmtClassDef) -> ClassType {
         if class.is_protocol(self.semantic) {
             ClassType::Interface
@@ -45,7 +46,7 @@ impl<'a> ClassTypeDetector<'a> {
     /// Check if a class is abstract.
     /// This includes classes that:
     /// - Have abstract methods (via decorators)
-    /// - Inherit from ABC or ABCMeta
+    /// - Inherit from ABC or `ABCMeta`
     fn is_abstract(&self, class: &ast::StmtClassDef) -> bool {
         // Check if class has abstract methods via trait
         if class.is_abstract(self.semantic) {
