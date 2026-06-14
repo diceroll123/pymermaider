@@ -476,7 +476,7 @@ impl ClassDiagram {
     fn parse_python(source: &str, source_type: PySourceType) -> ParsedPython<'_> {
         let parsed = parse_unchecked_source(source, source_type);
         let stylist = Stylist::from_tokens(parsed.tokens(), source);
-        let python_ast = parsed.into_suite();
+        let python_ast = parsed.into_suite().to_vec();
 
         ParsedPython {
             python_ast,
