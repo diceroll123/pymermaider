@@ -225,9 +225,26 @@ impl ClassDiagram {
                 };
 
                 let target_name = target.to_string();
-                let annotation_name = checker.generator().expr(annotation.as_ref());
                 let is_dunder = target_name.starts_with("__") && target_name.ends_with("__");
                 let is_private = target_name.starts_with('_') && !is_dunder;
+
+                // Detect ClassVar[T] and unwrap inner type
+                let (annotation_name, is_class_var) =
+                    if let Expr::Subscript(sub) = annotation.as_ref() {
+                        if checker
+                            .semantic()
+                            .resolve_qualified_name(&sub.value)
+                            .is_some_and(|n| {
+                                matches!(n.segments(), ["typing" | "typing_extensions", "ClassVar"])
+                            })
+                        {
+                            (checker.generator().expr(sub.slice.as_ref()), true)
+                        } else {
+                            (checker.generator().expr(annotation.as_ref()), false)
+                        }
+                    } else {
+                        (checker.generator().expr(annotation.as_ref()), false)
+                    };
 
                 Some(ClassMember::Attribute(Attribute {
                     name: target_name,
@@ -237,6 +254,7 @@ impl ClassDiagram {
                     } else {
                         Visibility::Public
                     },
+                    is_class_var,
                 }))
             }
 
@@ -275,7 +293,8 @@ impl ClassDiagram {
                     return Some(ClassMember::Attribute(Attribute {
                         name: target_name,
                         type_annotation,
-                        visibility: Visibility::Public, // Simple assignments are always public
+                        visibility: Visibility::Public,
+                        is_class_var: false,
                     }));
                 }
 
@@ -320,6 +339,7 @@ impl ClassDiagram {
                         } else {
                             Visibility::Public
                         },
+                        is_class_var: false,
                     }));
                 }
 

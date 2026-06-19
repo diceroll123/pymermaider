@@ -68,6 +68,9 @@ fn render_attribute(output: &mut String, inner_indent: &str, attr: &Attribute) {
     output.push_str(&attr.type_annotation);
     output.push(' ');
     output.push_str(&attr.name.escape_underscores());
+    if attr.is_class_var {
+        output.push('$');
+    }
     output.push('\n');
 }
 
@@ -273,6 +276,7 @@ mod tests {
                 name: "name".to_string(),
                 type_annotation: "str".to_string(),
                 visibility: Visibility::Public,
+                is_class_var: false,
             }],
             methods: vec![MethodSignature {
                 name: "greet".to_string(),

@@ -707,6 +707,24 @@ class Foo:
     );
 }
 
+#[test]
+fn test_class_var_attribute() {
+    test_diagram(
+        r#"
+from typing import ClassVar
+
+class Counter:
+    count: ClassVar[int]
+    name: str
+"#,
+        "classDiagram
+    class Counter {
+        + int count$
+        + str name
+    }",
+    );
+}
+
 fn test_diagram(source: &str, expected_output: &str) {
     let mut diagram = ClassDiagram::default();
     diagram.add_source(source);

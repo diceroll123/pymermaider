@@ -14,6 +14,7 @@ pub struct Attribute {
     pub name: String,
     pub type_annotation: String,
     pub visibility: Visibility,
+    pub is_class_var: bool,
 }
 
 /// Represents a method parameter
