@@ -84,12 +84,7 @@ impl ClassDiagram {
         crate::render::mermaid_renderer::render_diagram(&self.diagram, title, &self.options)
     }
 
-    pub fn add_class(
-        &mut self,
-        checker: &Checker,
-        class: &ast::StmtClassDef,
-        _indent_level: usize,
-    ) {
+    pub fn add_class(&mut self, checker: &Checker, class: &ast::StmtClassDef, indent_level: usize) {
         let class_name = class.name.to_string();
 
         // Find generic type parameters - either from explicit [T] syntax or Generic[T] bases
@@ -193,6 +188,17 @@ impl ClassDiagram {
                 contained: comp_display.to_string(),
             };
             self.diagram.add_composition(comp);
+        }
+
+        // Recurse into nested class definitions
+        for stmt in &class.body {
+            if let ast::Stmt::ClassDef(nested) = stmt {
+                self.diagram.add_composition(CompositionEdge {
+                    container: class_name.clone(),
+                    contained: nested.name.to_string(),
+                });
+                self.add_class(checker, nested, indent_level + 1);
+            }
         }
     }
 

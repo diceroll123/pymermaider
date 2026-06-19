@@ -316,6 +316,10 @@ class User(UserBase):
 ";
 
     let expected_output = "classDiagram
+    class Config {
+        + bool orm_mode
+    }
+
     class ItemBase {
         + str title
         + str | None description
@@ -354,7 +358,11 @@ class User(UserBase):
 
     User --|> UserBase
 
+    Item *-- Config
+
     User *-- Item
+
+    User *-- Config
 ";
 
     test_diagram(source, expected_output);
@@ -704,6 +712,48 @@ class Foo:
     assert!(
         !without_private.contains("_helper"),
         "private method should be hidden; got: {without_private}"
+    );
+}
+
+#[test]
+fn test_nested_class() {
+    test_diagram(
+        r#"
+class Outer:
+    class Inner:
+        x: int
+"#,
+        "classDiagram
+    class Inner {
+        + int x
+    }
+
+    class Outer
+
+    Outer *-- Inner",
+    );
+}
+
+#[test]
+fn test_nested_class_with_outer_members() {
+    test_diagram(
+        r#"
+class Outer:
+    value: str
+
+    class Config:
+        strict: bool
+"#,
+        "classDiagram
+    class Config {
+        + bool strict
+    }
+
+    class Outer {
+        + str value
+    }
+
+    Outer *-- Config",
     );
 }
 
