@@ -35,6 +35,8 @@ pub enum ClassType {
     Regular,
     Abstract,
     Interface,
+    TypedDict,
+    NamedTuple,
     Enumeration,
     Dataclass,
     Final,

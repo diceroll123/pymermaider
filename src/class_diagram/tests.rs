@@ -707,6 +707,52 @@ class Foo:
     );
 }
 
+#[test]
+fn test_typed_dict() {
+    let source = r#"
+from typing import TypedDict
+
+class Movie(TypedDict):
+    name: str
+    year: int
+"#;
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let result = diagram.render().unwrap_or_default();
+    assert!(result.contains("<<TypedDict>>"), "got: {result}");
+}
+
+#[test]
+fn test_named_tuple() {
+    let source = r#"
+from typing import NamedTuple
+
+class Point(NamedTuple):
+    x: float
+    y: float
+"#;
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let result = diagram.render().unwrap_or_default();
+    assert!(result.contains("<<NamedTuple>>"), "got: {result}");
+}
+
+#[test]
+fn test_attrs_class() {
+    let source = r#"
+import attrs
+
+@attrs.define
+class Person:
+    name: str
+    age: int
+"#;
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let result = diagram.render().unwrap_or_default();
+    assert!(result.contains("<<dataclass>>"), "got: {result}");
+}
+
 fn test_diagram(source: &str, expected_output: &str) {
     let mut diagram = ClassDiagram::default();
     diagram.add_source(source);

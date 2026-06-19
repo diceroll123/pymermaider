@@ -34,6 +34,8 @@ pub trait ClassDefHelpers {
     fn is_enum(&self, semantic: &SemanticModel) -> bool;
     fn is_protocol(&self, semantic: &SemanticModel) -> bool;
     fn is_dataclass(&self, semantic: &SemanticModel) -> bool;
+    fn is_typed_dict(&self, semantic: &SemanticModel) -> bool;
+    fn is_named_tuple(&self, semantic: &SemanticModel) -> bool;
 }
 
 impl ClassDefHelpers for ast::StmtClassDef {
@@ -84,12 +86,45 @@ impl ClassDefHelpers for ast::StmtClassDef {
 
     fn is_dataclass(&self, semantic: &SemanticModel) -> bool {
         for decorator in &self.decorator_list {
-            // Check the decorator expression directly (for @dataclass)
             if let Some(qualified_name) = semantic.resolve_qualified_name(&decorator.expression) {
                 if matches!(
                     qualified_name.segments(),
-                    ["dataclasses", "dataclass"] | ["pydantic", "dataclasses", "dataclass"]
+                    ["dataclasses", "dataclass"]
+                        | ["pydantic", "dataclasses", "dataclass"]
+                        | ["attrs", "define" | "mutable" | "frozen" | "attrs"]
+                        | ["attr", "s" | "attrs" | "define" | "mutable" | "frozen"]
                 ) {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    fn is_typed_dict(&self, semantic: &SemanticModel) -> bool {
+        let Some(Arguments { args, keywords, .. }) = self.arguments.as_deref() else {
+            return false;
+        };
+        for base in args.iter().chain(keywords.iter().map(|kw| &kw.value)) {
+            if let Some(qualified_name) = semantic.resolve_qualified_name(base) {
+                if matches!(
+                    qualified_name.segments(),
+                    ["typing" | "typing_extensions", "TypedDict"]
+                ) {
+                    return true;
+                }
+            }
+        }
+        false
+    }
+
+    fn is_named_tuple(&self, semantic: &SemanticModel) -> bool {
+        let Some(Arguments { args, keywords, .. }) = self.arguments.as_deref() else {
+            return false;
+        };
+        for base in args.iter().chain(keywords.iter().map(|kw| &kw.value)) {
+            if let Some(qualified_name) = semantic.resolve_qualified_name(base) {
+                if matches!(qualified_name.segments(), ["typing", "NamedTuple"]) {
                     return true;
                 }
             }

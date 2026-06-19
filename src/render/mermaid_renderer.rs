@@ -32,6 +32,8 @@ const fn format_class_type(class_type: ClassType) -> Option<&'static str> {
         ClassType::Regular => None,
         ClassType::Abstract => Some("<<abstract>>"),
         ClassType::Interface => Some("<<interface>>"),
+        ClassType::TypedDict => Some("<<TypedDict>>"),
+        ClassType::NamedTuple => Some("<<NamedTuple>>"),
         ClassType::Enumeration => Some("<<enumeration>>"),
         ClassType::Dataclass => Some("<<dataclass>>"),
         ClassType::Final => Some("<<final>>"),

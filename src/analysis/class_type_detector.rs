@@ -30,6 +30,10 @@ impl<'a> ClassTypeDetector<'a> {
     pub fn detect_type(&self, class: &ast::StmtClassDef) -> ClassType {
         if class.is_protocol(self.semantic) {
             ClassType::Interface
+        } else if class.is_typed_dict(self.semantic) {
+            ClassType::TypedDict
+        } else if class.is_named_tuple(self.semantic) {
+            ClassType::NamedTuple
         } else if class.is_dataclass(self.semantic) {
             ClassType::Dataclass
         } else if self.is_abstract(class) {
