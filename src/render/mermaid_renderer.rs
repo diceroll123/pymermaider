@@ -205,12 +205,17 @@ pub fn render_composition(composition: &CompositionEdge) -> String {
         CompositionKind::Composition => "*--",
         CompositionKind::Aggregation => "o--",
     };
+    let label = composition
+        .label
+        .as_deref()
+        .map_or(String::new(), |l| format!(" : {l}"));
     format!(
-        "{}{} {} {}\n",
+        "{}{} {} {}{}\n",
         indent(1),
         composition.container,
         symbol,
-        composition.contained
+        composition.contained,
+        label
     )
 }
 

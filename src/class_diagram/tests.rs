@@ -233,9 +233,9 @@ class Car:
         + drive(self) None
     }
 
-    Car *-- Engine
+    Car *-- Engine : engine
 
-    Car o-- Wheel
+    Car o-- Wheel : wheels
 ";
 
     test_diagram(source, expected_output);
@@ -267,9 +267,9 @@ class Car:
         + Engine | Wheel part
     }
 
-    Car *-- Engine
+    Car *-- Engine : part
 
-    Car *-- Wheel
+    Car *-- Wheel : part
 ";
 
     test_diagram(source, expected_output);
@@ -354,7 +354,7 @@ class User(UserBase):
 
     User --|> UserBase
 
-    User o-- Item
+    User o-- Item : items
 ";
 
     test_diagram(source, expected_output);
@@ -721,11 +721,11 @@ class Car:
     diagram.add_source(source);
     let result = diagram.render().unwrap_or_default();
     assert!(
-        result.contains("Car *-- Engine"),
+        result.contains("Car *-- Engine : engine"),
         "bare type should be composition; got: {result}"
     );
     assert!(
-        result.contains("Car o-- Engine"),
+        result.contains("Car o-- Engine : engines"),
         "list type should be aggregation; got: {result}"
     );
 }
@@ -745,7 +745,7 @@ class Car:
     diagram.add_source(source);
     let result = diagram.render().unwrap_or_default();
     assert!(
-        result.contains("Car o-- Engine"),
+        result.contains("Car o-- Engine : engine"),
         "Optional should be aggregation; got: {result}"
     );
     assert!(
@@ -767,7 +767,7 @@ class Car:
     diagram.add_source(source);
     let result = diagram.render().unwrap_or_default();
     assert!(
-        result.contains("Car o-- Engine"),
+        result.contains("Car o-- Engine : engine"),
         "X|None should be aggregation; got: {result}"
     );
     assert!(

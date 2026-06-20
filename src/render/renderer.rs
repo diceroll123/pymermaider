@@ -78,6 +78,7 @@ pub struct CompositionEdge {
     pub container: String,
     pub contained: String,
     pub kind: CompositionKind,
+    pub label: Option<String>,
 }
 
 /// Class diagram direction.
