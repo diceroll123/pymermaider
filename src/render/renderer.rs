@@ -48,6 +48,7 @@ pub struct ClassNode {
     pub class_type: ClassType,
     pub attributes: Vec<Attribute>,
     pub methods: Vec<MethodSignature>,
+    pub namespace: Option<String>,
 }
 
 /// Type of relationship between classes
