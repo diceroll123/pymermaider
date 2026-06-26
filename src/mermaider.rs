@@ -101,15 +101,39 @@ impl Mermaider {
             hide_private_members: self.args.hide_private_members,
         };
         let mut class_diagram = ClassDiagram::new(options);
+        let root = self.file_settings.project_root.as_path();
 
         for file in parsed_files {
             let Ok(source) = std::fs::read_to_string(file) else {
                 continue;
             };
+            if self.args.namespace {
+                let ns = Self::namespace_for_file(file, root);
+                class_diagram.set_namespace(ns);
+            }
             class_diagram.add_file(&source, file);
         }
 
+        // Clear namespace context after all files are processed
+        class_diagram.set_namespace(None);
         class_diagram
+    }
+
+    /// Compute a dotted module namespace from a file path relative to the project root.
+    /// e.g. `models/user.py` -> `Some("models.user")`, `main.py` -> `None`
+    fn namespace_for_file(file: &Path, root: &Path) -> Option<String> {
+        let relative = file.strip_prefix(root).unwrap_or(file);
+        let without_ext = relative.with_extension("");
+        let parts: Vec<_> = without_ext
+            .components()
+            .map(|c| c.as_os_str().to_string_lossy().into_owned())
+            .collect();
+        if parts.len() <= 1 {
+            // Top-level file: no namespace (avoids wrapping everything in a single-file case)
+            None
+        } else {
+            Some(parts.join("."))
+        }
     }
 
     fn parse_folder(&self, path: &Path) -> Vec<PathBuf> {
@@ -198,6 +222,7 @@ mod tests {
             direction: DiagramDirection::default(),
             no_title: false,
             hide_private_members: false,
+            namespace: false,
         }
     }
 
@@ -355,6 +380,59 @@ mod tests {
             "exclude should win over include"
         );
         assert!(rendered.contains("class Settings"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_namespace_groups_by_module() -> Result<()> {
+        init_logger();
+        let temp = TempDir::new()?;
+
+        let models_dir = temp.path().join("models");
+        std::fs::create_dir_all(&models_dir)?;
+        std::fs::File::create(models_dir.join("user.py"))?.write_all(b"class User: ...")?;
+        std::fs::File::create(models_dir.join("item.py"))?.write_all(b"class Item: ...")?;
+
+        let mut args = default_args();
+        args.namespace = true;
+        let mermaider = Mermaider::new(args, default_settings(temp.path()));
+        let diagrams = mermaider.generate_diagrams();
+
+        assert_eq!(diagrams.len(), 1);
+        let rendered = diagrams[0].render().unwrap();
+        assert!(
+            rendered.contains("namespace models.item"),
+            "should have namespace for models/item.py; got: {rendered}"
+        );
+        assert!(
+            rendered.contains("namespace models.user"),
+            "should have namespace for models/user.py; got: {rendered}"
+        );
+        assert!(
+            rendered.contains("class User"),
+            "User should appear inside namespace; got: {rendered}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_namespace_top_level_file_has_no_namespace() -> Result<()> {
+        init_logger();
+        let temp = TempDir::new()?;
+        std::fs::File::create(temp.path().join("main.py"))?.write_all(b"class Main: ...")?;
+
+        let mut args = default_args();
+        args.namespace = true;
+        let mermaider = Mermaider::new(args, default_settings(temp.path()));
+        let diagrams = mermaider.generate_diagrams();
+
+        assert_eq!(diagrams.len(), 1);
+        let rendered = diagrams[0].render().unwrap();
+        assert!(
+            !rendered.contains("namespace"),
+            "top-level file should have no namespace; got: {rendered}"
+        );
+        assert!(rendered.contains("class Main"));
         Ok(())
     }
 

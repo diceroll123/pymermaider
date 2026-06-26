@@ -73,4 +73,11 @@ pub struct Args {
     /// Hide private members (fields and methods with names starting with _) from the diagram.
     #[arg(long, verbatim_doc_comment, default_value = "false")]
     pub hide_private_members: bool,
+
+    /// Group classes by their source module when processing a directory.
+    ///
+    /// Each file's classes are wrapped in a Mermaid namespace block named after
+    /// the file's dotted module path (e.g. models/user.py -> namespace models.user).
+    #[arg(long, verbatim_doc_comment, default_value = "false")]
+    pub namespace: bool,
 }
