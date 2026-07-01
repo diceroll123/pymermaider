@@ -40,7 +40,7 @@ jobs:
         run: echo "rustc=$(rustc -V | tr ' ' '-')" >> "$GITHUB_OUTPUT"
 
       - name: Cache Rust + Cargo (wasm)
-        uses: actions/cache@v5
+        uses: actions/cache@v6
         with:
           path: |
             ~/.cargo/bin
