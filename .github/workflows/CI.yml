@@ -37,7 +37,7 @@ jobs:
             artifact_name: wheels-macos-universal
             args: --release --find-interpreter --out dist
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.platform.cache_key }}
@@ -62,7 +62,7 @@ jobs:
           - target: i686-pc-windows-msvc
           - target: aarch64-pc-windows-msvc
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - name: "Configure Git to support long paths"
         run: git config --system core.longpaths true
       - uses: Swatinem/rust-cache@v2
@@ -87,7 +87,7 @@ jobs:
           - x86_64-unknown-linux-gnu
           - i686-unknown-linux-gnu
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.target }}
@@ -122,7 +122,7 @@ jobs:
           - target: powerpc64-unknown-linux-gnu
             arch: ppc64
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.platform.target }}
@@ -148,7 +148,7 @@ jobs:
           - x86_64-unknown-linux-musl
           - i686-unknown-linux-musl
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: Swatinem/rust-cache@v2
         with:
           key: musl-${{ matrix.target }}
@@ -176,7 +176,7 @@ jobs:
           - target: armv7-unknown-linux-musleabihf
             arch: armv7
     steps:
-      - uses: actions/checkout@v6
+      - uses: actions/checkout@v7
       - uses: Swatinem/rust-cache@v2
         with:
           key: musl-${{ matrix.platform.target }}
