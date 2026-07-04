@@ -9,12 +9,10 @@ use clap::Parser;
 use log::info;
 use mermaider::Mermaider;
 use pymermaider_wasm::class_diagram;
-use ruff_linter::settings::types::{FilePattern, FilePatternSet, GlobPath};
-use settings::{FileResolverSettings, DEFAULT_EXCLUDES};
+use settings::FileResolverSettings;
 use std::io::Read as _;
 use std::io::Write as _;
 
-#[allow(clippy::too_many_lines)]
 fn main() {
     env_logger::init();
 
@@ -35,49 +33,17 @@ fn main() {
     let extend_exclude_patterns = args.extend_exclude.take();
     let include_patterns = args.include.take();
 
-    let include_patterns: Option<FilePatternSet> = include_patterns.map(|paths| {
-        FilePatternSet::try_from_iter(
-            paths
-                .into_iter()
-                .map(|pattern| {
-                    let absolute = GlobPath::normalize(&pattern, &project_root);
-                    FilePattern::User(pattern, absolute)
-                })
-                .collect::<Vec<_>>(),
-        )
-        .unwrap()
-    });
-
-    let file_settings = FileResolverSettings {
-        exclude: FilePatternSet::try_from_iter(exclude_patterns.map_or_else(
-            || DEFAULT_EXCLUDES.to_vec(),
-            |paths| {
-                paths
-                    .into_iter()
-                    .map(|pattern| {
-                        let absolute = GlobPath::normalize(&pattern, &project_root);
-                        FilePattern::User(pattern, absolute)
-                    })
-                    .collect::<Vec<_>>()
-            },
-        ))
-        .unwrap(),
-        extend_exclude: FilePatternSet::try_from_iter(
-            extend_exclude_patterns
-                .map(|paths| {
-                    paths
-                        .into_iter()
-                        .map(|pattern| {
-                            let absolute = GlobPath::normalize(&pattern, &project_root);
-                            FilePattern::User(pattern, absolute)
-                        })
-                        .collect::<Vec<_>>()
-                })
-                .unwrap_or_default(),
-        )
-        .unwrap(),
-        include: include_patterns,
+    let file_settings = match FileResolverSettings::new(
+        exclude_patterns,
+        extend_exclude_patterns,
+        include_patterns,
         project_root,
+    ) {
+        Ok(settings) => settings,
+        Err(e) => {
+            eprintln!("error: invalid file pattern: {e}");
+            std::process::exit(2);
+        }
     };
 
     let mermaider = Mermaider::new(args, file_settings);

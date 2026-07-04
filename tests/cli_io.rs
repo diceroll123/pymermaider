@@ -206,3 +206,38 @@ fn multiple_files_with_stdout_errors() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("--multiple-files"));
 }
+
+#[test]
+fn invalid_exclude_glob_errors_cleanly_instead_of_panicking() {
+    let exe = env!("CARGO_BIN_EXE_pymermaider");
+
+    let dir = tempfile::TempDir::new().expect("temp dir");
+    std::fs::write(dir.path().join("a.py"), "class A: ...\n").expect("write a.py");
+
+    let output = Command::new(exe)
+        .arg(dir.path().to_string_lossy().to_string())
+        .arg("--exclude")
+        .arg("[abc")
+        .arg("--output")
+        .arg("-")
+        .output()
+        .expect("run pymermaider");
+
+    assert!(
+        !output.status.success(),
+        "expected a non-zero exit status for an invalid --exclude glob"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !stderr.contains("panicked at"),
+        "stderr should not contain a panic backtrace: {stderr}"
+    );
+    assert!(
+        !stderr.contains("RUST_BACKTRACE"),
+        "stderr should not contain a panic backtrace: {stderr}"
+    );
+    assert!(
+        stderr.contains("error"),
+        "stderr should contain a clean error message: {stderr}"
+    );
+}
