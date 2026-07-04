@@ -119,6 +119,7 @@ pub struct Diagram {
     pub classes: Vec<ClassNode>,
     pub relationships: Vec<RelationshipEdge>,
     pub compositions: Vec<CompositionEdge>,
+    abstract_or_interface_index: std::collections::HashMap<String, bool>,
 }
 
 impl Diagram {
@@ -133,6 +134,13 @@ impl Diagram {
     }
 
     pub fn add_class(&mut self, class: ClassNode) {
+        let is_abstract_or_interface =
+            matches!(class.class_type, ClassType::Abstract | ClassType::Interface);
+        let entry = self
+            .abstract_or_interface_index
+            .entry(class.name.clone())
+            .or_insert(false);
+        *entry = *entry || is_abstract_or_interface;
         self.classes.push(class);
     }
 
@@ -146,9 +154,22 @@ impl Diagram {
 
     #[must_use]
     pub fn is_abstract_or_interface(&self, name: &str) -> bool {
-        self.classes.iter().any(|c| {
-            c.name == name && matches!(c.class_type, ClassType::Abstract | ClassType::Interface)
-        })
+        self.abstract_or_interface_index
+            .get(name)
+            .copied()
+            .unwrap_or(false)
+    }
+
+    pub fn extend(&mut self, other: Diagram) {
+        self.classes.extend(other.classes);
+        self.relationships.extend(other.relationships);
+        self.compositions.extend(other.compositions);
+        for (name, other_flag) in other.abstract_or_interface_index {
+            self.abstract_or_interface_index
+                .entry(name)
+                .and_modify(|v| *v = *v || other_flag)
+                .or_insert(other_flag);
+        }
     }
 
     /// Return classes in a deterministic topological order based on relationships and compositions,
@@ -216,5 +237,66 @@ impl Diagram {
             .into_iter()
             .filter_map(|name| class_map.get(name).copied())
             .collect()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_diagram_extend_concatenates_all_fields() {
+        let mut a = Diagram::new();
+        a.add_class(ClassNode {
+            name: "A1".to_string(),
+            type_params: None,
+            class_type: ClassType::Regular,
+            attributes: vec![],
+            methods: vec![],
+        });
+        a.add_relationship(RelationshipEdge {
+            from: "A1".to_string(),
+            to: "Base".to_string(),
+            relation_type: RelationType::Inheritance,
+        });
+        a.add_composition(CompositionEdge {
+            container: "A1".to_string(),
+            contained: "Widget".to_string(),
+        });
+
+        let mut b = Diagram::new();
+        b.add_class(ClassNode {
+            name: "B1".to_string(),
+            type_params: None,
+            class_type: ClassType::Abstract,
+            attributes: vec![],
+            methods: vec![],
+        });
+        b.add_relationship(RelationshipEdge {
+            from: "B1".to_string(),
+            to: "Base".to_string(),
+            relation_type: RelationType::Implementation,
+        });
+        b.add_composition(CompositionEdge {
+            container: "B1".to_string(),
+            contained: "Gadget".to_string(),
+        });
+
+        a.extend(b);
+
+        assert_eq!(a.classes.len(), 2);
+        assert_eq!(a.classes[0].name, "A1");
+        assert_eq!(a.classes[1].name, "B1");
+
+        assert_eq!(a.relationships.len(), 2);
+        assert_eq!(a.relationships[0].to, "Base");
+        assert_eq!(a.relationships[1].to, "Base");
+
+        assert_eq!(a.compositions.len(), 2);
+        assert_eq!(a.compositions[0].contained, "Widget");
+        assert_eq!(a.compositions[1].contained, "Gadget");
+
+        assert!(a.is_abstract_or_interface("B1"));
+        assert!(!a.is_abstract_or_interface("A1"));
     }
 }
