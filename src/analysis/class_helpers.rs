@@ -11,6 +11,11 @@ pub trait QualifiedNameHelpers {
     fn normalize_name(&self) -> String;
 }
 
+/// Returns true if the qualified name resolves to `abc.ABC` or `abc.ABCMeta`.
+pub fn is_abc_qualified_name(name: &QualifiedName) -> bool {
+    matches!(name.segments(), ["abc", "ABC" | "ABCMeta"])
+}
+
 impl QualifiedNameHelpers for QualifiedName<'_> {
     fn normalize_name(&self) -> String {
         // make sure name is alphanumeric (including unicode), underscores, and dashes
@@ -44,7 +49,7 @@ impl ClassDefHelpers for ast::StmtClassDef {
 
         for base in args.iter().chain(keywords.iter().map(|kw| &kw.value)) {
             if let Some(qualified_name) = semantic.resolve_qualified_name(base) {
-                if matches!(qualified_name.segments(), ["abc", "ABC" | "ABCMeta"]) {
+                if is_abc_qualified_name(&qualified_name) {
                     return true;
                 }
             }
