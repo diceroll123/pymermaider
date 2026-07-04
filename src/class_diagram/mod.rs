@@ -385,23 +385,21 @@ impl ClassDiagram {
             return BaseKind::Skip;
         }
 
-        if checker
-            .semantic()
-            .resolve_qualified_name(base)
-            .is_some_and(|name| {
-                matches!(name.segments(), ["typing", "Generic"])
-                    || matches!(name.segments(), ["" | "builtins", "object"])
-                    || matches!(name.segments(), ["abc", "ABC" | "ABCMeta"])
-                    || matches!(
-                        name.segments(),
-                        ["typing" | "typing_extensions", "Protocol"]
-                    )
-            })
-        {
+        let qualified_name = checker.semantic().resolve_qualified_name(base);
+
+        if qualified_name.as_ref().is_some_and(|name| {
+            matches!(name.segments(), ["typing", "Generic"])
+                || matches!(name.segments(), ["" | "builtins", "object"])
+                || matches!(name.segments(), ["abc", "ABC" | "ABCMeta"])
+                || matches!(
+                    name.segments(),
+                    ["typing" | "typing_extensions", "Protocol"]
+                )
+        }) {
             return BaseKind::Skip;
         }
 
-        let base_name = checker.semantic().resolve_qualified_name(base).map_or_else(
+        let base_name = qualified_name.map_or_else(
             || {
                 let name = checker.locator().slice(base);
                 QualifiedName::user_defined(name).normalize_name()
