@@ -64,19 +64,21 @@ impl Mermaider {
             let parsed_files = self.parse_folder(root);
 
             if self.args.multiple_files {
-                let mut diagrams = Vec::with_capacity(parsed_files.len());
-                for parsed_file in &parsed_files {
-                    let mut diagram = self.make_mermaid(std::slice::from_ref(parsed_file));
-                    if !self.args.no_title {
-                        diagram.path = parsed_file
-                            .strip_prefix(root)
-                            .unwrap_or(parsed_file.as_path())
-                            .to_string_lossy()
-                            .into_owned();
-                    }
-                    diagrams.push(diagram);
-                }
-                return diagrams;
+                use rayon::prelude::*;
+                return parsed_files
+                    .par_iter()
+                    .map(|parsed_file| {
+                        let mut diagram = self.make_mermaid_for_file(parsed_file);
+                        if !self.args.no_title {
+                            diagram.path = parsed_file
+                                .strip_prefix(root)
+                                .unwrap_or(parsed_file.as_path())
+                                .to_string_lossy()
+                                .into_owned();
+                        }
+                        diagram
+                    })
+                    .collect();
             }
 
             let mut diagram = self.make_mermaid(&parsed_files);
@@ -95,21 +97,31 @@ impl Mermaider {
         vec![]
     }
 
-    fn make_mermaid(&self, parsed_files: &[PathBuf]) -> ClassDiagram {
+    fn make_mermaid_for_file(&self, file: &Path) -> ClassDiagram {
         let options = RenderOptions {
             direction: self.args.direction,
             hide_private_members: self.args.hide_private_members,
         };
-        let mut class_diagram = ClassDiagram::new(options);
-
-        for file in parsed_files {
-            let Ok(source) = std::fs::read_to_string(file) else {
-                continue;
-            };
-            class_diagram.add_file(&source, file);
+        let mut diagram = ClassDiagram::new(options);
+        if let Ok(source) = std::fs::read_to_string(file) {
+            diagram.add_file(&source, file);
         }
+        diagram
+    }
 
-        class_diagram
+    fn make_mermaid(&self, parsed_files: &[PathBuf]) -> ClassDiagram {
+        use rayon::prelude::*;
+        let options = RenderOptions {
+            direction: self.args.direction,
+            hide_private_members: self.args.hide_private_members,
+        };
+        let per_file: Vec<ClassDiagram> = parsed_files
+            .par_iter()
+            .map(|file| self.make_mermaid_for_file(file))
+            .collect();
+        per_file
+            .into_iter()
+            .fold(ClassDiagram::new(options), ClassDiagram::merge)
     }
 
     fn parse_folder(&self, path: &Path) -> Vec<PathBuf> {
@@ -374,6 +386,77 @@ mod tests {
 
         let rendered = diagrams[0].render().unwrap();
         assert!(!rendered.contains("title:"));
+        Ok(())
+    }
+
+    #[test]
+    fn test_parallel_processing_is_deterministic() -> Result<()> {
+        init_logger();
+        let temp = TempDir::new()?;
+        std::fs::File::create(temp.path().join("base.py"))?.write_all(b"class Base: ...")?;
+        for i in 1..=5 {
+            let content = format!("class Child{i}(Base):\n    x: Base\n");
+            std::fs::File::create(temp.path().join(format!("child_{i}.py")))?
+                .write_all(content.as_bytes())?;
+        }
+
+        let render_with_threads = |num_threads: usize| -> String {
+            let mermaider = Mermaider::new(default_args(), default_settings(temp.path()));
+            let pool = rayon::ThreadPoolBuilder::new()
+                .num_threads(num_threads)
+                .build()
+                .unwrap();
+            pool.install(|| {
+                let diagrams = mermaider.generate_diagrams();
+                assert_eq!(diagrams.len(), 1);
+                diagrams[0].render().unwrap_or_default()
+            })
+        };
+
+        let single_threaded = render_with_threads(1);
+        let multi_threaded = render_with_threads(4);
+
+        assert_eq!(single_threaded, multi_threaded);
+        Ok(())
+    }
+
+    #[test]
+    fn test_parallel_multiple_files_parity() -> Result<()> {
+        init_logger();
+        let temp = TempDir::new()?;
+        std::fs::File::create(temp.path().join("base.py"))?.write_all(b"class Base: ...")?;
+        for i in 1..=5 {
+            let content = format!("class Child{i}(Base):\n    x: Base\n");
+            std::fs::File::create(temp.path().join(format!("child_{i}.py")))?
+                .write_all(content.as_bytes())?;
+        }
+
+        let num_py_files = 6usize;
+
+        let run_with_threads = |num_threads: usize| -> Vec<(String, Option<String>)> {
+            let mut args = default_args();
+            args.multiple_files = true;
+            let mermaider = Mermaider::new(args, default_settings(temp.path()));
+            let pool = rayon::ThreadPoolBuilder::new()
+                .num_threads(num_threads)
+                .build()
+                .unwrap();
+            pool.install(|| {
+                let diagrams = mermaider.generate_diagrams();
+                assert_eq!(diagrams.len(), num_py_files);
+                let mut pairs: Vec<(String, Option<String>)> = diagrams
+                    .iter()
+                    .map(|d| (d.path.clone(), d.render()))
+                    .collect();
+                pairs.sort_by(|a, b| a.0.cmp(&b.0));
+                pairs
+            })
+        };
+
+        let single_threaded = run_with_threads(1);
+        let multi_threaded = run_with_threads(4);
+
+        assert_eq!(single_threaded, multi_threaded);
         Ok(())
     }
 }

@@ -71,6 +71,11 @@ impl ClassDiagram {
         self.diagram.is_empty()
     }
 
+    pub fn merge(mut self, other: Self) -> Self {
+        self.diagram.extend(other.diagram);
+        self
+    }
+
     #[must_use]
     pub fn render(&self) -> Option<String> {
         if self.is_empty() {
