@@ -140,9 +140,13 @@ pub fn render_header(title: Option<&str>, direction: DiagramDirection) -> String
 
 #[must_use]
 pub fn render_class(class: &ClassNode, opts: &RenderOptions) -> String {
+    render_class_at(class, opts, 1)
+}
+
+fn render_class_at(class: &ClassNode, opts: &RenderOptions, base_indent: usize) -> String {
     let mut output = String::new();
-    let outer_indent = indent(1);
-    let inner_indent = indent(2);
+    let outer_indent = indent(base_indent);
+    let inner_indent = indent(base_indent + 1);
 
     // Class declaration
     output.push_str(&outer_indent);
@@ -223,8 +227,28 @@ pub fn render_diagram(
     let mut output = String::with_capacity(1024);
     output.push_str(&render_header(title, opts.direction));
 
-    for class in diagram.classes_topologically_sorted_unique() {
+    // Group by namespace: flat classes first, then namespace blocks (alphabetical)
+    let classes = diagram.classes_topologically_sorted_unique();
+    let mut flat: Vec<&ClassNode> = Vec::new();
+    let mut namespaced: std::collections::BTreeMap<String, Vec<&ClassNode>> =
+        std::collections::BTreeMap::new();
+    for class in classes {
+        match &class.namespace {
+            None => flat.push(class),
+            Some(ns) => namespaced.entry(ns.clone()).or_default().push(class),
+        }
+    }
+
+    for class in &flat {
         output.push_str(&render_class(class, opts));
+    }
+
+    for (ns, ns_classes) in &namespaced {
+        let _ = writeln!(output, "{}namespace {} {{", indent(1), ns);
+        for class in ns_classes {
+            output.push_str(&render_class_at(class, opts, 2));
+        }
+        let _ = write!(output, "{}}}\n\n", indent(1));
     }
 
     // Relationships (deduped; stable order)
@@ -284,6 +308,7 @@ mod tests {
                 is_async: false,
                 decorators: vec![],
             }],
+            namespace: None,
         };
 
         let output = render_class(&class, &RenderOptions::default());

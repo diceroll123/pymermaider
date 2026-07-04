@@ -42,6 +42,7 @@ pub struct ClassDiagram {
     diagram: Diagram,
     options: crate::render::mermaid_renderer::RenderOptions,
     pub path: String,
+    current_namespace: Option<String>,
 }
 
 impl Default for ClassDiagram {
@@ -57,11 +58,16 @@ impl ClassDiagram {
             diagram: Diagram::new(),
             options,
             path: String::new(),
+            current_namespace: None,
         }
     }
 
     pub const fn set_hide_private_members(&mut self, hide: bool) {
         self.options.hide_private_members = hide;
+    }
+
+    pub fn set_namespace(&mut self, namespace: Option<String>) {
+        self.current_namespace = namespace;
     }
 
     #[must_use]
@@ -158,6 +164,7 @@ impl ClassDiagram {
             class_type,
             attributes,
             methods,
+            namespace: self.current_namespace.clone(),
         };
 
         self.diagram.add_class(class_node);
