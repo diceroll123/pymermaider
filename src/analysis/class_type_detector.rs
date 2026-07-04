@@ -1,5 +1,5 @@
 use super::checker::Checker;
-use super::class_helpers::ClassDefHelpers;
+use super::class_helpers::{is_abc_qualified_name, ClassDefHelpers};
 /// Utilities for detecting and classifying Python class types
 use crate::ast;
 use crate::render::renderer::ClassType;
@@ -57,7 +57,7 @@ impl<'a> ClassTypeDetector<'a> {
         class.bases().iter().any(|base| {
             self.semantic
                 .resolve_qualified_name(base)
-                .is_some_and(|name| matches!(name.segments(), ["abc", "ABC" | "ABCMeta"]))
+                .is_some_and(|name| is_abc_qualified_name(&name))
         })
     }
 
@@ -68,7 +68,7 @@ impl<'a> ClassTypeDetector<'a> {
         self.semantic
             .resolve_qualified_name(base_expr)
             .is_some_and(|name| {
-                matches!(name.segments(), ["abc", "ABC" | "ABCMeta"])
+                is_abc_qualified_name(&name)
                     || matches!(name.segments(), ["typing", "Protocol"])
                     || matches!(name.segments(), ["typing_extensions", "Protocol"])
             })

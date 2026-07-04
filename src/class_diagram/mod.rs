@@ -1,5 +1,7 @@
 use crate::analysis::checker::Checker;
-use crate::analysis::class_helpers::{ClassDefHelpers, QualifiedNameHelpers};
+use crate::analysis::class_helpers::{
+    is_abc_qualified_name, ClassDefHelpers, QualifiedNameHelpers,
+};
 use crate::analysis::class_type_detector::ClassTypeDetector;
 use crate::analysis::parameter_generator::ParameterGenerator;
 use crate::analysis::type_analyzer;
@@ -390,7 +392,7 @@ impl ClassDiagram {
         if qualified_name.as_ref().is_some_and(|name| {
             matches!(name.segments(), ["typing", "Generic"])
                 || matches!(name.segments(), ["" | "builtins", "object"])
-                || matches!(name.segments(), ["abc", "ABC" | "ABCMeta"])
+                || is_abc_qualified_name(name)
                 || matches!(
                     name.segments(),
                     ["typing" | "typing_extensions", "Protocol"]
