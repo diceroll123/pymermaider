@@ -2,4 +2,4 @@
 2:I[39756,["/pymermaider/_next/static/chunks/0v3l642d9w7uf.js","/pymermaider/_next/static/chunks/17c82eec8qr7s.js","/pymermaider/_next/static/chunks/208gzt896g4ab.js"],"default"]
 3:I[37457,["/pymermaider/_next/static/chunks/0v3l642d9w7uf.js","/pymermaider/_next/static/chunks/17c82eec8qr7s.js","/pymermaider/_next/static/chunks/208gzt896g4ab.js"],"default"]
 4:[]
-0:{"rsc":["$","$1","c",{"children":[null,["$","$L2",null,{"parallelRouterKey":"children","template":["$","$L3",null,{}]}]]}],"isPartial":false,"staleTime":300,"varyParams":"$W4","buildId":"GtrD5fsFH4RTJJT05VwHH"}
+0:{"rsc":["$","$1","c",{"children":[null,["$","$L2",null,{"parallelRouterKey":"children","template":["$","$L3",null,{}]}]]}],"isPartial":false,"staleTime":300,"varyParams":"$W4","buildId":"pi4sbAbRRK6_EIBsPW5K4"}
