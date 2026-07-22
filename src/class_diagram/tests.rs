@@ -235,7 +235,7 @@ class Car:
 
     Car *-- Engine
 
-    Car *-- Wheel
+    Car o-- Wheel
 ";
 
     test_diagram(source, expected_output);
@@ -354,7 +354,7 @@ class User(UserBase):
 
     User --|> UserBase
 
-    User *-- Item
+    User o-- Item
 ";
 
     test_diagram(source, expected_output);
@@ -704,6 +704,75 @@ class Foo:
     assert!(
         !without_private.contains("_helper"),
         "private method should be hidden; got: {without_private}"
+    );
+}
+
+#[test]
+fn test_aggregation_vs_composition() {
+    let source = r#"
+class Engine:
+    power: int
+
+class Car:
+    engine: Engine
+    engines: list[Engine]
+"#;
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let result = diagram.render().unwrap_or_default();
+    assert!(
+        result.contains("Car *-- Engine"),
+        "bare type should be composition; got: {result}"
+    );
+    assert!(
+        result.contains("Car o-- Engine"),
+        "list type should be aggregation; got: {result}"
+    );
+}
+
+#[test]
+fn test_optional_is_aggregation() {
+    let source = r#"
+from typing import Optional
+
+class Engine:
+    power: int
+
+class Car:
+    engine: Optional[Engine]
+"#;
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let result = diagram.render().unwrap_or_default();
+    assert!(
+        result.contains("Car o-- Engine"),
+        "Optional should be aggregation; got: {result}"
+    );
+    assert!(
+        !result.contains("Car *-- Engine"),
+        "Optional should not be composition; got: {result}"
+    );
+}
+
+#[test]
+fn test_union_with_none_is_aggregation() {
+    let source = r#"
+class Engine:
+    power: int
+
+class Car:
+    engine: Engine | None
+"#;
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let result = diagram.render().unwrap_or_default();
+    assert!(
+        result.contains("Car o-- Engine"),
+        "X|None should be aggregation; got: {result}"
+    );
+    assert!(
+        !result.contains("Car *-- Engine"),
+        "X|None should not be composition; got: {result}"
     );
 }
 
