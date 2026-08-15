@@ -42,3 +42,6 @@ Thumbs.db
 /web/public/wasm
 *.wasm
 /node_modules
+
+# Claude Code
+.claude/

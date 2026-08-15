@@ -2,8 +2,8 @@ use std::fmt::Write as _;
 
 use super::mermaid_escape::MermaidEscape;
 use super::renderer::{
-    Attribute, ClassNode, ClassType, CompositionEdge, Diagram, DiagramDirection, MethodSignature,
-    RelationType, RelationshipEdge, Visibility,
+    Attribute, ClassNode, ClassType, CompositionEdge, CompositionKind, Diagram, DiagramDirection,
+    MethodSignature, RelationType, RelationshipEdge, Visibility,
 };
 use indexmap::IndexSet;
 
@@ -201,10 +201,17 @@ pub fn render_relationship(relationship: &RelationshipEdge) -> String {
 
 #[must_use]
 pub fn render_composition(composition: &CompositionEdge) -> String {
+    let (symbol, right_card) = match composition.kind {
+        CompositionKind::Composition => ("*--", "1"),
+        CompositionKind::Optional => ("o--", "0..1"),
+        CompositionKind::Collection => ("o--", "0..*"),
+    };
     format!(
-        "{}{} *-- {}\n",
+        "{}{} \"1\" {} \"{}\" {}\n",
         indent(1),
         composition.container,
+        symbol,
+        right_card,
         composition.contained
     )
 }
