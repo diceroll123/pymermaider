@@ -218,7 +218,7 @@ class Car:
         pass
 ";
 
-    let expected_output = "classDiagram
+    let expected_output = r#"classDiagram
     class Engine {
         + int horsepower
     }
@@ -233,10 +233,9 @@ class Car:
         + drive(self) None
     }
 
-    Car *-- Engine
+    Car "1" *-- "1" Engine
 
-    Car *-- Wheel
-";
+    Car "1" o-- "0..*" Wheel"#;
 
     test_diagram(source, expected_output);
 }
@@ -254,7 +253,7 @@ class Car:
     part: Engine | Wheel
 ";
 
-    let expected_output = "classDiagram
+    let expected_output = r#"classDiagram
     class Engine {
         + int horsepower
     }
@@ -267,10 +266,9 @@ class Car:
         + Engine | Wheel part
     }
 
-    Car *-- Engine
+    Car "1" *-- "1" Engine
 
-    Car *-- Wheel
-";
+    Car "1" *-- "1" Wheel"#;
 
     test_diagram(source, expected_output);
 }
@@ -315,7 +313,7 @@ class User(UserBase):
         orm_mode = True
 ";
 
-    let expected_output = "classDiagram
+    let expected_output = r#"classDiagram
     class ItemBase {
         + str title
         + str | None description
@@ -354,8 +352,7 @@ class User(UserBase):
 
     User --|> UserBase
 
-    User *-- Item
-";
+    User "1" o-- "0..*" Item"#;
 
     test_diagram(source, expected_output);
 }
@@ -704,6 +701,80 @@ class Foo:
     assert!(
         !without_private.contains("_helper"),
         "private method should be hidden; got: {without_private}"
+    );
+}
+
+#[test]
+fn test_cardinality_composition() {
+    let source = r#"
+class Engine:
+    power: int
+
+class Car:
+    engine: Engine
+"#;
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let result = diagram.render().unwrap_or_default();
+    assert!(
+        result.contains(r#"Car "1" *-- "1" Engine"#),
+        "bare type should be composition with cardinality 1; got: {result}"
+    );
+}
+
+#[test]
+fn test_cardinality_optional() {
+    let source = r#"
+from typing import Optional
+
+class Engine:
+    power: int
+
+class Car:
+    engine: Optional[Engine]
+"#;
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let result = diagram.render().unwrap_or_default();
+    assert!(
+        result.contains(r#"Car "1" o-- "0..1" Engine"#),
+        "Optional should be aggregation with cardinality 0..1; got: {result}"
+    );
+}
+
+#[test]
+fn test_cardinality_union_with_none() {
+    let source = r#"
+class Engine:
+    power: int
+
+class Car:
+    engine: Engine | None
+"#;
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let result = diagram.render().unwrap_or_default();
+    assert!(
+        result.contains(r#"Car "1" o-- "0..1" Engine"#),
+        "X|None should be aggregation with cardinality 0..1; got: {result}"
+    );
+}
+
+#[test]
+fn test_cardinality_collection() {
+    let source = r#"
+class Wheel:
+    diameter: int
+
+class Car:
+    wheels: list[Wheel]
+"#;
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let result = diagram.render().unwrap_or_default();
+    assert!(
+        result.contains(r#"Car "1" o-- "0..*" Wheel"#),
+        "list type should be aggregation with cardinality 0..*; got: {result}"
     );
 }
 

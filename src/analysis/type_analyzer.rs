@@ -1,5 +1,6 @@
 /// Type analysis utilities for extracting and analyzing Python types from AST
 use super::checker::Checker;
+use crate::render::renderer::CompositionKind;
 use ruff_python_ast::name::QualifiedName;
 use ruff_python_ast::Expr;
 
@@ -9,57 +10,118 @@ const BUILTIN_TYPES: &[&str] = &[
 ];
 
 /// Extract type names from annotations for composition relationship detection.
-/// Returns zero or more type names that represent potential compositions
-/// (non-builtin, non-typing types).
-///
-/// # Examples
-/// - `foo: MyClass` → vec!["`MyClass`"]
-/// - `foo: list[MyClass]` → vec!["`MyClass`"]
-/// - `foo: Optional[MyClass]` → vec!["`MyClass`"]
-/// - `foo: X | Y` → vec!["X", "Y"]
-/// - `foo: int` → vec![] (builtin)
-pub fn extract_composition_types(annotation: &Expr, checker: &Checker) -> Vec<String> {
-    fn is_eligible_name(type_name: &str, annotation: &Expr, checker: &Checker) -> Option<String> {
-        // Skip built-in types
-        if BUILTIN_TYPES.contains(&type_name) {
+/// Returns `(type_name, CompositionKind)` pairs:
+/// - `Composition` for bare type references (`foo: MyClass`)
+/// - `Optional` for optional references (`foo: Optional[MyClass]`, `foo: MyClass | None`)
+/// - `Collection` for collection containers (`foo: list[MyClass]`, `foo: Sequence[MyClass]`)
+pub fn extract_composition_types(
+    annotation: &Expr,
+    checker: &Checker,
+) -> Vec<(String, CompositionKind)> {
+    extract_inner(annotation, checker, CompositionKind::Composition)
+}
+
+fn is_eligible_name(type_name: &str, annotation: &Expr, checker: &Checker) -> Option<String> {
+    if BUILTIN_TYPES.contains(&type_name) {
+        return None;
+    }
+    if let Some(qualified) = checker.semantic().resolve_qualified_name(annotation) {
+        let segments = qualified.segments();
+        if matches!(segments[0], "builtins" | "typing" | "") {
             return None;
         }
+        Some(segments.join("."))
+    } else {
+        Some(type_name.to_string())
+    }
+}
 
-        // Try to resolve qualified name
-        if let Some(qualified) = checker.semantic().resolve_qualified_name(annotation) {
-            let segments = qualified.segments();
-            // Skip built-in types and typing module types
-            if matches!(segments[0], "builtins" | "typing" | "") {
-                return None;
-            }
-            Some(segments.join("."))
-        } else {
-            // If we can't resolve it, it might be a local class - return the name
-            Some(type_name.to_string())
+/// Returns the `CompositionKind` implied by a subscript container (e.g. `list` in `list[X]`),
+/// or `None` if the expression is not a recognized container.
+fn container_kind(subscript_value: &Expr, checker: &Checker) -> Option<CompositionKind> {
+    if let Some(qn) = checker.semantic().resolve_qualified_name(subscript_value) {
+        let segs = qn.segments();
+        if matches!(segs, ["typing" | "typing_extensions", "Optional"]) {
+            return Some(CompositionKind::Optional);
+        }
+        if matches!(
+            segs,
+            ["builtins", "list" | "dict" | "set" | "tuple" | "frozenset"]
+                | [
+                    "typing" | "typing_extensions",
+                    "List"
+                        | "Dict"
+                        | "Set"
+                        | "Tuple"
+                        | "FrozenSet"
+                        | "Sequence"
+                        | "Iterable"
+                        | "Iterator"
+                        | "Collection"
+                ]
+        ) {
+            return Some(CompositionKind::Collection);
         }
     }
+    // Bare builtin names without import (Python 3.9+ generics like `list[X]`)
+    if let Expr::Name(n) = subscript_value {
+        if matches!(
+            n.id.as_str(),
+            "list" | "dict" | "set" | "tuple" | "frozenset"
+        ) {
+            return Some(CompositionKind::Collection);
+        }
+    }
+    None
+}
 
+fn is_none_expr(expr: &Expr) -> bool {
+    matches!(expr, Expr::NoneLiteral(_)) || matches!(expr, Expr::Name(n) if n.id.as_str() == "None")
+}
+
+fn extract_inner(
+    annotation: &Expr,
+    checker: &Checker,
+    kind: CompositionKind,
+) -> Vec<(String, CompositionKind)> {
     match annotation {
-        // Simple name: foo: MyClass
         Expr::Name(name) => is_eligible_name(name.id.as_ref(), annotation, checker)
-            .into_iter()
-            .collect(),
+            .map(|n| vec![(n, kind)])
+            .unwrap_or_default(),
 
-        // Subscript: foo: list[MyClass], Optional[MyClass], Union[X, Y], etc.
-        Expr::Subscript(subscript) => match subscript.slice.as_ref() {
-            Expr::Name(_) => extract_composition_types(subscript.slice.as_ref(), checker),
-            Expr::Tuple(tuple) => tuple
-                .elts
-                .iter()
-                .flat_map(|elt| extract_composition_types(elt, checker))
-                .collect(),
-            _ => vec![],
-        },
+        Expr::Subscript(subscript) => {
+            let new_kind = container_kind(&subscript.value, checker).unwrap_or(kind);
+            match subscript.slice.as_ref() {
+                Expr::Name(_) => extract_inner(subscript.slice.as_ref(), checker, new_kind),
+                Expr::Tuple(tuple) => {
+                    // Union[X, None] or Union[X, Y] -- check if any element is None
+                    let has_none = tuple.elts.iter().any(is_none_expr);
+                    let tuple_kind = if has_none {
+                        CompositionKind::Optional
+                    } else {
+                        new_kind
+                    };
+                    tuple
+                        .elts
+                        .iter()
+                        .filter(|e| !is_none_expr(e))
+                        .flat_map(|elt| extract_inner(elt, checker, tuple_kind))
+                        .collect()
+                }
+                _ => vec![],
+            }
+        }
 
-        // Binary op for union types (X | Y)
+        // Binary union types: X | Y or X | None
         Expr::BinOp(binop) => {
-            let mut out = extract_composition_types(binop.left.as_ref(), checker);
-            out.extend(extract_composition_types(binop.right.as_ref(), checker));
+            let has_none = is_none_expr(binop.left.as_ref()) || is_none_expr(binop.right.as_ref());
+            let new_kind = if has_none {
+                CompositionKind::Optional
+            } else {
+                kind
+            };
+            let mut out = extract_inner(binop.left.as_ref(), checker, new_kind);
+            out.extend(extract_inner(binop.right.as_ref(), checker, new_kind));
             out
         }
 
@@ -71,16 +133,14 @@ pub fn extract_composition_types(annotation: &Expr, checker: &Checker) -> Vec<St
 /// Returns the type parameter(s) if the base is Generic[T] or similar.
 ///
 /// # Examples
-/// - `Generic[T]` → Some("T")
-/// - `Generic[T, U]` → Some("T, U")
-/// - `SomeClass` → None
+/// - `Generic[T]` -> Some("T")
+/// - `Generic[T, U]` -> Some("T, U")
+/// - `SomeClass` -> None
 pub fn extract_generic_params(base: &Expr, checker: &Checker) -> Option<String> {
-    // Must be a subscript expression (like Generic[T])
     let Expr::Subscript(subscript) = base else {
         return None;
     };
 
-    // Must be a qualified name that resolves to typing.Generic
     let base_name = checker
         .semantic()
         .resolve_qualified_name(&subscript.value)?;
@@ -89,7 +149,6 @@ pub fn extract_generic_params(base: &Expr, checker: &Checker) -> Option<String> 
         return None;
     }
 
-    // Get the type string and extract just the parameter without Generic[]
     let type_var = checker.locator().slice(base);
 
     let start_idx = type_var.find('[').map(|idx| idx + 1)?;
@@ -102,7 +161,6 @@ pub fn extract_generic_params(base: &Expr, checker: &Checker) -> Option<String> 
     }
 }
 
-/// Check if a qualified name represents a Generic base class
 fn is_generic_base(name: &QualifiedName) -> bool {
     matches!(name.segments(), ["typing" | "typing_extensions", "Generic"])
 }
