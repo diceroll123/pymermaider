@@ -2,8 +2,8 @@ use std::fmt::Write as _;
 
 use super::mermaid_escape::MermaidEscape;
 use super::renderer::{
-    Attribute, ClassNode, ClassType, CompositionEdge, Diagram, DiagramDirection, MethodSignature,
-    RelationType, RelationshipEdge, Visibility,
+    Attribute, ClassNode, ClassType, CompositionEdge, CompositionKind, Diagram, DiagramDirection,
+    MethodSignature, RelationType, RelationshipEdge, Visibility,
 };
 use indexmap::IndexSet;
 
@@ -201,11 +201,21 @@ pub fn render_relationship(relationship: &RelationshipEdge) -> String {
 
 #[must_use]
 pub fn render_composition(composition: &CompositionEdge) -> String {
+    let symbol = match composition.kind {
+        CompositionKind::Composition => "*--",
+        CompositionKind::Aggregation => "o--",
+    };
+    let label = composition
+        .label
+        .as_deref()
+        .map_or(String::new(), |l| format!(" : {l}"));
     format!(
-        "{}{} *-- {}\n",
+        "{}{} {} {}{}\n",
         indent(1),
         composition.container,
-        composition.contained
+        symbol,
+        composition.contained,
+        label
     )
 }
 
