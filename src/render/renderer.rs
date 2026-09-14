@@ -65,11 +65,20 @@ pub struct RelationshipEdge {
     pub relation_type: RelationType,
 }
 
+/// Strength and cardinality of a composition relationship
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum CompositionKind {
+    Composition, // *-- "1"   bare type reference
+    Optional,    // o-- "0..1" Optional[X] or X | None
+    Collection,  // o-- "0..*" list[X], dict[K,V], Sequence[X], etc.
+}
+
 /// Represents a composition relationship
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct CompositionEdge {
     pub container: String,
     pub contained: String,
+    pub kind: CompositionKind,
 }
 
 /// Class diagram direction.
