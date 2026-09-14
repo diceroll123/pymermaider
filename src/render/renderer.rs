@@ -65,11 +65,20 @@ pub struct RelationshipEdge {
     pub relation_type: RelationType,
 }
 
+/// Whether a composition is strong (owned) or weak (referenced/optional)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum CompositionKind {
+    Composition, // *-- strong ownership
+    Aggregation, // o-- weak/optional reference
+}
+
 /// Represents a composition relationship
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct CompositionEdge {
     pub container: String,
     pub contained: String,
+    pub kind: CompositionKind,
+    pub label: Option<String>,
 }
 
 /// Class diagram direction.
