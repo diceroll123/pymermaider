@@ -7,7 +7,7 @@ use crate::analysis::parameter_generator::ParameterGenerator;
 use crate::analysis::type_analyzer;
 use crate::ast;
 use crate::render::renderer::{
-    Attribute, ClassNode, CompositionEdge, Diagram, MethodSignature, RelationType,
+    Attribute, ClassNode, CompositionEdge, CompositionKind, Diagram, MethodSignature, RelationType,
     RelationshipEdge, Visibility,
 };
 use indexmap::IndexSet;
@@ -126,7 +126,7 @@ impl ClassDiagram {
         );
 
         // Detect composition relationships from class attributes
-        let mut composition_types: IndexSet<String> = IndexSet::new();
+        let mut composition_types: IndexSet<(String, bool)> = IndexSet::new();
         for stmt in &class.body {
             if let ast::Stmt::AnnAssign(ast::StmtAnnAssign { annotation, .. }) = stmt {
                 composition_types.extend(type_analyzer::extract_composition_types(
@@ -191,13 +191,16 @@ impl ClassDiagram {
         }
 
         // Add composition relationships
-        for comp_type in &composition_types {
-            // Extract just the class name (remove module prefix if present)
+        for (comp_type, is_aggregation) in &composition_types {
             let comp_display = comp_type.split('.').next_back().unwrap_or(comp_type);
-
             let comp = CompositionEdge {
                 container: class_name.clone(),
                 contained: comp_display.to_string(),
+                kind: if *is_aggregation {
+                    CompositionKind::Aggregation
+                } else {
+                    CompositionKind::Composition
+                },
             };
             self.diagram.add_composition(comp);
         }

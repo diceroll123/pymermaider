@@ -9,57 +9,104 @@ const BUILTIN_TYPES: &[&str] = &[
 ];
 
 /// Extract type names from annotations for composition relationship detection.
-/// Returns zero or more type names that represent potential compositions
-/// (non-builtin, non-typing types).
+/// Returns `(type_name, is_aggregation)` pairs. `is_aggregation = true` when the
+/// type is wrapped in a collection or Optional, implying a weak (o--) relationship.
 ///
 /// # Examples
-/// - `foo: MyClass` → vec!["`MyClass`"]
-/// - `foo: list[MyClass]` → vec!["`MyClass`"]
-/// - `foo: Optional[MyClass]` → vec!["`MyClass`"]
-/// - `foo: X | Y` → vec!["X", "Y"]
-/// - `foo: int` → vec![] (builtin)
-pub fn extract_composition_types(annotation: &Expr, checker: &Checker) -> Vec<String> {
-    fn is_eligible_name(type_name: &str, annotation: &Expr, checker: &Checker) -> Option<String> {
-        // Skip built-in types
-        if BUILTIN_TYPES.contains(&type_name) {
+/// - `foo: MyClass` → `[("MyClass", false)]` - composition
+/// - `foo: list[MyClass]` → `[("MyClass", true)]` - aggregation
+/// - `foo: Optional[MyClass]` → `[("MyClass", true)]` - aggregation
+/// - `foo: MyClass | None` → `[("MyClass", true)]` - aggregation
+/// - `foo: X | Y` → `[("X", false), ("Y", false)]` - composition
+/// - `foo: int` → `[]` (builtin)
+pub fn extract_composition_types(annotation: &Expr, checker: &Checker) -> Vec<(String, bool)> {
+    extract_inner(annotation, checker, false)
+}
+
+fn is_eligible_name(type_name: &str, annotation: &Expr, checker: &Checker) -> Option<String> {
+    if BUILTIN_TYPES.contains(&type_name) {
+        return None;
+    }
+    if let Some(qualified) = checker.semantic().resolve_qualified_name(annotation) {
+        let segments = qualified.segments();
+        if matches!(segments[0], "builtins" | "typing" | "") {
             return None;
         }
-
-        // Try to resolve qualified name
-        if let Some(qualified) = checker.semantic().resolve_qualified_name(annotation) {
-            let segments = qualified.segments();
-            // Skip built-in types and typing module types
-            if matches!(segments[0], "builtins" | "typing" | "") {
-                return None;
-            }
-            Some(segments.join("."))
-        } else {
-            // If we can't resolve it, it might be a local class - return the name
-            Some(type_name.to_string())
-        }
+        Some(segments.join("."))
+    } else {
+        Some(type_name.to_string())
     }
+}
 
+fn is_aggregation_container(subscript_value: &Expr, checker: &Checker) -> bool {
+    // Resolve imported names (handles typing.Optional, typing.List, etc.)
+    if checker
+        .semantic()
+        .resolve_qualified_name(subscript_value)
+        .is_some_and(|qn| {
+            matches!(
+                qn.segments(),
+                ["builtins", "list" | "dict" | "set" | "tuple" | "frozenset"]
+                    | [
+                        "typing" | "typing_extensions",
+                        "Optional"
+                            | "List"
+                            | "Dict"
+                            | "Set"
+                            | "Tuple"
+                            | "FrozenSet"
+                            | "Sequence"
+                            | "Iterable"
+                            | "Iterator"
+                    ]
+            )
+        })
+    {
+        return true;
+    }
+    // Bare builtin names: list[X], dict[K, V], set[X], etc. (Python 3.9+)
+    matches!(
+        subscript_value,
+        Expr::Name(n) if matches!(
+            n.id.as_str(),
+            "list" | "dict" | "set" | "tuple" | "frozenset"
+        )
+    )
+}
+
+fn is_none_expr(expr: &Expr) -> bool {
+    matches!(expr, Expr::NoneLiteral(_)) || matches!(expr, Expr::Name(n) if n.id.as_str() == "None")
+}
+
+fn extract_inner(
+    annotation: &Expr,
+    checker: &Checker,
+    is_aggregation: bool,
+) -> Vec<(String, bool)> {
     match annotation {
-        // Simple name: foo: MyClass
         Expr::Name(name) => is_eligible_name(name.id.as_ref(), annotation, checker)
-            .into_iter()
-            .collect(),
+            .map(|n| vec![(n, is_aggregation)])
+            .unwrap_or_default(),
 
-        // Subscript: foo: list[MyClass], Optional[MyClass], Union[X, Y], etc.
-        Expr::Subscript(subscript) => match subscript.slice.as_ref() {
-            Expr::Name(_) => extract_composition_types(subscript.slice.as_ref(), checker),
-            Expr::Tuple(tuple) => tuple
-                .elts
-                .iter()
-                .flat_map(|elt| extract_composition_types(elt, checker))
-                .collect(),
-            _ => vec![],
-        },
+        Expr::Subscript(subscript) => {
+            let agg = is_aggregation || is_aggregation_container(&subscript.value, checker);
+            match subscript.slice.as_ref() {
+                Expr::Name(_) => extract_inner(subscript.slice.as_ref(), checker, agg),
+                Expr::Tuple(tuple) => tuple
+                    .elts
+                    .iter()
+                    .flat_map(|elt| extract_inner(elt, checker, agg))
+                    .collect(),
+                _ => vec![],
+            }
+        }
 
-        // Binary op for union types (X | Y)
         Expr::BinOp(binop) => {
-            let mut out = extract_composition_types(binop.left.as_ref(), checker);
-            out.extend(extract_composition_types(binop.right.as_ref(), checker));
+            let optional_union =
+                is_none_expr(binop.left.as_ref()) || is_none_expr(binop.right.as_ref());
+            let agg = is_aggregation || optional_union;
+            let mut out = extract_inner(binop.left.as_ref(), checker, agg);
+            out.extend(extract_inner(binop.right.as_ref(), checker, agg));
             out
         }
 
