@@ -977,6 +977,7 @@ class Car:
 }
 
 #[test]
+#[test]
 fn test_special_characters_in_annotations_are_escaped() {
     let source = r#"
 class Config:
@@ -1046,6 +1047,96 @@ class Thing:
 
     assert!(
         out.contains("run(self, a, b=2, *, c: str = #quot;x#quot;) None"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_method_kinds_and_decorators() {
+    let source = r"
+from abc import ABC, abstractmethod
+from typing import final
+
+class Base(ABC):
+    @abstractmethod
+    def run(self) -> None: ...
+
+    @classmethod
+    def make(cls) -> 'Base': ...
+
+    @staticmethod
+    def helper() -> int: ...
+
+    @final
+    def locked(self) -> None: ...
+
+    async def fetch(self) -> bytes: ...
+";
+
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
+
+    assert!(out.contains("<<abstract>>"), "{out}");
+    assert!(out.contains("run(self) None*"), "{out}");
+    assert!(out.contains("@classmethod make(cls)"), "{out}");
+    assert!(out.contains("@staticmethod helper() int$"), "{out}");
+    assert!(out.contains("@final locked(self) None"), "{out}");
+    assert!(out.contains("async fetch(self) bytes"), "{out}");
+}
+
+#[test]
+fn test_property_setter_and_deleter_are_omitted() {
+    let source = r"
+class Thing:
+    @property
+    def value(self) -> int: ...
+
+    @value.setter
+    def value(self, v: int) -> None: ...
+
+    @value.deleter
+    def value(self) -> None: ...
+";
+
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
+
+    assert_eq!(out.matches("value").count(), 1, "{out}");
+    assert!(out.contains("+ int value"), "{out}");
+}
+
+#[test]
+fn test_classvar_attribute_is_listed() {
+    let source = r"
+from typing import ClassVar
+
+class Thing:
+    count: ClassVar[int]
+";
+
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
+
+    assert!(out.contains("ClassVar"), "{out}");
+    assert!(out.contains("count"), "{out}");
+}
+
+#[test]
+fn test_keyword_only_and_variadic_parameters() {
+    let source = r"
+class Thing:
+    def run(self, a, /, b, *args, c, **kwargs) -> None: ...
+";
+
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
+
+    assert!(
+        out.contains("run(self, a, /, b, *args, c, **kwargs) None"),
         "{out}"
     );
 }
