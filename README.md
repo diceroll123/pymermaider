@@ -5,6 +5,7 @@
 [![image](https://img.shields.io/pypi/l/pymermaider.svg)](https://github.com/diceroll123/pymermaider/blob/master/LICENSE)
 [![Actions status](https://github.com/diceroll123/pymermaider/workflows/CI/badge.svg)](https://github.com/diceroll123/pymermaider/actions)
 [![image](https://img.shields.io/pypi/pyversions/pymermaider.svg)](https://pypi.python.org/pypi/pymermaider)
+[![CodSpeed](https://img.shields.io/endpoint?url=https://codspeed.io/badge.json)](https://app.codspeed.io/diceroll123/pymermaider?utm_source=badge)
 
 **[Try the online pymermaider playground!](https://diceroll123.github.io/pymermaider/)** *powered by WebAssembly* 🎉
 
