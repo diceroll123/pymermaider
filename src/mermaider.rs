@@ -54,9 +54,8 @@ impl Mermaider {
 
         if root.is_file() {
             let mut diagram = self.make_mermaid(std::slice::from_ref(&root.to_path_buf()));
-            if !self.args.no_title {
-                diagram.path = root.to_string_lossy().into_owned();
-            }
+            diagram.path = root.to_string_lossy().into_owned();
+            diagram.set_show_title(!self.args.no_title);
             return vec![diagram];
         }
 
@@ -69,27 +68,25 @@ impl Mermaider {
                     .par_iter()
                     .map(|parsed_file| {
                         let mut diagram = self.make_mermaid_for_file(parsed_file);
-                        if !self.args.no_title {
-                            diagram.path = parsed_file
-                                .strip_prefix(root)
-                                .unwrap_or(parsed_file.as_path())
-                                .to_string_lossy()
-                                .into_owned();
-                        }
+                        diagram.path = parsed_file
+                            .strip_prefix(root)
+                            .unwrap_or(parsed_file.as_path())
+                            .to_string_lossy()
+                            .into_owned();
+                        diagram.set_show_title(!self.args.no_title);
                         diagram
                     })
                     .collect();
             }
 
             let mut diagram = self.make_mermaid(&parsed_files);
-            if !self.args.no_title {
-                let canonical_path = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
-                canonical_path
-                    .file_name()
-                    .and_then(|n| n.to_str())
-                    .unwrap_or("diagram")
-                    .clone_into(&mut diagram.path);
-            }
+            let canonical_path = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
+            canonical_path
+                .file_name()
+                .and_then(|n| n.to_str())
+                .unwrap_or("diagram")
+                .clone_into(&mut diagram.path);
+            diagram.set_show_title(!self.args.no_title);
 
             return vec![diagram];
         }
@@ -104,7 +101,12 @@ impl Mermaider {
         };
         let mut diagram = ClassDiagram::new(options);
         match std::fs::read_to_string(file) {
-            Ok(source) => diagram.add_file(&source, file),
+            Ok(source) => {
+                diagram.add_file(&source, file);
+                for err in diagram.syntax_errors() {
+                    warn!("{}: syntax error: {err}", file.display());
+                }
+            }
             Err(err) => warn!("Skipping {}: {err}", file.display()),
         }
         diagram
@@ -383,7 +385,8 @@ mod tests {
         let diagrams = mermaider.generate_diagrams();
 
         assert_eq!(diagrams.len(), 1);
-        assert!(diagrams[0].path.is_empty());
+        // The path is still set (it names output files) but is not shown as a title
+        assert!(!diagrams[0].path.is_empty());
 
         let rendered = diagrams[0].render().unwrap();
         assert!(!rendered.contains("title:"));

@@ -14,7 +14,8 @@ use std::io::Read as _;
 use std::io::Write as _;
 
 fn main() {
-    env_logger::init();
+    // Show warnings (unreadable files, syntax errors) by default; RUST_LOG still overrides.
+    env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("warn")).init();
 
     let mut args = Args::parse();
 
@@ -66,6 +67,9 @@ fn main() {
         };
         let mut diagram = class_diagram::ClassDiagram::new(options);
         diagram.add_source(&source);
+        for err in diagram.syntax_errors() {
+            log::warn!("<stdin>: syntax error: {err}");
+        }
 
         vec![diagram]
     } else {
@@ -109,7 +113,7 @@ fn main() {
             let path = format!(
                 "{0}/{1}.{2}",
                 output_dir.to_string_lossy(),
-                diagram.path,
+                safe_relative_name(&diagram.path),
                 extension
             );
 
@@ -134,5 +138,37 @@ fn main() {
         }
 
         eprintln!("Files written: {written}");
+    }
+}
+
+/// Turn a diagram path into a relative name that stays inside the output directory:
+/// root, `.` and `..` components are dropped. Falls back to `diagram` if nothing remains.
+fn safe_relative_name(path: &str) -> String {
+    let name = std::path::Path::new(path)
+        .components()
+        .filter_map(|c| match c {
+            std::path::Component::Normal(part) => Some(part.to_string_lossy().into_owned()),
+            _ => None,
+        })
+        .collect::<Vec<_>>()
+        .join("/");
+    if name.is_empty() {
+        "diagram".to_owned()
+    } else {
+        name
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::safe_relative_name;
+
+    #[test]
+    fn test_safe_relative_name() {
+        assert_eq!(safe_relative_name("models/user.py"), "models/user.py");
+        assert_eq!(safe_relative_name("../../etc/passwd"), "etc/passwd");
+        assert_eq!(safe_relative_name("/abs/a.py"), "abs/a.py");
+        assert_eq!(safe_relative_name(""), "diagram");
+        assert_eq!(safe_relative_name(".."), "diagram");
     }
 }
