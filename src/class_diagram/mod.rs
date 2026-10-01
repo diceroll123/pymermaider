@@ -125,8 +125,9 @@ impl ClassDiagram {
             },
         );
 
-        // Detect composition relationships from class attributes
+        // Detect composition relationships from class attributes and collect members
         let mut composition_types: IndexSet<String> = IndexSet::new();
+        let mut members: IndexSet<ClassMember> = IndexSet::new();
         for stmt in &class.body {
             if let ast::Stmt::AnnAssign(ast::StmtAnnAssign { annotation, .. }) = stmt {
                 composition_types.extend(type_analyzer::extract_composition_types(
@@ -134,11 +135,6 @@ impl ClassDiagram {
                     checker,
                 ));
             }
-        }
-
-        // Process class body statements
-        let mut members: IndexSet<ClassMember> = IndexSet::new();
-        for stmt in &class.body {
             if let Some(member) = Self::process_stmt_to_member(checker, stmt) {
                 members.insert(member);
             }
