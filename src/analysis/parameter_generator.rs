@@ -1,22 +1,19 @@
-use ruff_python_ast::{Identifier, Parameter, ParameterWithDefault, Parameters};
+use ruff_python_ast::{Expr, Identifier, Parameter, ParameterWithDefault, Parameters};
 
 /// A trimmed-down version of the Ruff Generator,
 /// but only for generating the parameters of a function.
-pub struct ParameterGenerator {
+pub struct ParameterGenerator<'a> {
     buffer: String,
+    render_expr: &'a dyn Fn(&Expr) -> String,
 }
 
-impl Default for ParameterGenerator {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl ParameterGenerator {
+impl<'a> ParameterGenerator<'a> {
+    /// `render_expr` turns an annotation or default expression into source text.
     #[must_use]
-    pub const fn new() -> Self {
+    pub fn new(render_expr: &'a dyn Fn(&Expr) -> String) -> Self {
         Self {
             buffer: String::new(),
+            render_expr,
         }
     }
 
@@ -70,10 +67,26 @@ impl ParameterGenerator {
 
     fn unparse_parameter(&mut self, parameter: &Parameter) {
         self.p_id(&parameter.name);
+        if let Some(annotation) = &parameter.annotation {
+            self.p(": ");
+            // Forward references are shown without their quotes
+            let text = match annotation.as_ref() {
+                Expr::StringLiteral(literal) => literal.value.to_str().to_owned(),
+                other => (self.render_expr)(other),
+            };
+            self.p(&text);
+        }
     }
 
     fn unparse_parameter_with_default(&mut self, parameter_with_default: &ParameterWithDefault) {
         self.unparse_parameter(&parameter_with_default.parameter);
+        if let Some(default) = &parameter_with_default.default {
+            // PEP 8: spaces around `=` only when the parameter is annotated
+            let annotated = parameter_with_default.parameter.annotation.is_some();
+            self.p(if annotated { " = " } else { "=" });
+            let text = (self.render_expr)(default);
+            self.p(&text);
+        }
     }
 
     #[must_use]

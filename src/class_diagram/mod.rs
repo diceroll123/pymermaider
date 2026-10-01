@@ -22,6 +22,7 @@ use ruff_python_semantic::analyze::visibility::{
 };
 use ruff_python_semantic::{Module, ModuleKind, ModuleSource, SemanticModel};
 use ruff_python_stdlib::typing::simple_magic_return_type;
+use std::collections::HashMap;
 use std::path::Path;
 
 /// Represents a class member (attribute or method) during processing
@@ -176,6 +177,21 @@ impl ClassDiagram {
             }
         }
 
+        // Collect instance attributes assigned through `self` in `__init__`
+        for (attr, annotation) in Self::collect_instance_attributes(checker, class) {
+            if let Some(annotation) = annotation {
+                composition_types.extend(type_analyzer::extract_composition_types(
+                    annotation, checker,
+                ));
+            }
+            let already_declared = members
+                .iter()
+                .any(|m| matches!(m, ClassMember::Attribute(a) if a.name == attr.name));
+            if !already_declared {
+                members.insert(ClassMember::Attribute(attr));
+            }
+        }
+
         // Detect class type using ClassTypeDetector
         let detector = ClassTypeDetector::new(checker);
         let class_type = detector.detect_type(class);
@@ -273,6 +289,174 @@ impl ClassDiagram {
         out
     }
 
+    /// Find `self.x = ...` / `self.x: T = ...` assignments in `__init__`.
+    /// Returns each attribute along with its explicit annotation expression, if any.
+    fn collect_instance_attributes<'a>(
+        checker: &Checker,
+        class: &'a ast::StmtClassDef,
+    ) -> Vec<(Attribute, Option<&'a Expr>)> {
+        fn walk<'a>(
+            checker: &Checker,
+            stmts: &'a [ast::Stmt],
+            self_name: &str,
+            param_types: &HashMap<&str, &'a Expr>,
+            out: &mut Vec<(Attribute, Option<&'a Expr>)>,
+        ) {
+            let self_attr = |target: &Expr| -> Option<String> {
+                match target {
+                    Expr::Attribute(ast::ExprAttribute { value, attr, .. }) if matches!(value.as_ref(), Expr::Name(n) if n.id.as_str() == self_name) => {
+                        Some(attr.to_string())
+                    }
+                    _ => None,
+                }
+            };
+            let visibility = |name: &str| {
+                if name.starts_with('_') && !(name.starts_with("__") && name.ends_with("__")) {
+                    Visibility::Private
+                } else {
+                    Visibility::Public
+                }
+            };
+            for stmt in stmts {
+                match stmt {
+                    ast::Stmt::AnnAssign(ast::StmtAnnAssign {
+                        target, annotation, ..
+                    }) => {
+                        if let Some(name) = self_attr(target) {
+                            let type_annotation = match annotation.as_ref() {
+                                Expr::StringLiteral(l) => l.value.to_str().to_string(),
+                                other => checker.generator().expr(other),
+                            };
+                            out.push((
+                                Attribute {
+                                    visibility: visibility(&name),
+                                    name,
+                                    type_annotation,
+                                },
+                                Some(annotation.as_ref()),
+                            ));
+                        }
+                    }
+                    ast::Stmt::Assign(ast::StmtAssign { targets, value, .. }) => {
+                        for name in targets.iter().filter_map(self_attr) {
+                            let type_annotation = match value.as_ref() {
+                                Expr::Name(n) if param_types.contains_key(n.id.as_str()) => {
+                                    match param_types[n.id.as_str()] {
+                                        Expr::StringLiteral(l) => l.value.to_str().to_string(),
+                                        other => checker.generator().expr(other),
+                                    }
+                                }
+                                other => match ClassDiagram::infer_value_type(other) {
+                                    "" => "Any".to_owned(),
+                                    inferred => inferred.to_owned(),
+                                },
+                            };
+                            out.push((
+                                Attribute {
+                                    visibility: visibility(&name),
+                                    name,
+                                    type_annotation,
+                                },
+                                None,
+                            ));
+                        }
+                    }
+                    ast::Stmt::If(ast::StmtIf {
+                        body,
+                        elif_else_clauses,
+                        ..
+                    }) => {
+                        walk(checker, body, self_name, param_types, out);
+                        for clause in elif_else_clauses {
+                            walk(checker, &clause.body, self_name, param_types, out);
+                        }
+                    }
+                    ast::Stmt::With(ast::StmtWith { body, .. })
+                    | ast::Stmt::For(ast::StmtFor { body, .. })
+                    | ast::Stmt::While(ast::StmtWhile { body, .. }) => {
+                        walk(checker, body, self_name, param_types, out);
+                    }
+                    ast::Stmt::Try(ast::StmtTry {
+                        body,
+                        handlers,
+                        orelse,
+                        finalbody,
+                        ..
+                    }) => {
+                        walk(checker, body, self_name, param_types, out);
+                        for handler in handlers {
+                            let ast::ExceptHandler::ExceptHandler(h) = handler;
+                            walk(checker, &h.body, self_name, param_types, out);
+                        }
+                        walk(checker, orelse, self_name, param_types, out);
+                        walk(checker, finalbody, self_name, param_types, out);
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        let mut out = Vec::new();
+        for stmt in &class.body {
+            let ast::Stmt::FunctionDef(func) = stmt else {
+                continue;
+            };
+            if func.name.as_str() != "__init__" {
+                continue;
+            }
+            let Some(first) = func
+                .parameters
+                .posonlyargs
+                .iter()
+                .chain(&func.parameters.args)
+                .next()
+            else {
+                continue;
+            };
+            let param_types: HashMap<&str, &Expr> = func
+                .parameters
+                .iter_non_variadic_params()
+                .filter_map(|p| {
+                    p.parameter
+                        .annotation
+                        .as_deref()
+                        .map(|a| (p.parameter.name.as_str(), a))
+                })
+                .collect();
+            walk(
+                checker,
+                &func.body,
+                first.parameter.name.as_str(),
+                &param_types,
+                &mut out,
+            );
+        }
+        out
+    }
+
+    /// Cheap literal-based type inference for simple assignments.
+    fn infer_value_type(value: &Expr) -> &'static str {
+        match value {
+            Expr::BoolOp(_) | Expr::BooleanLiteral(_) => "bool",
+            Expr::BinOp(_) | Expr::UnaryOp(_) => "int",
+            Expr::Lambda(_) => "Callable",
+            Expr::DictComp(_) | Expr::Dict(_) => "dict",
+            Expr::Set(_) | Expr::SetComp(_) => "set",
+            Expr::FString(_) | Expr::StringLiteral(_) => "str",
+            Expr::NoneLiteral(_) => "None",
+            Expr::BytesLiteral(_) => "bytes",
+            Expr::EllipsisLiteral(_) => "...",
+            Expr::ListComp(_) | Expr::List(_) => "list",
+            Expr::Tuple(_) => "tuple",
+            Expr::NumberLiteral(inner) => match inner.value {
+                Number::Int(_) => "int",
+                Number::Float(_) => "float",
+                Number::Complex { .. } => "complex",
+            },
+            _ => "",
+        }
+    }
+
     /// Returns true if the function is a property setter or deleter (e.g. @name.setter, @name.deleter).
     /// These are implementation details and should be omitted from the diagram.
     fn is_property_setter_or_deleter(decorator_list: &[ast::Decorator], fn_name: &str) -> bool {
@@ -322,25 +506,7 @@ impl ClassDiagram {
 
             ast::Stmt::Assign(ast::StmtAssign { targets, value, .. }) => {
                 // Handle simple assignments (like enum members)
-                let value_type = match value.as_ref() {
-                    Expr::BoolOp(_) | Expr::BooleanLiteral(_) => "bool",
-                    Expr::BinOp(_) | Expr::UnaryOp(_) => "int",
-                    Expr::Lambda(_) => "Callable",
-                    Expr::DictComp(_) | Expr::Dict(_) => "dict",
-                    Expr::Set(_) | Expr::SetComp(_) => "set",
-                    Expr::FString(_) | Expr::StringLiteral(_) => "str",
-                    Expr::NoneLiteral(_) => "None",
-                    Expr::BytesLiteral(_) => "bytes",
-                    Expr::EllipsisLiteral(_) => "...",
-                    Expr::ListComp(_) | Expr::List(_) => "list",
-                    Expr::Tuple(_) => "tuple",
-                    Expr::NumberLiteral(inner) => match inner.value {
-                        Number::Int(_) => "int",
-                        Number::Float(_) => "float",
-                        Number::Complex { .. } => "complex",
-                    },
-                    _ => "",
-                };
+                let value_type = Self::infer_value_type(value.as_ref());
 
                 // For now, just handle the first target (typical for enums and simple assignments)
                 if let Some(Expr::Name(ast::ExprName { id: target, .. })) = targets.first() {
@@ -403,7 +569,8 @@ impl ClassDiagram {
                     }));
                 }
 
-                let mut param_gen = ParameterGenerator::new();
+                let render_expr = |expr: &Expr| checker.generator().expr(expr);
+                let mut param_gen = ParameterGenerator::new(&render_expr);
                 param_gen.unparse_parameters(parameters);
                 let params = param_gen.generate();
 
