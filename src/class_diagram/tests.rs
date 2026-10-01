@@ -722,3 +722,39 @@ fn test_diagram_print(source: &str) {
     println!("{}", diagram.render().unwrap_or_default());
     assert_eq!(1, 2);
 }
+
+#[test]
+fn test_generic_protocol_is_interface_without_phantom_edge() {
+    let source = r"
+from typing import Protocol, TypeVar
+
+T = TypeVar('T')
+
+class Base:
+    pass
+
+class Repo(Protocol[T]):
+    def get(self, key: str) -> T: ...
+
+class Multi(Protocol, Base):
+    def run(self) -> None: ...
+";
+
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
+
+    assert!(
+        out.contains("class Repo ~T~ {\n        <<interface>>"),
+        "{out}"
+    );
+    assert!(
+        out.contains("class Multi {\n        <<interface>>"),
+        "{out}"
+    );
+    assert!(!out.contains("Protocol"), "{out}");
+    assert!(
+        out.contains("Multi ..|> Base") || out.contains("Multi --|> Base"),
+        "{out}"
+    );
+}

@@ -395,7 +395,7 @@ impl ClassDiagram {
         let qualified_name = checker.semantic().resolve_qualified_name(base);
 
         if qualified_name.as_ref().is_some_and(|name| {
-            matches!(name.segments(), ["typing", "Generic"])
+            matches!(name.segments(), ["typing" | "typing_extensions", "Generic"])
                 || matches!(name.segments(), ["" | "builtins", "object"])
                 || is_abc_qualified_name(name)
                 || matches!(
