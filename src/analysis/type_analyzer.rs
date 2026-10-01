@@ -17,6 +17,7 @@ const BUILTIN_TYPES: &[&str] = &[
 /// - `foo: list[MyClass]` → vec!["`MyClass`"]
 /// - `foo: Optional[MyClass]` → vec!["`MyClass`"]
 /// - `foo: X | Y` → vec!["X", "Y"]
+/// - `foo: "MyClass"` → vec!["MyClass"]
 /// - `foo: int` → vec![] (builtin)
 pub fn extract_composition_types(annotation: &Expr, checker: &Checker) -> Vec<String> {
     fn is_eligible_name(type_name: &str, annotation: &Expr, checker: &Checker) -> Option<String> {
@@ -47,7 +48,9 @@ pub fn extract_composition_types(annotation: &Expr, checker: &Checker) -> Vec<St
 
         // Subscript: foo: list[MyClass], Optional[MyClass], Union[X, Y], etc.
         Expr::Subscript(subscript) => match subscript.slice.as_ref() {
-            Expr::Name(_) => extract_composition_types(subscript.slice.as_ref(), checker),
+            Expr::Name(_) | Expr::BinOp(_) | Expr::StringLiteral(_) | Expr::Subscript(_) => {
+                extract_composition_types(subscript.slice.as_ref(), checker)
+            }
             Expr::Tuple(tuple) => tuple
                 .elts
                 .iter()
@@ -61,6 +64,13 @@ pub fn extract_composition_types(annotation: &Expr, checker: &Checker) -> Vec<St
             let mut out = extract_composition_types(binop.left.as_ref(), checker);
             out.extend(extract_composition_types(binop.right.as_ref(), checker));
             out
+        }
+
+        // Forward reference: foo: "MyClass" or foo: "Optional[A | B]"
+        Expr::StringLiteral(literal) => {
+            ruff_python_parser::parse_expression(literal.value.to_str())
+                .map(|parsed| extract_composition_types(parsed.expr(), checker))
+                .unwrap_or_default()
         }
 
         _ => vec![],

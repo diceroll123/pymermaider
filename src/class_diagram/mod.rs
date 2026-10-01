@@ -232,7 +232,10 @@ impl ClassDiagram {
                 };
 
                 let target_name = target.to_string();
-                let annotation_name = checker.generator().expr(annotation.as_ref());
+                let annotation_name = match annotation.as_ref() {
+                    Expr::StringLiteral(literal) => literal.value.to_str().to_string(),
+                    other => checker.generator().expr(other),
+                };
                 let is_dunder = target_name.starts_with("__") && target_name.ends_with("__");
                 let is_private = target_name.starts_with('_') && !is_dunder;
 

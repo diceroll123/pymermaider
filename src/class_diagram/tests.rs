@@ -722,3 +722,46 @@ fn test_diagram_print(source: &str) {
     println!("{}", diagram.render().unwrap_or_default());
     assert_eq!(1, 2);
 }
+
+#[test]
+fn test_string_annotation_forward_reference() {
+    let source = r#"
+class Engine:
+    pass
+
+class Car:
+    engine: "Engine"
+"#;
+
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
+
+    assert!(
+        out.contains("+ engine: Engine") || out.contains("Engine engine"),
+        "{out}"
+    );
+    assert!(!out.contains('"'), "{out}");
+    assert!(out.contains("Car *-- Engine"), "{out}");
+}
+
+#[test]
+fn test_optional_union_composition() {
+    let source = r"
+class Engine:
+    pass
+
+class Wheel:
+    pass
+
+class Car:
+    part: Optional[Engine | Wheel]
+";
+
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
+
+    assert!(out.contains("Car *-- Engine"), "{out}");
+    assert!(out.contains("Car *-- Wheel"), "{out}");
+}
