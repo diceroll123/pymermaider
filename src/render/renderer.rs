@@ -37,6 +37,8 @@ pub enum ClassType {
     Interface,
     Enumeration,
     Dataclass,
+    NamedTuple,
+    TypedDict,
     Final,
 }
 

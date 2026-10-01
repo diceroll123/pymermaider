@@ -39,6 +39,8 @@ pub trait ClassDefHelpers {
     fn is_enum(&self, semantic: &SemanticModel) -> bool;
     fn is_protocol(&self, semantic: &SemanticModel) -> bool;
     fn is_dataclass(&self, semantic: &SemanticModel) -> bool;
+    fn is_named_tuple(&self, semantic: &SemanticModel) -> bool;
+    fn is_typed_dict(&self, semantic: &SemanticModel) -> bool;
 }
 
 impl ClassDefHelpers for ast::StmtClassDef {
@@ -87,7 +89,12 @@ impl ClassDefHelpers for ast::StmtClassDef {
             if let Some(qualified_name) = semantic.resolve_qualified_name(&decorator.expression) {
                 if matches!(
                     qualified_name.segments(),
-                    ["dataclasses", "dataclass"] | ["pydantic", "dataclasses", "dataclass"]
+                    ["dataclasses", "dataclass"]
+                        | ["pydantic", "dataclasses", "dataclass"]
+                        | [
+                            "attr" | "attrs",
+                            "define" | "frozen" | "mutable" | "s" | "attrs"
+                        ]
                 ) {
                     return true;
                 }
@@ -95,6 +102,30 @@ impl ClassDefHelpers for ast::StmtClassDef {
         }
         false
     }
+
+    fn is_named_tuple(&self, semantic: &SemanticModel) -> bool {
+        has_base_matching(self, semantic, |segments| {
+            matches!(segments, ["typing" | "typing_extensions", "NamedTuple"])
+        })
+    }
+
+    fn is_typed_dict(&self, semantic: &SemanticModel) -> bool {
+        has_base_matching(self, semantic, |segments| {
+            matches!(segments, ["typing" | "typing_extensions", "TypedDict"])
+        })
+    }
+}
+
+fn has_base_matching(
+    class: &ast::StmtClassDef,
+    semantic: &SemanticModel,
+    matches_segments: impl Fn(&[&str]) -> bool,
+) -> bool {
+    class.bases().iter().any(|base| {
+        semantic
+            .resolve_qualified_name(base)
+            .is_some_and(|name| matches_segments(name.segments()))
+    })
 }
 
 #[cfg(test)]

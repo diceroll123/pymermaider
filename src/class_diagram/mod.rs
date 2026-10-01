@@ -637,6 +637,10 @@ impl ClassDiagram {
         if qualified_name.as_ref().is_some_and(|name| {
             matches!(name.segments(), ["typing" | "typing_extensions", "Generic"])
                 || matches!(name.segments(), ["" | "builtins", "object"])
+                || matches!(
+                    name.segments(),
+                    ["typing" | "typing_extensions", "NamedTuple" | "TypedDict"]
+                )
                 || is_abc_qualified_name(name)
                 || matches!(
                     name.segments(),

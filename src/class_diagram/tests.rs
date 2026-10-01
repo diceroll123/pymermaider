@@ -1139,3 +1139,66 @@ class Thing:
         "{out}"
     );
 }
+
+#[test]
+fn test_namedtuple_and_typeddict_have_stereotypes_without_phantom_edges() {
+    let source = r"
+from typing import NamedTuple, TypedDict
+
+class Point(NamedTuple):
+    x: int
+    y: int
+
+class Movie(TypedDict):
+    title: str
+";
+
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
+
+    assert!(
+        out.contains("class Point {\n        <<namedtuple>>"),
+        "{out}"
+    );
+    assert!(
+        out.contains("class Movie {\n        <<typeddict>>"),
+        "{out}"
+    );
+    assert!(!out.contains("--|>"), "{out}");
+}
+
+#[test]
+fn test_abstract_dataclass_keeps_abstract_stereotype() {
+    let source = r"
+from abc import ABC
+from dataclasses import dataclass
+
+@dataclass
+class Shape(ABC):
+    name: str
+";
+
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
+
+    assert!(out.contains("<<abstract>>"), "{out}");
+}
+
+#[test]
+fn test_attrs_classes_are_dataclasses() {
+    let source = r"
+import attrs
+
+@attrs.define
+class Point:
+    x: int
+";
+
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
+
+    assert!(out.contains("<<dataclass>>"), "{out}");
+}
