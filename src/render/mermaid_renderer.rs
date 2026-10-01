@@ -45,12 +45,12 @@ fn has_class_body(class: &ClassNode, opts: RenderOptions) -> bool {
     let n_attrs = class
         .attributes
         .iter()
-        .filter(|a| !hide || a.visibility != Visibility::Private)
+        .filter(|a| !hide || !a.visibility.is_non_public())
         .count();
     let n_methods = class
         .methods
         .iter()
-        .filter(|m| !hide || m.visibility != Visibility::Private)
+        .filter(|m| !hide || !m.visibility.is_non_public())
         .count();
     n_attrs > 0 || n_methods > 0 || class.class_type != ClassType::Regular
 }
@@ -187,7 +187,7 @@ pub fn render_class(class: &ClassNode, opts: &RenderOptions) -> String {
 
         // Attributes
         for attr in &class.attributes {
-            if opts.hide_private_members && attr.visibility == Visibility::Private {
+            if opts.hide_private_members && attr.visibility.is_non_public() {
                 continue;
             }
             render_attribute(&mut output, &inner_indent, attr);
@@ -195,7 +195,7 @@ pub fn render_class(class: &ClassNode, opts: &RenderOptions) -> String {
 
         // Methods
         for method in &class.methods {
-            if opts.hide_private_members && method.visibility == Visibility::Private {
+            if opts.hide_private_members && method.visibility.is_non_public() {
                 continue;
             }
             render_method(&mut output, &inner_indent, method);

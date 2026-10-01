@@ -508,17 +508,12 @@ impl ClassDiagram {
                     Expr::StringLiteral(literal) => literal.value.to_str().to_string(),
                     other => checker.generator().expr(other),
                 };
-                let is_dunder = target_name.starts_with("__") && target_name.ends_with("__");
-                let is_private = target_name.starts_with('_') && !is_dunder;
 
+                let visibility = Visibility::from_name(&target_name);
                 Some(ClassMember::Attribute(Attribute {
                     name: target_name,
                     type_annotation: annotation_name,
-                    visibility: if is_private {
-                        Visibility::Private
-                    } else {
-                        Visibility::Public
-                    },
+                    visibility,
                 }))
             }
 
@@ -559,8 +554,6 @@ impl ClassDiagram {
                     return None;
                 }
 
-                let is_dunder = name.starts_with("__") && name.ends_with("__");
-                let is_private = name.starts_with('_') && !is_dunder;
                 let is_static = is_staticmethod(decorator_list, checker.semantic());
 
                 // @property getters: show as attributes (read-only) instead of methods
@@ -579,11 +572,7 @@ impl ClassDiagram {
                     return Some(ClassMember::Attribute(Attribute {
                         name: name.to_string(),
                         type_annotation: return_type,
-                        visibility: if is_private {
-                            Visibility::Private
-                        } else {
-                            Visibility::Public
-                        },
+                        visibility: Visibility::from_name(name.as_str()),
                     }));
                 }
 
@@ -617,11 +606,7 @@ impl ClassDiagram {
                     name: name.to_string(),
                     parameters: params,
                     return_type: returns,
-                    visibility: if is_private {
-                        Visibility::Private
-                    } else {
-                        Visibility::Public
-                    },
+                    visibility: Visibility::from_name(name.as_str()),
                     is_static,
                     is_abstract: is_abstract(decorator_list, checker.semantic()),
                     is_async: *is_async,
