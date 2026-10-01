@@ -6,7 +6,7 @@ use pymermaider_wasm::render::output_format::OutputFormat;
 
 use globset::Candidate;
 use ignore::{types::TypesBuilder, WalkBuilder};
-use log::{debug, error};
+use log::{debug, error, warn};
 use std::path::{Path, PathBuf};
 
 pub struct Mermaider {
@@ -103,8 +103,9 @@ impl Mermaider {
             hide_private_members: self.args.hide_private_members,
         };
         let mut diagram = ClassDiagram::new(options);
-        if let Ok(source) = std::fs::read_to_string(file) {
-            diagram.add_file(&source, file);
+        match std::fs::read_to_string(file) {
+            Ok(source) => diagram.add_file(&source, file),
+            Err(err) => warn!("Skipping {}: {err}", file.display()),
         }
         diagram
     }

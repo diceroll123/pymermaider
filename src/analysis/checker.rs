@@ -138,18 +138,15 @@ impl<'a> Checker<'a> {
         binding_id
     }
 
-    /// # Panics
-    /// Panics if an import statement has an empty name.
     pub fn see_imports(&mut self, stmts: &'a [ast::Stmt]) {
         for stmt in stmts {
             match stmt {
                 ast::Stmt::Import(ast::StmtImport { names, .. }) => {
                     for alias in names {
-                        let module = alias
-                            .name
-                            .split('.')
-                            .next()
-                            .expect("Import name should not be empty");
+                        let Some(module) = alias.name.split('.').next().filter(|m| !m.is_empty())
+                        else {
+                            continue;
+                        };
 
                         self.semantic.add_module(module);
 
