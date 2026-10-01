@@ -238,8 +238,15 @@ pub fn render_diagram(
         }
     }
 
-    // Compositions (deduped; stable order)
-    let unique_compositions: IndexSet<_> = diagram.compositions.iter().collect();
+    // Compositions (deduped; stable order). Only targets that are classes in the
+    // diagram are drawn, so stdlib/external types do not create phantom nodes.
+    let known_classes: std::collections::HashSet<&str> =
+        diagram.classes.iter().map(|c| c.name.as_str()).collect();
+    let unique_compositions: IndexSet<_> = diagram
+        .compositions
+        .iter()
+        .filter(|comp| known_classes.contains(comp.contained.as_str()))
+        .collect();
     if !unique_compositions.is_empty() {
         if !unique_relationships.is_empty() {
             output.push('\n');

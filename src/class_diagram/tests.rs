@@ -880,3 +880,27 @@ def make():
 
     assert!(out.contains("class `make.Local`"), "{out}");
 }
+
+#[test]
+fn test_composition_with_external_type_is_not_drawn() {
+    let source = r"
+from pathlib import Path
+from decimal import Decimal
+
+class Engine:
+    pass
+
+class Car:
+    engine: Engine
+    home: Path
+    price: Decimal
+";
+
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
+
+    assert!(out.contains("Car *-- Engine"), "{out}");
+    assert!(!out.contains("*-- Path"), "{out}");
+    assert!(!out.contains("*-- Decimal"), "{out}");
+}
