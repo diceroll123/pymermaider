@@ -138,7 +138,7 @@ class Thing:
 
     let expected_output = "classDiagram
     class Thing {
-        + @classmethod async foo(cls, first, /, *second, kwarg, **unpack_this) dict[str, str]
+        + @classmethod async foo(cls, first, /, *second, kwarg, **unpack_this) dict~str, str~
     }
 ";
 
@@ -229,7 +229,7 @@ class Car:
 
     class Car {
         + Engine engine
-        + list[Wheel] wheels
+        + list~Wheel~ wheels
         + drive(self) None
     }
 
@@ -335,7 +335,7 @@ class User(UserBase):
     class User {
         + int id
         + bool is_active
-        + list[Item] items
+        + list~Item~ items
     }
 
     class UserCreate {
@@ -970,4 +970,25 @@ class Car:
     assert!(out.contains("Car *-- Engine"), "{out}");
     assert!(out.contains("Car *-- `pathlib.Path`"), "{out}");
     assert!(out.contains("Car *-- `decimal.Decimal`"), "{out}");
+}
+
+#[test]
+fn test_special_characters_in_annotations_are_escaped() {
+    let source = r#"
+class Config:
+    handler: Callable[[int], str]
+    mapping: dict[str, list[int]]
+    mode: Literal["a", "b"]
+"#;
+
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
+
+    assert!(out.contains("dict~str, list~int~~ mapping"), "{out}");
+    assert!(
+        out.contains("Literal~#quot;a#quot;, #quot;b#quot;~ mode"),
+        "{out}"
+    );
+    assert!(!out.contains('['), "{out}");
 }
