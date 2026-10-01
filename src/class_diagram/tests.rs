@@ -342,6 +342,14 @@ class User(UserBase):
         + str password
     }
 
+    class `Item.Config` {
+        + bool orm_mode
+    }
+
+    class `User.Config` {
+        + bool orm_mode
+    }
+
     ItemBase --|> `pydantic.BaseModel`
 
     ItemCreate --|> ItemBase
@@ -793,4 +801,82 @@ class Item(pydantic.BaseModel):
     let out = diagram.render().unwrap_or_default();
 
     assert!(out.contains("Item --|> `pydantic.BaseModel`"), "{out}");
+}
+
+#[test]
+fn test_nested_classes_use_qualified_names() {
+    let source = r"
+class Outer:
+    class Inner:
+        x: int
+
+        class Deep:
+            y: int
+
+    inner: Inner
+";
+
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
+
+    assert!(out.contains("class Outer"), "{out}");
+    assert!(out.contains("class `Outer.Inner`"), "{out}");
+    assert!(out.contains("class `Outer.Inner.Deep`"), "{out}");
+    // Bare reference to the nested class resolves to its qualified name
+    assert!(out.contains("Outer *-- `Outer.Inner`"), "{out}");
+}
+
+#[test]
+fn test_nested_class_as_base_resolves_to_qualified_name() {
+    let source = r"
+class Outer:
+    class Base:
+        pass
+
+    class Child(Base):
+        pass
+";
+
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
+
+    assert!(out.contains("`Outer.Child` --|> `Outer.Base`"), "{out}");
+}
+
+#[test]
+fn test_top_level_class_wins_over_nested_with_same_name() {
+    let source = r"
+class Config:
+    pass
+
+class Item:
+    class Config:
+        pass
+
+class User(Config):
+    pass
+";
+
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
+
+    assert!(out.contains("User --|> Config"), "{out}");
+}
+
+#[test]
+fn test_class_defined_in_function_body() {
+    let source = r"
+def make():
+    class Local:
+        pass
+";
+
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
+
+    assert!(out.contains("class `make.Local`"), "{out}");
 }
