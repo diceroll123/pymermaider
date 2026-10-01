@@ -947,3 +947,27 @@ def make():
 
     assert!(out.contains("class `make.Local`"), "{out}");
 }
+
+#[test]
+fn test_imported_composition_types_are_kept_and_qualified() {
+    let source = r"
+from pathlib import Path
+from decimal import Decimal
+
+class Engine:
+    pass
+
+class Car:
+    engine: Engine
+    home: Path
+    price: Decimal
+";
+
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
+
+    assert!(out.contains("Car *-- Engine"), "{out}");
+    assert!(out.contains("Car *-- `pathlib.Path`"), "{out}");
+    assert!(out.contains("Car *-- `decimal.Decimal`"), "{out}");
+}

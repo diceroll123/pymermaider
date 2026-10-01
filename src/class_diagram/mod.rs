@@ -222,12 +222,12 @@ impl ClassDiagram {
 
         // Add composition relationships
         for comp_type in &composition_types {
-            // Extract just the class name (remove module prefix if present)
-            let comp_display = comp_type.split('.').next_back().unwrap_or(comp_type);
-
+            // Imported types keep their module path (backticked, e.g. `pathlib.Path`) so
+            // same-named types from different modules stay distinct. Bare names are
+            // local classes and are resolved to their emitted name later.
             let comp = CompositionEdge {
                 container: class_name.clone(),
-                contained: comp_display.to_string(),
+                contained: QualifiedName::user_defined(comp_type).normalize_name(),
             };
             self.diagram.add_composition(comp);
         }
