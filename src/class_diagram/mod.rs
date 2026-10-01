@@ -44,6 +44,8 @@ pub struct ClassDiagram {
     diagram: Diagram,
     options: crate::render::mermaid_renderer::RenderOptions,
     pub path: String,
+    /// Dotted module path prepended to every emitted class name (empty for none).
+    module_prefix: String,
 }
 
 impl Default for ClassDiagram {
@@ -59,7 +61,14 @@ impl ClassDiagram {
             diagram: Diagram::new(),
             options,
             path: String::new(),
+            module_prefix: String::new(),
         }
+    }
+
+    /// Qualify every class emitted from now on with a dotted module path,
+    /// e.g. `models.user` turns `User` into `models.user.User`.
+    pub fn set_module_prefix(&mut self, prefix: &str) {
+        prefix.clone_into(&mut self.module_prefix);
     }
 
     pub const fn set_hide_private_members(&mut self, hide: bool) {
@@ -111,12 +120,12 @@ impl ClassDiagram {
         enclosing: &[&str],
     ) {
         let local_name = class.name.as_str();
-        let class_name = if enclosing.is_empty() {
+        let class_name = if enclosing.is_empty() && self.module_prefix.is_empty() {
             local_name.to_owned()
         } else {
-            let path = enclosing
-                .iter()
-                .copied()
+            let path = std::iter::once(self.module_prefix.as_str())
+                .filter(|prefix| !prefix.is_empty())
+                .chain(enclosing.iter().copied())
                 .chain(std::iter::once(local_name))
                 .collect::<Vec<_>>()
                 .join(".");
