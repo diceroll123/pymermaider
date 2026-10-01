@@ -128,7 +128,7 @@ impl ClassDiagram {
         // Detect composition relationships from class attributes and collect members
         let mut composition_types: IndexSet<String> = IndexSet::new();
         let mut members: IndexSet<ClassMember> = IndexSet::new();
-        for stmt in &class.body {
+        for stmt in Self::flatten_class_body(&class.body) {
             if let ast::Stmt::AnnAssign(ast::StmtAnnAssign { annotation, .. }) = stmt {
                 composition_types.extend(type_analyzer::extract_composition_types(
                     annotation.as_ref(),
@@ -197,6 +197,46 @@ impl ClassDiagram {
             };
             self.diagram.add_composition(comp);
         }
+    }
+
+    /// Class body statements, including those nested in `if`/`try`/`with` blocks
+    /// (e.g. members defined under `if TYPE_CHECKING:` or `try: ... except ImportError:`).
+    fn flatten_class_body(body: &[ast::Stmt]) -> Vec<&ast::Stmt> {
+        let mut out = Vec::new();
+        for stmt in body {
+            match stmt {
+                ast::Stmt::If(ast::StmtIf {
+                    body,
+                    elif_else_clauses,
+                    ..
+                }) => {
+                    out.extend(Self::flatten_class_body(body));
+                    for clause in elif_else_clauses {
+                        out.extend(Self::flatten_class_body(&clause.body));
+                    }
+                }
+                ast::Stmt::Try(ast::StmtTry {
+                    body,
+                    handlers,
+                    orelse,
+                    finalbody,
+                    ..
+                }) => {
+                    out.extend(Self::flatten_class_body(body));
+                    for handler in handlers {
+                        let ast::ExceptHandler::ExceptHandler(h) = handler;
+                        out.extend(Self::flatten_class_body(&h.body));
+                    }
+                    out.extend(Self::flatten_class_body(orelse));
+                    out.extend(Self::flatten_class_body(finalbody));
+                }
+                ast::Stmt::With(ast::StmtWith { body, .. }) => {
+                    out.extend(Self::flatten_class_body(body));
+                }
+                other => out.push(other),
+            }
+        }
+        out
     }
 
     /// Returns true if the function is a property setter or deleter (e.g. @name.setter, @name.deleter).
