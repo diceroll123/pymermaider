@@ -298,6 +298,7 @@ mod tests {
             from: "Dog".to_string(),
             to: "Animal".to_string(),
             relation_type: RelationType::Inheritance,
+            is_stdlib_abstract_or_protocol: false,
         };
 
         let output = render_relationship(&rel);

@@ -36,7 +36,7 @@ enum BaseKind {
     Skip,
     InheritanceTarget {
         name: String,
-        is_abstract_or_protocol: bool,
+        is_stdlib_abstract_or_protocol: bool,
     },
 }
 
@@ -73,6 +73,7 @@ impl ClassDiagram {
 
     pub fn merge(mut self, other: Self) -> Self {
         self.diagram.extend(other.diagram);
+        self.diagram.finalize_relation_types();
         self
     }
 
@@ -169,7 +170,7 @@ impl ClassDiagram {
         for base in class.bases() {
             let BaseKind::InheritanceTarget {
                 name,
-                is_abstract_or_protocol,
+                is_stdlib_abstract_or_protocol,
             } = self.classify_base(checker, &detector, base, class_is_enum)
             else {
                 continue;
@@ -177,11 +178,9 @@ impl ClassDiagram {
             let rel = RelationshipEdge {
                 from: class_name.clone(),
                 to: name,
-                relation_type: if is_abstract_or_protocol {
-                    RelationType::Implementation
-                } else {
-                    RelationType::Inheritance
-                },
+                // Final type is decided in `finalize_relation_types` once every class is known
+                relation_type: RelationType::Inheritance,
+                is_stdlib_abstract_or_protocol,
             };
             self.diagram.add_relationship(rel);
         }
@@ -453,21 +452,19 @@ impl ClassDiagram {
             |base_name| base_name.normalize_name(),
         );
 
-        // Extract just the base class name without the generic specialization.
-        let base_display = base_name
+        // Extract just the base class name without the generic specialization,
+        // and quote it if it is not a valid bare Mermaid identifier (e.g. dotted names).
+        let plain = base_name
             .split('[')
             .next()
             .unwrap_or(&base_name)
             .trim_matches('`')
             .to_string();
-
-        // Check if the base class is abstract or a protocol (either built-in or user-defined).
-        let base_is_abstract_or_protocol = self.diagram.is_abstract_or_interface(&base_display)
-            || detector.is_stdlib_abstract_or_protocol(base);
+        let display = QualifiedName::user_defined(&plain).normalize_name();
 
         BaseKind::InheritanceTarget {
-            name: base_display,
-            is_abstract_or_protocol: base_is_abstract_or_protocol,
+            name: display,
+            is_stdlib_abstract_or_protocol: detector.is_stdlib_abstract_or_protocol(base),
         }
     }
 
@@ -504,6 +501,7 @@ impl ClassDiagram {
         checker.see_imports(&parsed.python_ast);
 
         self.add_classes_from_ast(&checker, &parsed.python_ast);
+        self.diagram.finalize_relation_types();
     }
 
     fn add_classes_from_ast(&mut self, checker: &Checker, python_ast: &[ast::Stmt]) {
