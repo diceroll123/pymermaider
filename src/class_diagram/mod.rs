@@ -73,6 +73,7 @@ impl ClassDiagram {
 
     pub fn merge(mut self, other: Self) -> Self {
         self.diagram.extend(other.diagram);
+        self.diagram.resolve_references();
         self.diagram.finalize_relation_types();
         self
     }
@@ -98,7 +99,32 @@ impl ClassDiagram {
         class: &ast::StmtClassDef,
         _indent_level: usize,
     ) {
-        let class_name = class.name.to_string();
+        self.add_class_in_scope(checker, class, &[]);
+    }
+
+    /// Add a class nested inside `enclosing` (outermost first). Nested classes are
+    /// emitted under their dotted path, e.g. `Outer.Inner`.
+    fn add_class_in_scope(
+        &mut self,
+        checker: &Checker,
+        class: &ast::StmtClassDef,
+        enclosing: &[&str],
+    ) {
+        let local_name = class.name.as_str();
+        let class_name = if enclosing.is_empty() {
+            local_name.to_owned()
+        } else {
+            let path = enclosing
+                .iter()
+                .copied()
+                .chain(std::iter::once(local_name))
+                .collect::<Vec<_>>()
+                .join(".");
+            let normalized = QualifiedName::user_defined(&path).normalize_name();
+            normalized
+        };
+        self.diagram
+            .register_name(local_name, &class_name, enclosing.len());
 
         // Find generic type parameters - either from explicit [T] syntax or Generic[T] bases
         let generic_type_var = class.type_params.as_ref().map_or_else(
@@ -501,14 +527,67 @@ impl ClassDiagram {
         checker.see_imports(&parsed.python_ast);
 
         self.add_classes_from_ast(&checker, &parsed.python_ast);
+        self.diagram.resolve_references();
         self.diagram.finalize_relation_types();
     }
 
     fn add_classes_from_ast(&mut self, checker: &Checker, python_ast: &[ast::Stmt]) {
-        for stmt in python_ast {
-            if let ast::Stmt::ClassDef(class) = stmt {
-                // we only care about class definitions
-                self.add_class(checker, class, 1);
+        self.add_classes_in_scope(checker, python_ast, &mut Vec::new());
+    }
+
+    /// Walk statements looking for class definitions, descending into class bodies,
+    /// function bodies and compound statements. `scope` holds the enclosing
+    /// class/function names, outermost first.
+    fn add_classes_in_scope<'a>(
+        &mut self,
+        checker: &Checker,
+        stmts: &'a [ast::Stmt],
+        scope: &mut Vec<&'a str>,
+    ) {
+        for stmt in stmts {
+            match stmt {
+                ast::Stmt::ClassDef(class) => {
+                    self.add_class_in_scope(checker, class, scope);
+                    scope.push(class.name.as_str());
+                    self.add_classes_in_scope(checker, &class.body, scope);
+                    scope.pop();
+                }
+                ast::Stmt::FunctionDef(func) => {
+                    scope.push(func.name.as_str());
+                    self.add_classes_in_scope(checker, &func.body, scope);
+                    scope.pop();
+                }
+                ast::Stmt::If(ast::StmtIf {
+                    body,
+                    elif_else_clauses,
+                    ..
+                }) => {
+                    self.add_classes_in_scope(checker, body, scope);
+                    for clause in elif_else_clauses {
+                        self.add_classes_in_scope(checker, &clause.body, scope);
+                    }
+                }
+                ast::Stmt::With(ast::StmtWith { body, .. })
+                | ast::Stmt::For(ast::StmtFor { body, .. })
+                | ast::Stmt::While(ast::StmtWhile { body, .. }) => {
+                    self.add_classes_in_scope(checker, body, scope);
+                }
+                ast::Stmt::Try(ast::StmtTry {
+                    body,
+                    handlers,
+                    orelse,
+                    finalbody,
+                    ..
+                }) => {
+                    self.add_classes_in_scope(checker, body, scope);
+                    for handler in handlers {
+                        let ast::ExceptHandler::ExceptHandler(h) = handler;
+                        self.add_classes_in_scope(checker, &h.body, scope);
+                    }
+                    self.add_classes_in_scope(checker, orelse, scope);
+                    self.add_classes_in_scope(checker, finalbody, scope);
+                }
+                _ => {}
             }
         }
     }

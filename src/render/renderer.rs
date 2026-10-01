@@ -122,6 +122,9 @@ pub struct Diagram {
     pub relationships: Vec<RelationshipEdge>,
     pub compositions: Vec<CompositionEdge>,
     abstract_or_interface_index: std::collections::HashMap<String, bool>,
+    /// Maps a class's own (bare) name to its emitted name, plus the nesting depth
+    /// it was registered at. Used to point references at nested/qualified classes.
+    name_registry: std::collections::HashMap<String, (String, usize)>,
 }
 
 impl Diagram {
@@ -144,6 +147,38 @@ impl Diagram {
             .or_insert(false);
         *entry = *entry || is_abstract_or_interface;
         self.classes.push(class);
+    }
+
+    /// Register a class's bare name against its emitted name.
+    /// Shallower definitions win; among equal depth the first one registered wins.
+    pub fn register_name(&mut self, local: &str, emitted: &str, depth: usize) {
+        match self.name_registry.get(local) {
+            Some((_, existing_depth)) if *existing_depth <= depth => {}
+            _ => {
+                self.name_registry
+                    .insert(local.to_owned(), (emitted.to_owned(), depth));
+            }
+        }
+    }
+
+    /// Rewrite relationship and composition targets that use a bare class name
+    /// so they match the emitted (qualified) name of the class.
+    /// Names that are not registered (e.g. external bases) are left untouched.
+    pub fn resolve_references(&mut self) {
+        let registry = &self.name_registry;
+        let resolve = |name: &mut String| {
+            if let Some((emitted, _)) = registry.get(name.as_str()) {
+                if emitted != name {
+                    name.clone_from(emitted);
+                }
+            }
+        };
+        for rel in &mut self.relationships {
+            resolve(&mut rel.to);
+        }
+        for comp in &mut self.compositions {
+            resolve(&mut comp.contained);
+        }
     }
 
     pub fn add_relationship(&mut self, relationship: RelationshipEdge) {
@@ -186,6 +221,9 @@ impl Diagram {
         self.classes.extend(other.classes);
         self.relationships.extend(other.relationships);
         self.compositions.extend(other.compositions);
+        for (local, (emitted, depth)) in other.name_registry {
+            self.register_name(&local, &emitted, depth);
+        }
         for (name, other_flag) in other.abstract_or_interface_index {
             self.abstract_or_interface_index
                 .entry(name)
