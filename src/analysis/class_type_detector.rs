@@ -65,6 +65,10 @@ impl<'a> ClassTypeDetector<'a> {
     /// Used for determining relationship types (solid vs dotted lines).
     pub fn is_stdlib_abstract_or_protocol(&self, base_expr: &ast::Expr) -> bool {
         // Check if it's a standard library Protocol or ABC
+        let base_expr = match base_expr {
+            ast::Expr::Subscript(subscript) => subscript.value.as_ref(),
+            other => other,
+        };
         self.semantic
             .resolve_qualified_name(base_expr)
             .is_some_and(|name| {

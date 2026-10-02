@@ -66,25 +66,19 @@ impl ClassDefHelpers for ast::StmtClassDef {
     }
 
     fn is_protocol(&self, semantic: &SemanticModel) -> bool {
-        let Some(Arguments { args, keywords, .. }) = self.arguments.as_deref() else {
-            return false;
-        };
-
-        if args.len() + keywords.len() != 1 {
-            return false;
-        }
-
-        for base in args.iter().chain(keywords.iter().map(|kw| &kw.value)) {
-            if let Some(qualified_name) = semantic.resolve_qualified_name(base) {
-                if matches!(
-                    qualified_name.segments(),
+        // Protocol[T] is a subscript; look at the subscripted value instead.
+        self.bases().iter().any(|base| {
+            let base = match base {
+                ruff_python_ast::Expr::Subscript(subscript) => subscript.value.as_ref(),
+                other => other,
+            };
+            semantic.resolve_qualified_name(base).is_some_and(|name| {
+                matches!(
+                    name.segments(),
                     ["typing" | "typing_extensions", "Protocol"]
-                ) {
-                    return true;
-                }
-            }
-        }
-        false
+                )
+            })
+        })
     }
 
     fn is_dataclass(&self, semantic: &SemanticModel) -> bool {

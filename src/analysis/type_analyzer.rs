@@ -112,9 +112,13 @@ pub fn extract_generic_params(base: &Expr, checker: &Checker) -> Option<String> 
     }
 }
 
-/// Check if a qualified name represents a Generic base class
+/// Check if a qualified name represents a Generic or Protocol base class
+/// (both carry type parameters when subscripted)
 fn is_generic_base(name: &QualifiedName) -> bool {
-    matches!(name.segments(), ["typing" | "typing_extensions", "Generic"])
+    matches!(
+        name.segments(),
+        ["typing" | "typing_extensions", "Generic" | "Protocol"]
+    )
 }
 
 #[cfg(test)]
