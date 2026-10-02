@@ -4,6 +4,7 @@
 [![image](https://img.shields.io/pypi/v/pymermaider.svg)](https://pypi.python.org/pypi/pymermaider)
 [![image](https://img.shields.io/pypi/l/pymermaider.svg)](https://github.com/diceroll123/pymermaider/blob/master/LICENSE)
 [![Actions status](https://github.com/diceroll123/pymermaider/workflows/CI/badge.svg)](https://github.com/diceroll123/pymermaider/actions)
+[![CodSpeed](https://img.shields.io/endpoint?url=https://codspeed.io/badge.json?org=diceroll123&repo=pymermaider&utm_source=badge)](https://codspeed.io/diceroll123/pymermaider?utm_source=badge)
 [![image](https://img.shields.io/pypi/pyversions/pymermaider.svg)](https://pypi.python.org/pypi/pymermaider)
 
 **[Try the online pymermaider playground!](https://diceroll123.github.io/pymermaider/)** *powered by WebAssembly* 🎉
