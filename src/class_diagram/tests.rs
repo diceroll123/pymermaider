@@ -765,3 +765,27 @@ class Car:
     assert!(out.contains("Car *-- Engine"), "{out}");
     assert!(out.contains("Car *-- Wheel"), "{out}");
 }
+
+#[test]
+fn test_members_in_conditional_class_body_blocks() {
+    let source = r"
+class Thing:
+    base: int
+
+    if TYPE_CHECKING:
+        typed_only: str
+
+    try:
+        from fast import speed as speed_impl
+    except ImportError:
+        def slow(self) -> None: ...
+";
+
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
+
+    assert!(out.contains("+ int base"), "{out}");
+    assert!(out.contains("+ str typed_only"), "{out}");
+    assert!(out.contains("+ slow(self) None"), "{out}");
+}
