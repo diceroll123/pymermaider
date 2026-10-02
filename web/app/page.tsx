@@ -5,6 +5,9 @@ import DiagramEditor from "@/components/DiagramEditor";
 import { ColorModeButton } from "@/components/ui/color-mode";
 import { FaGithub } from "react-icons/fa";
 
+const PRODUCTION_URL = "https://diceroll123.github.io/pymermaider/";
+const IS_PR_PREVIEW = (process.env.NEXT_PUBLIC_BASE_PATH ?? "").includes("/pr-preview/");
+
 export default function Home() {
   return (
     <Container maxW="100vw" p={0} h="100vh">
@@ -25,6 +28,11 @@ export default function Home() {
               </Box>
             </Box>
             <HStack gap={2}>
+              {IS_PR_PREVIEW && (
+                <Link href={PRODUCTION_URL} fontSize="sm">
+                  Production playground
+                </Link>
+              )}
               <Link
                 href="https://github.com/diceroll123/pymermaider"
                 target="_blank"
