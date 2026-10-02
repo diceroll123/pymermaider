@@ -49,6 +49,24 @@ export class PyMermaider {
             wasm.__wbindgen_export(deferred1_0, deferred1_1, 1);
         }
     }
+    /**
+     * Syntax errors found in the last processed source, as `line N: message`.
+     * Processing is lenient: a diagram may still be produced for the valid parts.
+     * @returns {string[]}
+     */
+    getSyntaxErrors() {
+        try {
+            const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
+            wasm.pymermaider_getSyntaxErrors(retptr, this.__wbg_ptr);
+            var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
+            var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
+            var v1 = getArrayJsValueFromWasm0(r0, r1).slice();
+            wasm.__wbindgen_export(r0, r1 * 4, 4);
+            return v1;
+        } finally {
+            wasm.__wbindgen_add_to_stack_pointer(16);
+        }
+    }
     constructor() {
         const ret = wasm.pymermaider_new();
         this.__wbg_ptr = ret >>> 0;
@@ -57,6 +75,8 @@ export class PyMermaider {
     }
     /**
      * Process Python source code and return the Mermaid diagram as a string (or empty string if no diagram)
+     *
+     * Syntax errors do not fail the call; use `getSyntaxErrors` to read them.
      *
      * # Errors
      * Currently infallible; returns `Ok` in all cases. The `Result` type is retained for future compatibility.
@@ -156,6 +176,16 @@ function dropObject(idx) {
     if (idx < 1028) return;
     heap[idx] = heap_next;
     heap_next = idx;
+}
+
+function getArrayJsValueFromWasm0(ptr, len) {
+    ptr = ptr >>> 0;
+    const mem = getDataViewMemory0();
+    const result = [];
+    for (let i = ptr; i < ptr + 4 * len; i += 4) {
+        result.push(takeObject(mem.getUint32(i, true)));
+    }
+    return result;
 }
 
 let cachedDataViewMemory0 = null;
