@@ -737,9 +737,28 @@ class Car:
         "bare type should be composition; got: {result}"
     );
     assert!(
+        !result.contains("Car o-- Engine"),
+        "aggregation should be dropped when composition exists; got: {result}"
+    );
+}
+
+#[test]
+fn test_list_is_aggregation() {
+    let source = r#"
+class Engine:
+    power: int
+
+class Car:
+    engines: list[Engine]
+"#;
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let result = diagram.render().unwrap_or_default();
+    assert!(
         result.contains("Car o-- Engine"),
         "list type should be aggregation; got: {result}"
     );
+    assert!(!result.contains("Car *-- Engine"), "got: {result}");
 }
 
 #[test]

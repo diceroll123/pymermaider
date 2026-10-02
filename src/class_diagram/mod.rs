@@ -255,7 +255,11 @@ impl ClassDiagram {
         }
 
         // Add composition relationships
+        // A type that is also held directly keeps only the stronger composition edge.
         for (comp_type, is_aggregation) in &composition_types {
+            if *is_aggregation && composition_types.contains(&(comp_type.clone(), false)) {
+                continue;
+            }
             // Imported types keep their module path (backticked, e.g. `pathlib.Path`) so
             // same-named types from different modules stay distinct. Bare names are
             // local classes and are resolved to their emitted name later.
