@@ -1,5 +1,6 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion};
+use criterion::{criterion_group, criterion_main, Criterion};
 use pymermaider_wasm::class_diagram::ClassDiagram;
+use std::hint::black_box;
 
 const PYDANTIC_FIXTURE: &str = r#"
 from pydantic import BaseModel
