@@ -65,7 +65,7 @@ fn render_attribute(output: &mut String, inner_indent: &str, attr: &Attribute) {
     output.push_str(inner_indent);
     output.push(format_visibility(attr.visibility));
     output.push(' ');
-    output.push_str(&attr.type_annotation);
+    output.push_str(&attr.type_annotation.escape_type());
     output.push(' ');
     output.push_str(&attr.name.escape_underscores());
     output.push('\n');
@@ -90,13 +90,13 @@ fn render_method(output: &mut String, inner_indent: &str, method: &MethodSignatu
     // Method signature
     output.push_str(&method.name.escape_underscores());
     output.push('(');
-    output.push_str(&method.parameters);
+    output.push_str(&method.parameters.escape_type());
     output.push(')');
 
     // Return type
     if let Some(ref return_type) = method.return_type {
         output.push(' ');
-        output.push_str(return_type);
+        output.push_str(&return_type.escape_type());
     }
 
     // Classifiers
@@ -116,6 +116,27 @@ const fn render_relationship_symbol(relation_type: RelationType) -> &'static str
     }
 }
 
+/// Quote a YAML scalar when it contains characters that would break plain style.
+fn quote_yaml(value: &str) -> String {
+    let needs_quotes = value.is_empty()
+        || value.starts_with(|c: char| c.is_whitespace() || "-?:,[]{}#&*!|>'\"%@`".contains(c))
+        || value.ends_with(char::is_whitespace)
+        || value.contains(": ")
+        || value.contains(" #")
+        || value.contains(['\n', '"']);
+    if needs_quotes {
+        format!(
+            "\"{}\"",
+            value
+                .replace('\\', "\\\\")
+                .replace('"', "\\\"")
+                .replace('\n', "\\n")
+        )
+    } else {
+        value.to_owned()
+    }
+}
+
 #[must_use]
 pub fn render_header(title: Option<&str>, direction: DiagramDirection) -> String {
     let mut output = String::new();
@@ -123,7 +144,7 @@ pub fn render_header(title: Option<&str>, direction: DiagramDirection) -> String
     if let Some(title) = title {
         output.push_str("---\n");
         output.push_str("title: ");
-        output.push_str(title);
+        output.push_str(&quote_yaml(title));
         output.push('\n');
         output.push_str("---\n");
     }
@@ -303,5 +324,22 @@ mod tests {
 
         let output = render_relationship(&rel);
         assert!(output.contains("Dog --|> Animal"));
+    }
+}
+
+#[cfg(test)]
+mod title_tests {
+    use super::*;
+
+    #[test]
+    fn test_header_quotes_title_with_special_chars() {
+        let header = render_header(Some("a/b: c #d"), DiagramDirection::default());
+        assert!(header.contains("title: \"a/b: c #d\"\n"), "{header}");
+    }
+
+    #[test]
+    fn test_header_leaves_plain_title_unquoted() {
+        let header = render_header(Some("src/models.py"), DiagramDirection::default());
+        assert!(header.contains("title: src/models.py\n"), "{header}");
     }
 }
