@@ -60,6 +60,8 @@ impl PyMermaider {
 
     /// Process Python source code and return the Mermaid diagram as a string (or empty string if no diagram)
     ///
+    /// Syntax errors do not fail the call; use `getSyntaxErrors` to read them.
+    ///
     /// # Errors
     /// Currently infallible; returns `Ok` in all cases. The `Result` type is retained for future compatibility.
     #[wasm_bindgen(js_name = processPythonCode)]
@@ -72,6 +74,14 @@ impl PyMermaider {
 
         // Return the mermaid diagram as a string, or empty string if None
         Ok(self.diagram.render().unwrap_or_default())
+    }
+
+    /// Syntax errors found in the last processed source, as `line N: message`.
+    /// Processing is lenient: a diagram may still be produced for the valid parts.
+    #[wasm_bindgen(js_name = getSyntaxErrors)]
+    #[must_use]
+    pub fn get_syntax_errors(&self) -> Vec<String> {
+        self.diagram.syntax_errors().to_vec()
     }
 
     /// Get the current diagram as a string (or empty string if no diagram)

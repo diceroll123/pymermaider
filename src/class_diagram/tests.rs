@@ -779,6 +779,20 @@ class Car:
 }
 
 #[test]
+fn test_syntax_errors_are_collected() {
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source("class A:\n    x: int\n\ndef broken(:\n");
+
+    assert!(!diagram.syntax_errors().is_empty());
+    assert!(diagram.syntax_errors()[0].starts_with("line 4"));
+    assert!(diagram.render().unwrap_or_default().contains("class A"));
+
+    let mut ok = ClassDiagram::default();
+    ok.add_source("class B: ...\n");
+    assert!(ok.syntax_errors().is_empty());
+}
+
+#[test]
 fn test_members_in_conditional_class_body_blocks() {
     let source = r"
 class Thing:

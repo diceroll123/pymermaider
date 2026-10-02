@@ -45,6 +45,10 @@ pub struct ClassDiagram {
     diagram: Diagram,
     options: crate::render::mermaid_renderer::RenderOptions,
     pub path: String,
+    show_title: bool,
+    /// Syntax errors found in the added sources. Parsing is lenient, so output
+    /// may still be produced for the valid parts.
+    syntax_errors: Vec<String>,
     /// Dotted module path prepended to every emitted class name (empty for none).
     module_prefix: String,
 }
@@ -62,8 +66,21 @@ impl ClassDiagram {
             diagram: Diagram::new(),
             options,
             path: String::new(),
+            show_title: true,
+            syntax_errors: Vec::new(),
             module_prefix: String::new(),
         }
+    }
+
+    /// Whether `path` is rendered as the diagram title (it still names output files).
+    pub const fn set_show_title(&mut self, show: bool) {
+        self.show_title = show;
+    }
+
+    /// Syntax errors found while parsing added sources, as `line N: message`.
+    #[must_use]
+    pub fn syntax_errors(&self) -> &[String] {
+        &self.syntax_errors
     }
 
     /// Qualify every class emitted from now on with a dotted module path,
@@ -82,6 +99,7 @@ impl ClassDiagram {
     }
 
     pub fn merge(mut self, other: Self) -> Self {
+        self.syntax_errors.extend(other.syntax_errors);
         self.diagram.extend(other.diagram);
         self.diagram.resolve_references();
         self.diagram.finalize_relation_types();
@@ -94,7 +112,7 @@ impl ClassDiagram {
             return None;
         }
 
-        let title = if self.path.is_empty() {
+        let title = if self.path.is_empty() || !self.show_title {
             None
         } else {
             Some(self.path.as_str())
@@ -705,6 +723,8 @@ impl ClassDiagram {
             module_kind,
         );
         checker.see_imports(&parsed.python_ast);
+        self.syntax_errors
+            .extend(parsed.syntax_errors.iter().cloned());
 
         self.add_classes_from_ast(&checker, &parsed.python_ast);
         self.diagram.resolve_references();
@@ -783,12 +803,27 @@ impl ClassDiagram {
     fn parse_python(source: &str, source_type: PySourceType) -> ParsedPython<'_> {
         let parsed = parse_unchecked_source(source, source_type);
         let stylist = Stylist::from_tokens(parsed.tokens(), source);
+        let locator = Locator::new(source);
+        let syntax_errors = parsed
+            .errors()
+            .iter()
+            .map(|err| {
+                let offset = usize::from(err.location.start()).min(source.len());
+                let line = source.as_bytes()[..offset]
+                    .iter()
+                    .filter(|&&b| b == b'\n')
+                    .count()
+                    + 1;
+                format!("line {line}: {}", err.error)
+            })
+            .collect();
         let python_ast = parsed.into_suite().to_vec();
 
         ParsedPython {
             python_ast,
-            locator: Locator::new(source),
+            locator,
             stylist,
+            syntax_errors,
         }
     }
 
@@ -817,6 +852,8 @@ struct ParsedPython<'a> {
     python_ast: Vec<ast::Stmt>,
     locator: Locator<'a>,
     stylist: Stylist<'a>,
+    /// Human-readable syntax errors, e.g. `line 3: Expected an expression`.
+    syntax_errors: Vec<String>,
 }
 
 #[cfg(test)]

@@ -241,3 +241,54 @@ fn invalid_exclude_glob_errors_cleanly_instead_of_panicking() {
         "stderr should contain a clean error message: {stderr}"
     );
 }
+
+#[test]
+fn no_title_multiple_files_still_names_output_files() {
+    let exe = env!("CARGO_BIN_EXE_pymermaider");
+
+    let dir = tempfile::TempDir::new().expect("temp dir");
+    let out_dir = tempfile::TempDir::new().expect("out dir");
+    std::fs::write(dir.path().join("a.py"), "class A: ...\n").expect("write a.py");
+    std::fs::write(dir.path().join("b.py"), "class B: ...\n").expect("write b.py");
+
+    let output = Command::new(exe)
+        .arg(dir.path().to_string_lossy().to_string())
+        .arg("--multiple-files")
+        .arg("--no-title")
+        .arg("--output-dir")
+        .arg(out_dir.path().to_string_lossy().to_string())
+        .output()
+        .expect("run pymermaider");
+
+    assert!(output.status.success());
+    let a = std::fs::read_to_string(out_dir.path().join("a.py.md")).expect("a.py.md");
+    assert!(a.contains("class A"));
+    assert!(!a.contains("title:"));
+    assert!(out_dir.path().join("b.py.md").exists());
+}
+
+#[test]
+fn syntax_errors_are_reported_on_stderr() {
+    let exe = env!("CARGO_BIN_EXE_pymermaider");
+
+    let dir = tempfile::TempDir::new().expect("temp dir");
+    std::fs::write(
+        dir.path().join("bad.py"),
+        "class A:\n    x: int\n\ndef broken(:\n",
+    )
+    .expect("write bad.py");
+
+    let output = Command::new(exe)
+        .arg(dir.path().to_string_lossy().to_string())
+        .arg("--output")
+        .arg("-")
+        .output()
+        .expect("run pymermaider");
+
+    assert!(output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("syntax error"), "{stderr}");
+    assert!(stderr.contains("line 4"), "{stderr}");
+    // Valid parts are still rendered
+    assert!(String::from_utf8_lossy(&output.stdout).contains("bad.A"));
+}
