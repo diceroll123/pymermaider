@@ -290,5 +290,5 @@ fn syntax_errors_are_reported_on_stderr() {
     assert!(stderr.contains("syntax error"), "{stderr}");
     assert!(stderr.contains("line 4"), "{stderr}");
     // Valid parts are still rendered
-    assert!(String::from_utf8_lossy(&output.stdout).contains("class A"));
+    assert!(String::from_utf8_lossy(&output.stdout).contains("bad.A"));
 }
