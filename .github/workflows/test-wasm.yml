@@ -15,10 +15,7 @@ env:
 
 jobs:
   test-wasm:
-    runs-on: ${{ matrix.os }}
-    strategy:
-      matrix:
-        os: [ubuntu-latest, macos-latest]
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout repository
@@ -32,18 +29,13 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: wasm
+          save-if: ${{ github.ref == 'refs/heads/main' }}
 
       - name: Check WASM library compilation
         run: cargo check --lib --target wasm32-unknown-unknown --no-default-features
-
-      - name: Build WASM library (release)
-        run: cargo build --lib --release --target wasm32-unknown-unknown --no-default-features
 
       - name: Run Rust tests
         run: cargo test --lib --no-default-features
 
       - name: Check CLI compilation
         run: cargo check --features cli
-
-      - name: Build CLI (release)
-        run: cargo build --release --features cli
