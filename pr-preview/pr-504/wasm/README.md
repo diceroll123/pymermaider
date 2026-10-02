@@ -4,6 +4,7 @@
 [![image](https://img.shields.io/pypi/v/pymermaider.svg)](https://pypi.python.org/pypi/pymermaider)
 [![image](https://img.shields.io/pypi/l/pymermaider.svg)](https://github.com/diceroll123/pymermaider/blob/master/LICENSE)
 [![Actions status](https://github.com/diceroll123/pymermaider/workflows/CI/badge.svg)](https://github.com/diceroll123/pymermaider/actions)
+[![CodSpeed](https://img.shields.io/endpoint?url=https://codspeed.io/badge.json?org=diceroll123&repo=pymermaider&utm_source=badge)](https://codspeed.io/diceroll123/pymermaider?utm_source=badge)
 [![image](https://img.shields.io/pypi/pyversions/pymermaider.svg)](https://pypi.python.org/pypi/pymermaider)
 
 **[Try the online pymermaider playground!](https://diceroll123.github.io/pymermaider/)** *powered by WebAssembly* 🎉
@@ -14,6 +15,23 @@
 
 - **Automatic Class Diagram Generation**: Generate detailed class diagrams from Python codebases with minimal configuration.
 - **Mermaid.js Compatibility**: Outputs diagrams in mermaid.js markdown syntax, ready to be embedded in your markdown documents or rendered using mermaid.js tools. GitHub supports this natively as you'll see below!
+
+### What is supported
+
+- Classes, including nested classes (emitted as `` `Outer.Inner` ``) and classes defined in functions
+- Attributes (annotated and simple assignments) and methods, including async, `@classmethod`, `@staticmethod`, `@abstractmethod`, `@final`, `@overload` and `@override`
+- `@property` getters (shown as attributes); setters and deleters are omitted
+- Inheritance (solid line) and abstract/protocol implementation (dotted line)
+- Composition from annotated attributes (`x: Foo`, `list[Foo]`, `Optional[Foo]`, `Foo | Bar`)
+- Class kinds: abstract (ABC), `Protocol`, `Enum`, dataclass, `@final`
+- Generics (`Generic[T]`, `[T]` syntax)
+- Visibility by convention: `_x` is protected (`#`), `__x` is private (`-`)
+
+### Not supported
+
+- Resolving types across files: a base or annotation is matched by name
+- Runtime behavior such as dynamically created classes or attributes
+- Dependency or call relationships other than inheritance and composition
 
 ## Installation
 
@@ -140,7 +158,7 @@ Running pymermaider on this file will provide:
 ```mermaid
 classDiagram
     class Animal {
-        - __init__(self, name) None
+        + \_\_init__(self, name) None
     }
 
     class Dog {
