@@ -92,11 +92,19 @@ pub struct RelationshipEdge {
     pub is_stdlib_abstract_or_protocol: bool,
 }
 
+/// Whether a composition is strong (owned) or weak (referenced/optional)
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum CompositionKind {
+    Composition, // *-- strong ownership
+    Aggregation, // o-- weak/optional reference
+}
+
 /// Represents a composition relationship
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct CompositionEdge {
     pub container: String,
     pub contained: String,
+    pub kind: CompositionKind,
 }
 
 /// Class diagram direction.
@@ -348,6 +356,7 @@ mod tests {
         a.add_composition(CompositionEdge {
             container: "A1".to_string(),
             contained: "Widget".to_string(),
+            kind: CompositionKind::Composition,
         });
 
         let mut b = Diagram::new();
@@ -367,6 +376,7 @@ mod tests {
         b.add_composition(CompositionEdge {
             container: "B1".to_string(),
             contained: "Gadget".to_string(),
+            kind: CompositionKind::Composition,
         });
 
         a.extend(b);

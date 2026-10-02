@@ -7,7 +7,7 @@ use crate::analysis::parameter_generator::ParameterGenerator;
 use crate::analysis::type_analyzer;
 use crate::ast;
 use crate::render::renderer::{
-    Attribute, ClassNode, CompositionEdge, Diagram, MethodSignature, RelationType,
+    Attribute, ClassNode, CompositionEdge, CompositionKind, Diagram, MethodSignature, RelationType,
     RelationshipEdge, Visibility,
 };
 use indexmap::IndexSet;
@@ -181,7 +181,7 @@ impl ClassDiagram {
         );
 
         // Detect composition relationships from class attributes and collect members
-        let mut composition_types: IndexSet<String> = IndexSet::new();
+        let mut composition_types: IndexSet<(String, bool)> = IndexSet::new();
         let mut members: IndexSet<ClassMember> = IndexSet::new();
         for stmt in Self::flatten_class_body(&class.body) {
             if let ast::Stmt::AnnAssign(ast::StmtAnnAssign { annotation, .. }) = stmt {
@@ -255,13 +255,22 @@ impl ClassDiagram {
         }
 
         // Add composition relationships
-        for comp_type in &composition_types {
+        // A type that is also held directly keeps only the stronger composition edge.
+        for (comp_type, is_aggregation) in &composition_types {
+            if *is_aggregation && composition_types.contains(&(comp_type.clone(), false)) {
+                continue;
+            }
             // Imported types keep their module path (backticked, e.g. `pathlib.Path`) so
             // same-named types from different modules stay distinct. Bare names are
             // local classes and are resolved to their emitted name later.
             let comp = CompositionEdge {
                 container: class_name.clone(),
                 contained: QualifiedName::user_defined(comp_type).normalize_name(),
+                kind: if *is_aggregation {
+                    CompositionKind::Aggregation
+                } else {
+                    CompositionKind::Composition
+                },
             };
             self.diagram.add_composition(comp);
         }
