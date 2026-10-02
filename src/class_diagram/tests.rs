@@ -15,9 +15,11 @@ class TestClass:
 
     let expected_output = r"classDiagram
     class TestClass {
-        + \_\_init__(self, x, y) None
-        + add(self, x, y) int
-        + subtract(self, x, y) int
+        + int x
+        + int y
+        + \_\_init__(self, x: int, y: int) None
+        + add(self, x: int, y: int) int
+        + subtract(self, x: int, y: int) int
     }
 ";
 
@@ -138,7 +140,7 @@ class Thing:
 
     let expected_output = "classDiagram
     class Thing {
-        + @classmethod async foo(cls, first, /, *second, kwarg, **unpack_this) dict~str, str~
+        + @classmethod async foo(cls, first, /, *second, kwarg: bool = True, **unpack_this) dict~str, str~
     }
 ";
 
@@ -384,8 +386,9 @@ class Thing:
 
     let expected_output = r"classDiagram
     class Thing {
-        + @overload \_\_init__(self, x, y) None
-        + \_\_init__(self, x, y) None
+        + @overload \_\_init__(self, x: int, y: int) None
+        + @overload \_\_init__(self, x: str, y: str) None
+        + \_\_init__(self, x: int | str, y: int | str) None
     }
 ";
 
@@ -492,7 +495,7 @@ class Thing:
 ";
     let expected_output = "classDiagram
     class Thing {
-        + @staticmethod static_method(x, y) int$
+        + @staticmethod static_method(x: int, y: int) int$
     }
 ";
 
@@ -636,7 +639,8 @@ class FancyStore(Store[datetime], Generic[FancyStorage]):
     }
 
     class FancyStore ~FancyStorage~ {
-        + \_\_init__(self, fancy_store) None
+        + FancyStorage storage
+        + \_\_init__(self, fancy_store: FancyStorage) None
         + insert(self, data) None
     }
 
@@ -991,4 +995,57 @@ class Config:
         "{out}"
     );
     assert!(!out.contains('['), "{out}");
+}
+
+#[test]
+fn test_instance_attributes_from_init() {
+    let source = r#"
+class Engine:
+    pass
+
+class Car:
+    wheels: int
+
+    def __init__(self, name: str, engine: "Engine", wheels: int = 4) -> None:
+        self.name = name
+        self.engine: Engine = engine
+        self._secret = 1.5
+        self.wheels = wheels
+        if name:
+            self.flag = True
+"#;
+
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
+
+    assert!(out.contains("+ str name"), "{out}");
+    assert!(out.contains("+ Engine engine"), "{out}");
+    assert!(out.contains("- float \\_secret"), "{out}");
+    assert!(out.contains("+ bool flag"), "{out}");
+    // Declared at class level, so not duplicated by the __init__ assignment
+    assert_eq!(out.matches(" wheels\n").count(), 1, "{out}");
+    assert!(out.contains("Car *-- Engine"), "{out}");
+    assert!(
+        out.contains("init__(self, name: str, engine: Engine, wheels: int = 4) None"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_parameter_defaults_without_annotations() {
+    let source = r#"
+class Thing:
+    def run(self, a, b=2, *, c: str = "x") -> None:
+        pass
+"#;
+
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
+
+    assert!(
+        out.contains("run(self, a, b=2, *, c: str = #quot;x#quot;) None"),
+        "{out}"
+    );
 }
