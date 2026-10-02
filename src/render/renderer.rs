@@ -63,6 +63,8 @@ pub struct RelationshipEdge {
     pub from: String,
     pub to: String,
     pub relation_type: RelationType,
+    /// The base is a stdlib ABC or Protocol, so the edge is always an implementation.
+    pub is_stdlib_abstract_or_protocol: bool,
 }
 
 /// Represents a composition relationship
@@ -158,6 +160,26 @@ impl Diagram {
             .get(name)
             .copied()
             .unwrap_or(false)
+    }
+
+    /// Set each relationship's type from the complete set of known classes.
+    /// Must run after all classes are added so that bases defined later in the
+    /// source (or in another file) are classified the same as earlier ones.
+    pub fn finalize_relation_types(&mut self) {
+        let index = &self.abstract_or_interface_index;
+        for rel in &mut self.relationships {
+            let base_is_abstract = rel.is_stdlib_abstract_or_protocol
+                || index.get(&rel.to).copied().unwrap_or(false)
+                || index
+                    .get(rel.to.trim_matches('`'))
+                    .copied()
+                    .unwrap_or(false);
+            rel.relation_type = if base_is_abstract {
+                RelationType::Implementation
+            } else {
+                RelationType::Inheritance
+            };
+        }
     }
 
     pub fn extend(&mut self, other: Diagram) {
@@ -258,6 +280,7 @@ mod tests {
             from: "A1".to_string(),
             to: "Base".to_string(),
             relation_type: RelationType::Inheritance,
+            is_stdlib_abstract_or_protocol: false,
         });
         a.add_composition(CompositionEdge {
             container: "A1".to_string(),
@@ -276,6 +299,7 @@ mod tests {
             from: "B1".to_string(),
             to: "Base".to_string(),
             relation_type: RelationType::Implementation,
+            is_stdlib_abstract_or_protocol: false,
         });
         b.add_composition(CompositionEdge {
             container: "B1".to_string(),

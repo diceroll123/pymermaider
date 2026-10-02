@@ -342,13 +342,13 @@ class User(UserBase):
         + str password
     }
 
-    ItemBase --|> pydantic.BaseModel
+    ItemBase --|> `pydantic.BaseModel`
 
     ItemCreate --|> ItemBase
 
     Item --|> ItemBase
 
-    UserBase --|> pydantic.BaseModel
+    UserBase --|> `pydantic.BaseModel`
 
     UserCreate --|> UserBase
 
@@ -824,4 +824,40 @@ class Multi(Protocol, Base):
         out.contains("Multi ..|> Base") || out.contains("Multi --|> Base"),
         "{out}"
     );
+}
+
+#[test]
+fn test_forward_defined_abstract_base_is_implementation() {
+    let source = r"
+from abc import ABC, abstractmethod
+
+class Child(Base):
+    pass
+
+class Base(ABC):
+    @abstractmethod
+    def run(self) -> None: ...
+";
+
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
+
+    assert!(out.contains("Child ..|> Base"), "{out}");
+}
+
+#[test]
+fn test_dotted_base_is_backticked() {
+    let source = r"
+import pydantic
+
+class Item(pydantic.BaseModel):
+    pass
+";
+
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
+
+    assert!(out.contains("Item --|> `pydantic.BaseModel`"), "{out}");
 }
