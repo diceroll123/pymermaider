@@ -977,7 +977,6 @@ class Car:
 }
 
 #[test]
-#[test]
 fn test_special_characters_in_annotations_are_escaped() {
     let source = r#"
 class Config:
