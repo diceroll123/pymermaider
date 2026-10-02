@@ -1216,3 +1216,36 @@ class Point:
 
     assert!(out.contains("<<dataclass>>"), "{out}");
 }
+
+#[test]
+fn test_protected_and_private_visibility() {
+    let source = r"
+class Thing:
+    _protected: int
+    __private: int
+    __dunder__: int
+    public: int
+
+    def _helper(self) -> None: ...
+    def __mangled(self) -> None: ...
+";
+
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
+
+    assert!(out.contains("# int \\_protected"), "{out}");
+    assert!(out.contains("- int \\_\\_private"), "{out}");
+    assert!(out.contains("+ int \\_\\_dunder__"), "{out}");
+    assert!(out.contains("# \\_helper(self) None"), "{out}");
+    assert!(out.contains("- \\_\\_mangled(self) None"), "{out}");
+
+    // --hide-private-members hides both protected and private members
+    let mut hidden = ClassDiagram::default();
+    hidden.set_hide_private_members(true);
+    hidden.add_source(source);
+    let out = hidden.render().unwrap_or_default();
+    assert!(!out.contains("protected"), "{out}");
+    assert!(!out.contains("helper"), "{out}");
+    assert!(out.contains("public"), "{out}");
+}

@@ -2,10 +2,33 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Visibility {
     Public,
+    /// Name-mangled members (`__x`)
     Private,
-    /// Reserved for future use - Python doesn't have true protected visibility
-    #[allow(dead_code)]
+    /// Conventionally non-public members (`_x`)
     Protected,
+}
+
+impl Visibility {
+    /// Visibility by Python naming convention: dunder names are public,
+    /// `__x` is private (name-mangled) and `_x` is protected.
+    #[must_use]
+    pub fn from_name(name: &str) -> Self {
+        if name.starts_with("__") && name.ends_with("__") {
+            Self::Public
+        } else if name.starts_with("__") {
+            Self::Private
+        } else if name.starts_with('_') {
+            Self::Protected
+        } else {
+            Self::Public
+        }
+    }
+
+    /// True for members hidden by `--hide-private-members` (`_x` and `__x`).
+    #[must_use]
+    pub const fn is_non_public(self) -> bool {
+        !matches!(self, Self::Public)
+    }
 }
 
 /// Represents a class attribute/field
