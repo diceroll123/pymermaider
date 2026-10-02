@@ -37,6 +37,8 @@ pub enum ClassType {
     Interface,
     Enumeration,
     Dataclass,
+    NamedTuple,
+    TypedDict,
     Final,
 }
 
@@ -63,6 +65,8 @@ pub struct RelationshipEdge {
     pub from: String,
     pub to: String,
     pub relation_type: RelationType,
+    /// The base is a stdlib ABC or Protocol, so the edge is always an implementation.
+    pub is_stdlib_abstract_or_protocol: bool,
 }
 
 /// Represents a composition relationship
@@ -120,6 +124,9 @@ pub struct Diagram {
     pub relationships: Vec<RelationshipEdge>,
     pub compositions: Vec<CompositionEdge>,
     abstract_or_interface_index: std::collections::HashMap<String, bool>,
+    /// Maps a class's own (bare) name to its emitted name, plus the nesting depth
+    /// it was registered at. Used to point references at nested/qualified classes.
+    name_registry: std::collections::HashMap<String, (String, usize)>,
 }
 
 impl Diagram {
@@ -144,6 +151,38 @@ impl Diagram {
         self.classes.push(class);
     }
 
+    /// Register a class's bare name against its emitted name.
+    /// Shallower definitions win; among equal depth the first one registered wins.
+    pub fn register_name(&mut self, local: &str, emitted: &str, depth: usize) {
+        match self.name_registry.get(local) {
+            Some((_, existing_depth)) if *existing_depth <= depth => {}
+            _ => {
+                self.name_registry
+                    .insert(local.to_owned(), (emitted.to_owned(), depth));
+            }
+        }
+    }
+
+    /// Rewrite relationship and composition targets that use a bare class name
+    /// so they match the emitted (qualified) name of the class.
+    /// Names that are not registered (e.g. external bases) are left untouched.
+    pub fn resolve_references(&mut self) {
+        let registry = &self.name_registry;
+        let resolve = |name: &mut String| {
+            if let Some((emitted, _)) = registry.get(name.as_str()) {
+                if emitted != name {
+                    name.clone_from(emitted);
+                }
+            }
+        };
+        for rel in &mut self.relationships {
+            resolve(&mut rel.to);
+        }
+        for comp in &mut self.compositions {
+            resolve(&mut comp.contained);
+        }
+    }
+
     pub fn add_relationship(&mut self, relationship: RelationshipEdge) {
         self.relationships.push(relationship);
     }
@@ -160,10 +199,33 @@ impl Diagram {
             .unwrap_or(false)
     }
 
+    /// Set each relationship's type from the complete set of known classes.
+    /// Must run after all classes are added so that bases defined later in the
+    /// source (or in another file) are classified the same as earlier ones.
+    pub fn finalize_relation_types(&mut self) {
+        let index = &self.abstract_or_interface_index;
+        for rel in &mut self.relationships {
+            let base_is_abstract = rel.is_stdlib_abstract_or_protocol
+                || index.get(&rel.to).copied().unwrap_or(false)
+                || index
+                    .get(rel.to.trim_matches('`'))
+                    .copied()
+                    .unwrap_or(false);
+            rel.relation_type = if base_is_abstract {
+                RelationType::Implementation
+            } else {
+                RelationType::Inheritance
+            };
+        }
+    }
+
     pub fn extend(&mut self, other: Diagram) {
         self.classes.extend(other.classes);
         self.relationships.extend(other.relationships);
         self.compositions.extend(other.compositions);
+        for (local, (emitted, depth)) in other.name_registry {
+            self.register_name(&local, &emitted, depth);
+        }
         for (name, other_flag) in other.abstract_or_interface_index {
             self.abstract_or_interface_index
                 .entry(name)
@@ -258,6 +320,7 @@ mod tests {
             from: "A1".to_string(),
             to: "Base".to_string(),
             relation_type: RelationType::Inheritance,
+            is_stdlib_abstract_or_protocol: false,
         });
         a.add_composition(CompositionEdge {
             container: "A1".to_string(),
@@ -276,6 +339,7 @@ mod tests {
             from: "B1".to_string(),
             to: "Base".to_string(),
             relation_type: RelationType::Implementation,
+            is_stdlib_abstract_or_protocol: false,
         });
         b.add_composition(CompositionEdge {
             container: "B1".to_string(),

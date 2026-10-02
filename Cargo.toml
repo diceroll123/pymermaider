@@ -13,6 +13,10 @@ crate-type = ["cdylib", "rlib"]
 [package.metadata.wasm-pack.profile.release]
 wasm-opt = ["-O4", "--enable-bulk-memory"]
 
+[[bench]]
+name = "diagram_benches"
+harness = false
+
 [[bin]]
 name = "pymermaider"
 path = "src/main.rs"
@@ -46,6 +50,12 @@ uuid = { version = "1", features = ["v4", "js"] }
 tempfile = "3.23.0"
 anyhow = "1.0.100"
 ctor = "1.0.0"
+criterion = { version = "0.5", default-features = false }
+divan = { version = "5.0.0", package = "codspeed-divan-compat" }
+
+[[bench]]
+name = "parse_render"
+harness = false
 
 [features]
 default = ["cli"]

@@ -53,7 +53,7 @@ impl Mermaider {
         }
 
         if root.is_file() {
-            let mut diagram = self.make_mermaid(std::slice::from_ref(&root.to_path_buf()));
+            let mut diagram = self.make_mermaid(std::slice::from_ref(&root.to_path_buf()), None);
             diagram.path = root.to_string_lossy().into_owned();
             diagram.set_show_title(!self.args.no_title);
             return vec![diagram];
@@ -67,7 +67,7 @@ impl Mermaider {
                 return parsed_files
                     .par_iter()
                     .map(|parsed_file| {
-                        let mut diagram = self.make_mermaid_for_file(parsed_file);
+                        let mut diagram = self.make_mermaid_for_file(parsed_file, None);
                         diagram.path = parsed_file
                             .strip_prefix(root)
                             .unwrap_or(parsed_file.as_path())
@@ -79,7 +79,7 @@ impl Mermaider {
                     .collect();
             }
 
-            let mut diagram = self.make_mermaid(&parsed_files);
+            let mut diagram = self.make_mermaid(&parsed_files, Some(root));
             let canonical_path = root.canonicalize().unwrap_or_else(|_| root.to_path_buf());
             canonical_path
                 .file_name()
@@ -94,12 +94,35 @@ impl Mermaider {
         vec![]
     }
 
-    fn make_mermaid_for_file(&self, file: &Path) -> ClassDiagram {
+    /// Dotted module path of `file` relative to `root`, e.g. `models/user.py` -> `models.user`.
+    /// `__init__.py` maps to its package, and a root-level `__init__.py` has no prefix.
+    fn module_prefix(file: &Path, root: &Path) -> String {
+        let relative = file.strip_prefix(root).unwrap_or(file);
+        let mut parts: Vec<String> = relative
+            .with_extension("")
+            .components()
+            .filter_map(|c| match c {
+                std::path::Component::Normal(part) => Some(part.to_string_lossy().into_owned()),
+                _ => None,
+            })
+            .collect();
+        if parts.last().is_some_and(|last| last == "__init__") {
+            parts.pop();
+        }
+        parts.join(".")
+    }
+
+    /// Build the diagram for one file. When `qualify_root` is set, class names are
+    /// qualified with the file's module path relative to that root.
+    fn make_mermaid_for_file(&self, file: &Path, qualify_root: Option<&Path>) -> ClassDiagram {
         let options = RenderOptions {
             direction: self.args.direction,
             hide_private_members: self.args.hide_private_members,
         };
         let mut diagram = ClassDiagram::new(options);
+        if let Some(root) = qualify_root {
+            diagram.set_module_prefix(&Self::module_prefix(file, root));
+        }
         match std::fs::read_to_string(file) {
             Ok(source) => {
                 diagram.add_file(&source, file);
@@ -112,7 +135,9 @@ impl Mermaider {
         diagram
     }
 
-    fn make_mermaid(&self, parsed_files: &[PathBuf]) -> ClassDiagram {
+    /// Combine files into one diagram. With `qualify_root`, class names are qualified by
+    /// module path so same-named classes in different files stay distinct.
+    fn make_mermaid(&self, parsed_files: &[PathBuf], qualify_root: Option<&Path>) -> ClassDiagram {
         use rayon::prelude::*;
         let options = RenderOptions {
             direction: self.args.direction,
@@ -120,7 +145,7 @@ impl Mermaider {
         };
         let per_file: Vec<ClassDiagram> = parsed_files
             .par_iter()
-            .map(|file| self.make_mermaid_for_file(file))
+            .map(|file| self.make_mermaid_for_file(file, qualify_root))
             .collect();
         per_file
             .into_iter()
@@ -328,8 +353,8 @@ mod tests {
         // Should have one combined diagram with only User (from models)
         assert_eq!(diagrams.len(), 1);
         let rendered = diagrams[0].render().unwrap();
-        assert!(rendered.contains("class User"));
-        assert!(!rendered.contains("class HomeView"));
+        assert!(rendered.contains("class `models.user.User`"));
+        assert!(!rendered.contains("HomeView"));
         Ok(())
     }
 
@@ -366,11 +391,81 @@ mod tests {
         assert_eq!(diagrams.len(), 1);
         let rendered = diagrams[0].render().unwrap();
         assert!(
-            !rendered.contains("class User"),
+            !rendered.contains("User"),
             "exclude should win over include"
         );
-        assert!(rendered.contains("class Settings"));
+        assert!(rendered.contains("class `models.settings.Settings`"));
         Ok(())
+    }
+
+    #[test]
+    fn test_same_class_name_in_two_files_is_disambiguated() -> Result<()> {
+        init_logger();
+        let temp = TempDir::new()?;
+        std::fs::create_dir_all(temp.path().join("a"))?;
+        std::fs::create_dir_all(temp.path().join("b"))?;
+        std::fs::File::create(temp.path().join("a").join("models.py"))?
+            .write_all(b"class Config:\n    x: int\n\nclass User(Config): ...\n")?;
+        std::fs::File::create(temp.path().join("b").join("models.py"))?
+            .write_all(b"class Config:\n    y: str\n")?;
+        std::fs::File::create(temp.path().join("b").join("__init__.py"))?
+            .write_all(b"class Pkg: ...")?;
+
+        let mermaider = Mermaider::new(default_args(), default_settings(temp.path()));
+        let diagrams = mermaider.generate_diagrams();
+
+        assert_eq!(diagrams.len(), 1);
+        let rendered = diagrams[0].render().unwrap();
+        assert!(rendered.contains("class `a.models.Config`"), "{rendered}");
+        assert!(rendered.contains("class `b.models.Config`"), "{rendered}");
+        assert!(rendered.contains("class `b.Pkg`"), "{rendered}");
+        // Same-file reference resolves to the class from the same module
+        assert!(
+            rendered.contains("`a.models.User` --|> `a.models.Config`"),
+            "{rendered}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_imported_base_links_to_qualified_class() -> Result<()> {
+        init_logger();
+        let temp = TempDir::new()?;
+        std::fs::create_dir_all(temp.path().join("models"))?;
+        std::fs::File::create(temp.path().join("models").join("user.py"))?
+            .write_all(b"class User: ...")?;
+        std::fs::File::create(temp.path().join("admin.py"))?
+            .write_all(b"from models.user import User\n\nclass Admin(User): ...\n")?;
+
+        let mermaider = Mermaider::new(default_args(), default_settings(temp.path()));
+        let rendered = mermaider.generate_diagrams()[0].render().unwrap();
+
+        assert!(
+            rendered.contains("`admin.Admin` --|> `models.user.User`"),
+            "{rendered}"
+        );
+        Ok(())
+    }
+
+    #[test]
+    fn test_module_prefix() {
+        let root = Path::new("/proj");
+        assert_eq!(
+            Mermaider::module_prefix(Path::new("/proj/models/user.py"), root),
+            "models.user"
+        );
+        assert_eq!(
+            Mermaider::module_prefix(Path::new("/proj/pkg/__init__.py"), root),
+            "pkg"
+        );
+        assert_eq!(
+            Mermaider::module_prefix(Path::new("/proj/test.py"), root),
+            "test"
+        );
+        assert_eq!(
+            Mermaider::module_prefix(Path::new("/proj/__init__.py"), root),
+            ""
+        );
     }
 
     #[test]

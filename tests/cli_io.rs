@@ -182,8 +182,8 @@ fn include_flag_filters_files() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("class User"));
-    assert!(!stdout.contains("class HomeView"));
+    assert!(stdout.contains("class `models.user.User`"));
+    assert!(!stdout.contains("HomeView"));
 }
 
 #[test]

@@ -15,9 +15,11 @@ class TestClass:
 
     let expected_output = r"classDiagram
     class TestClass {
-        + \_\_init__(self, x, y) None
-        + add(self, x, y) int
-        + subtract(self, x, y) int
+        + int x
+        + int y
+        + \_\_init__(self, x: int, y: int) None
+        + add(self, x: int, y: int) int
+        + subtract(self, x: int, y: int) int
     }
 ";
 
@@ -138,7 +140,7 @@ class Thing:
 
     let expected_output = "classDiagram
     class Thing {
-        + @classmethod async foo(cls, first, /, *second, kwarg, **unpack_this) dict[str, str]
+        + @classmethod async foo(cls, first, /, *second, kwarg: bool = True, **unpack_this) dict~str, str~
     }
 ";
 
@@ -229,7 +231,7 @@ class Car:
 
     class Car {
         + Engine engine
-        + list[Wheel] wheels
+        + list~Wheel~ wheels
         + drive(self) None
     }
 
@@ -335,20 +337,28 @@ class User(UserBase):
     class User {
         + int id
         + bool is_active
-        + list[Item] items
+        + list~Item~ items
     }
 
     class UserCreate {
         + str password
     }
 
-    ItemBase --|> pydantic.BaseModel
+    class `Item.Config` {
+        + bool orm_mode
+    }
+
+    class `User.Config` {
+        + bool orm_mode
+    }
+
+    ItemBase --|> `pydantic.BaseModel`
 
     ItemCreate --|> ItemBase
 
     Item --|> ItemBase
 
-    UserBase --|> pydantic.BaseModel
+    UserBase --|> `pydantic.BaseModel`
 
     UserCreate --|> UserBase
 
@@ -376,8 +386,9 @@ class Thing:
 
     let expected_output = r"classDiagram
     class Thing {
-        + @overload \_\_init__(self, x, y) None
-        + \_\_init__(self, x, y) None
+        + @overload \_\_init__(self, x: int, y: int) None
+        + @overload \_\_init__(self, x: str, y: str) None
+        + \_\_init__(self, x: int | str, y: int | str) None
     }
 ";
 
@@ -484,7 +495,7 @@ class Thing:
 ";
     let expected_output = "classDiagram
     class Thing {
-        + @staticmethod static_method(x, y) int$
+        + @staticmethod static_method(x: int, y: int) int$
     }
 ";
 
@@ -628,7 +639,8 @@ class FancyStore(Store[datetime], Generic[FancyStorage]):
     }
 
     class FancyStore ~FancyStorage~ {
-        + \_\_init__(self, fancy_store) None
+        + FancyStorage storage
+        + \_\_init__(self, fancy_store: FancyStorage) None
         + insert(self, data) None
     }
 
@@ -778,4 +790,429 @@ fn test_syntax_errors_are_collected() {
     let mut ok = ClassDiagram::default();
     ok.add_source("class B: ...\n");
     assert!(ok.syntax_errors().is_empty());
+}
+
+#[test]
+fn test_members_in_conditional_class_body_blocks() {
+    let source = r"
+class Thing:
+    base: int
+
+    if TYPE_CHECKING:
+        typed_only: str
+
+    try:
+        from fast import speed as speed_impl
+    except ImportError:
+        def slow(self) -> None: ...
+";
+
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
+
+    assert!(out.contains("+ int base"), "{out}");
+    assert!(out.contains("+ str typed_only"), "{out}");
+    assert!(out.contains("+ slow(self) None"), "{out}");
+}
+
+#[test]
+fn test_generic_protocol_is_interface_without_phantom_edge() {
+    let source = r"
+from typing import Protocol, TypeVar
+
+T = TypeVar('T')
+
+class Base:
+    pass
+
+class Repo(Protocol[T]):
+    def get(self, key: str) -> T: ...
+
+class Multi(Protocol, Base):
+    def run(self) -> None: ...
+";
+
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
+
+    assert!(
+        out.contains("class Repo ~T~ {\n        <<interface>>"),
+        "{out}"
+    );
+    assert!(
+        out.contains("class Multi {\n        <<interface>>"),
+        "{out}"
+    );
+    assert!(!out.contains("Protocol"), "{out}");
+    assert!(
+        out.contains("Multi ..|> Base") || out.contains("Multi --|> Base"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_forward_defined_abstract_base_is_implementation() {
+    let source = r"
+from abc import ABC, abstractmethod
+
+class Child(Base):
+    pass
+
+class Base(ABC):
+    @abstractmethod
+    def run(self) -> None: ...
+";
+
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
+
+    assert!(out.contains("Child ..|> Base"), "{out}");
+}
+
+#[test]
+fn test_dotted_base_is_backticked() {
+    let source = r"
+import pydantic
+
+class Item(pydantic.BaseModel):
+    pass
+";
+
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
+
+    assert!(out.contains("Item --|> `pydantic.BaseModel`"), "{out}");
+}
+
+#[test]
+fn test_nested_classes_use_qualified_names() {
+    let source = r"
+class Outer:
+    class Inner:
+        x: int
+
+        class Deep:
+            y: int
+
+    inner: Inner
+";
+
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
+
+    assert!(out.contains("class Outer"), "{out}");
+    assert!(out.contains("class `Outer.Inner`"), "{out}");
+    assert!(out.contains("class `Outer.Inner.Deep`"), "{out}");
+    // Bare reference to the nested class resolves to its qualified name
+    assert!(out.contains("Outer *-- `Outer.Inner`"), "{out}");
+}
+
+#[test]
+fn test_nested_class_as_base_resolves_to_qualified_name() {
+    let source = r"
+class Outer:
+    class Base:
+        pass
+
+    class Child(Base):
+        pass
+";
+
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
+
+    assert!(out.contains("`Outer.Child` --|> `Outer.Base`"), "{out}");
+}
+
+#[test]
+fn test_top_level_class_wins_over_nested_with_same_name() {
+    let source = r"
+class Config:
+    pass
+
+class Item:
+    class Config:
+        pass
+
+class User(Config):
+    pass
+";
+
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
+
+    assert!(out.contains("User --|> Config"), "{out}");
+}
+
+#[test]
+fn test_class_defined_in_function_body() {
+    let source = r"
+def make():
+    class Local:
+        pass
+";
+
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
+
+    assert!(out.contains("class `make.Local`"), "{out}");
+}
+
+#[test]
+fn test_imported_composition_types_are_kept_and_qualified() {
+    let source = r"
+from pathlib import Path
+from decimal import Decimal
+
+class Engine:
+    pass
+
+class Car:
+    engine: Engine
+    home: Path
+    price: Decimal
+";
+
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
+
+    assert!(out.contains("Car *-- Engine"), "{out}");
+    assert!(out.contains("Car *-- `pathlib.Path`"), "{out}");
+    assert!(out.contains("Car *-- `decimal.Decimal`"), "{out}");
+}
+
+#[test]
+fn test_special_characters_in_annotations_are_escaped() {
+    let source = r#"
+class Config:
+    handler: Callable[[int], str]
+    mapping: dict[str, list[int]]
+    mode: Literal["a", "b"]
+"#;
+
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
+
+    assert!(out.contains("dict~str, list~int~~ mapping"), "{out}");
+    assert!(
+        out.contains("Literal~#quot;a#quot;, #quot;b#quot;~ mode"),
+        "{out}"
+    );
+    assert!(!out.contains('['), "{out}");
+}
+
+#[test]
+fn test_instance_attributes_from_init() {
+    let source = r#"
+class Engine:
+    pass
+
+class Car:
+    wheels: int
+
+    def __init__(self, name: str, engine: "Engine", wheels: int = 4) -> None:
+        self.name = name
+        self.engine: Engine = engine
+        self._secret = 1.5
+        self.wheels = wheels
+        if name:
+            self.flag = True
+"#;
+
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
+
+    assert!(out.contains("+ str name"), "{out}");
+    assert!(out.contains("+ Engine engine"), "{out}");
+    assert!(out.contains("- float \\_secret"), "{out}");
+    assert!(out.contains("+ bool flag"), "{out}");
+    // Declared at class level, so not duplicated by the __init__ assignment
+    assert_eq!(out.matches(" wheels\n").count(), 1, "{out}");
+    assert!(out.contains("Car *-- Engine"), "{out}");
+    assert!(
+        out.contains("init__(self, name: str, engine: Engine, wheels: int = 4) None"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_parameter_defaults_without_annotations() {
+    let source = r#"
+class Thing:
+    def run(self, a, b=2, *, c: str = "x") -> None:
+        pass
+"#;
+
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
+
+    assert!(
+        out.contains("run(self, a, b=2, *, c: str = #quot;x#quot;) None"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_method_kinds_and_decorators() {
+    let source = r"
+from abc import ABC, abstractmethod
+from typing import final
+
+class Base(ABC):
+    @abstractmethod
+    def run(self) -> None: ...
+
+    @classmethod
+    def make(cls) -> 'Base': ...
+
+    @staticmethod
+    def helper() -> int: ...
+
+    @final
+    def locked(self) -> None: ...
+
+    async def fetch(self) -> bytes: ...
+";
+
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
+
+    assert!(out.contains("<<abstract>>"), "{out}");
+    assert!(out.contains("run(self) None*"), "{out}");
+    assert!(out.contains("@classmethod make(cls)"), "{out}");
+    assert!(out.contains("@staticmethod helper() int$"), "{out}");
+    assert!(out.contains("@final locked(self) None"), "{out}");
+    assert!(out.contains("async fetch(self) bytes"), "{out}");
+}
+
+#[test]
+fn test_property_setter_and_deleter_are_omitted() {
+    let source = r"
+class Thing:
+    @property
+    def value(self) -> int: ...
+
+    @value.setter
+    def value(self, v: int) -> None: ...
+
+    @value.deleter
+    def value(self) -> None: ...
+";
+
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
+
+    assert_eq!(out.matches("value").count(), 1, "{out}");
+    assert!(out.contains("+ int value"), "{out}");
+}
+
+#[test]
+fn test_classvar_attribute_is_listed() {
+    let source = r"
+from typing import ClassVar
+
+class Thing:
+    count: ClassVar[int]
+";
+
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
+
+    assert!(out.contains("ClassVar"), "{out}");
+    assert!(out.contains("count"), "{out}");
+}
+
+#[test]
+fn test_keyword_only_and_variadic_parameters() {
+    let source = r"
+class Thing:
+    def run(self, a, /, b, *args, c, **kwargs) -> None: ...
+";
+
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
+
+    assert!(
+        out.contains("run(self, a, /, b, *args, c, **kwargs) None"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_namedtuple_and_typeddict_have_stereotypes_without_phantom_edges() {
+    let source = r"
+from typing import NamedTuple, TypedDict
+
+class Point(NamedTuple):
+    x: int
+    y: int
+
+class Movie(TypedDict):
+    title: str
+";
+
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
+
+    assert!(
+        out.contains("class Point {\n        <<namedtuple>>"),
+        "{out}"
+    );
+    assert!(
+        out.contains("class Movie {\n        <<typeddict>>"),
+        "{out}"
+    );
+    assert!(!out.contains("--|>"), "{out}");
+}
+
+#[test]
+fn test_abstract_dataclass_keeps_abstract_stereotype() {
+    let source = r"
+from abc import ABC
+from dataclasses import dataclass
+
+@dataclass
+class Shape(ABC):
+    name: str
+";
+
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
+
+    assert!(out.contains("<<abstract>>"), "{out}");
+}
+
+#[test]
+fn test_attrs_classes_are_dataclasses() {
+    let source = r"
+import attrs
+
+@attrs.define
+class Point:
+    x: int
+";
+
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
+
+    assert!(out.contains("<<dataclass>>"), "{out}");
 }

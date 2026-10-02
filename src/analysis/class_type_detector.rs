@@ -30,10 +30,15 @@ impl<'a> ClassTypeDetector<'a> {
     pub fn detect_type(&self, class: &ast::StmtClassDef) -> ClassType {
         if class.is_protocol(self.semantic) {
             ClassType::Interface
+        } else if self.is_abstract(class) {
+            // An abstract dataclass is still abstract: that is the more structural fact
+            ClassType::Abstract
         } else if class.is_dataclass(self.semantic) {
             ClassType::Dataclass
-        } else if self.is_abstract(class) {
-            ClassType::Abstract
+        } else if class.is_named_tuple(self.semantic) {
+            ClassType::NamedTuple
+        } else if class.is_typed_dict(self.semantic) {
+            ClassType::TypedDict
         } else if class.is_enum(self.semantic) {
             ClassType::Enumeration
         } else if class.is_final(self.semantic) {
@@ -65,6 +70,10 @@ impl<'a> ClassTypeDetector<'a> {
     /// Used for determining relationship types (solid vs dotted lines).
     pub fn is_stdlib_abstract_or_protocol(&self, base_expr: &ast::Expr) -> bool {
         // Check if it's a standard library Protocol or ABC
+        let base_expr = match base_expr {
+            ast::Expr::Subscript(subscript) => subscript.value.as_ref(),
+            other => other,
+        };
         self.semantic
             .resolve_qualified_name(base_expr)
             .is_some_and(|name| {

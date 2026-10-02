@@ -22,6 +22,7 @@ use ruff_python_semantic::analyze::visibility::{
 };
 use ruff_python_semantic::{Module, ModuleKind, ModuleSource, SemanticModel};
 use ruff_python_stdlib::typing::simple_magic_return_type;
+use std::collections::HashMap;
 use std::path::Path;
 
 /// Represents a class member (attribute or method) during processing
@@ -36,7 +37,7 @@ enum BaseKind {
     Skip,
     InheritanceTarget {
         name: String,
-        is_abstract_or_protocol: bool,
+        is_stdlib_abstract_or_protocol: bool,
     },
 }
 
@@ -48,6 +49,8 @@ pub struct ClassDiagram {
     /// Syntax errors found in the added sources. Parsing is lenient, so output
     /// may still be produced for the valid parts.
     syntax_errors: Vec<String>,
+    /// Dotted module path prepended to every emitted class name (empty for none).
+    module_prefix: String,
 }
 
 impl Default for ClassDiagram {
@@ -65,6 +68,7 @@ impl ClassDiagram {
             path: String::new(),
             show_title: true,
             syntax_errors: Vec::new(),
+            module_prefix: String::new(),
         }
     }
 
@@ -79,6 +83,12 @@ impl ClassDiagram {
         &self.syntax_errors
     }
 
+    /// Qualify every class emitted from now on with a dotted module path,
+    /// e.g. `models.user` turns `User` into `models.user.User`.
+    pub fn set_module_prefix(&mut self, prefix: &str) {
+        prefix.clone_into(&mut self.module_prefix);
+    }
+
     pub const fn set_hide_private_members(&mut self, hide: bool) {
         self.options.hide_private_members = hide;
     }
@@ -91,6 +101,8 @@ impl ClassDiagram {
     pub fn merge(mut self, other: Self) -> Self {
         self.syntax_errors.extend(other.syntax_errors);
         self.diagram.extend(other.diagram);
+        self.diagram.resolve_references();
+        self.diagram.finalize_relation_types();
         self
     }
 
@@ -115,7 +127,32 @@ impl ClassDiagram {
         class: &ast::StmtClassDef,
         _indent_level: usize,
     ) {
-        let class_name = class.name.to_string();
+        self.add_class_in_scope(checker, class, &[]);
+    }
+
+    /// Add a class nested inside `enclosing` (outermost first). Nested classes are
+    /// emitted under their dotted path, e.g. `Outer.Inner`.
+    fn add_class_in_scope(
+        &mut self,
+        checker: &Checker,
+        class: &ast::StmtClassDef,
+        enclosing: &[&str],
+    ) {
+        let local_name = class.name.as_str();
+        let class_name = if enclosing.is_empty() && self.module_prefix.is_empty() {
+            local_name.to_owned()
+        } else {
+            let path = std::iter::once(self.module_prefix.as_str())
+                .filter(|prefix| !prefix.is_empty())
+                .chain(enclosing.iter().copied())
+                .chain(std::iter::once(local_name))
+                .collect::<Vec<_>>()
+                .join(".");
+            let normalized = QualifiedName::user_defined(&path).normalize_name();
+            normalized
+        };
+        self.diagram
+            .register_name(local_name, &class_name, enclosing.len());
 
         // Find generic type parameters - either from explicit [T] syntax or Generic[T] bases
         let generic_type_var = class.type_params.as_ref().map_or_else(
@@ -143,22 +180,33 @@ impl ClassDiagram {
             },
         );
 
-        // Detect composition relationships from class attributes
+        // Detect composition relationships from class attributes and collect members
         let mut composition_types: IndexSet<String> = IndexSet::new();
-        for stmt in &class.body {
+        let mut members: IndexSet<ClassMember> = IndexSet::new();
+        for stmt in Self::flatten_class_body(&class.body) {
             if let ast::Stmt::AnnAssign(ast::StmtAnnAssign { annotation, .. }) = stmt {
                 composition_types.extend(type_analyzer::extract_composition_types(
                     annotation.as_ref(),
                     checker,
                 ));
             }
-        }
-
-        // Process class body statements
-        let mut members: IndexSet<ClassMember> = IndexSet::new();
-        for stmt in &class.body {
             if let Some(member) = Self::process_stmt_to_member(checker, stmt) {
                 members.insert(member);
+            }
+        }
+
+        // Collect instance attributes assigned through `self` in `__init__`
+        for (attr, annotation) in Self::collect_instance_attributes(checker, class) {
+            if let Some(annotation) = annotation {
+                composition_types.extend(type_analyzer::extract_composition_types(
+                    annotation, checker,
+                ));
+            }
+            let already_declared = members
+                .iter()
+                .any(|m| matches!(m, ClassMember::Attribute(a) if a.name == attr.name));
+            if !already_declared {
+                members.insert(ClassMember::Attribute(attr));
             }
         }
 
@@ -191,7 +239,7 @@ impl ClassDiagram {
         for base in class.bases() {
             let BaseKind::InheritanceTarget {
                 name,
-                is_abstract_or_protocol,
+                is_stdlib_abstract_or_protocol,
             } = self.classify_base(checker, &detector, base, class_is_enum)
             else {
                 continue;
@@ -199,25 +247,231 @@ impl ClassDiagram {
             let rel = RelationshipEdge {
                 from: class_name.clone(),
                 to: name,
-                relation_type: if is_abstract_or_protocol {
-                    RelationType::Implementation
-                } else {
-                    RelationType::Inheritance
-                },
+                // Final type is decided in `finalize_relation_types` once every class is known
+                relation_type: RelationType::Inheritance,
+                is_stdlib_abstract_or_protocol,
             };
             self.diagram.add_relationship(rel);
         }
 
         // Add composition relationships
         for comp_type in &composition_types {
-            // Extract just the class name (remove module prefix if present)
-            let comp_display = comp_type.split('.').next_back().unwrap_or(comp_type);
-
+            // Imported types keep their module path (backticked, e.g. `pathlib.Path`) so
+            // same-named types from different modules stay distinct. Bare names are
+            // local classes and are resolved to their emitted name later.
             let comp = CompositionEdge {
                 container: class_name.clone(),
-                contained: comp_display.to_string(),
+                contained: QualifiedName::user_defined(comp_type).normalize_name(),
             };
             self.diagram.add_composition(comp);
+        }
+    }
+
+    /// Class body statements, including those nested in `if`/`try`/`with` blocks
+    /// (e.g. members defined under `if TYPE_CHECKING:` or `try: ... except ImportError:`).
+    fn flatten_class_body(body: &[ast::Stmt]) -> Vec<&ast::Stmt> {
+        let mut out = Vec::new();
+        for stmt in body {
+            match stmt {
+                ast::Stmt::If(ast::StmtIf {
+                    body,
+                    elif_else_clauses,
+                    ..
+                }) => {
+                    out.extend(Self::flatten_class_body(body));
+                    for clause in elif_else_clauses {
+                        out.extend(Self::flatten_class_body(&clause.body));
+                    }
+                }
+                ast::Stmt::Try(ast::StmtTry {
+                    body,
+                    handlers,
+                    orelse,
+                    finalbody,
+                    ..
+                }) => {
+                    out.extend(Self::flatten_class_body(body));
+                    for handler in handlers {
+                        let ast::ExceptHandler::ExceptHandler(h) = handler;
+                        out.extend(Self::flatten_class_body(&h.body));
+                    }
+                    out.extend(Self::flatten_class_body(orelse));
+                    out.extend(Self::flatten_class_body(finalbody));
+                }
+                ast::Stmt::With(ast::StmtWith { body, .. }) => {
+                    out.extend(Self::flatten_class_body(body));
+                }
+                other => out.push(other),
+            }
+        }
+        out
+    }
+
+    /// Find `self.x = ...` / `self.x: T = ...` assignments in `__init__`.
+    /// Returns each attribute along with its explicit annotation expression, if any.
+    fn collect_instance_attributes<'a>(
+        checker: &Checker,
+        class: &'a ast::StmtClassDef,
+    ) -> Vec<(Attribute, Option<&'a Expr>)> {
+        fn walk<'a>(
+            checker: &Checker,
+            stmts: &'a [ast::Stmt],
+            self_name: &str,
+            param_types: &HashMap<&str, &'a Expr>,
+            out: &mut Vec<(Attribute, Option<&'a Expr>)>,
+        ) {
+            let self_attr = |target: &Expr| -> Option<String> {
+                match target {
+                    Expr::Attribute(ast::ExprAttribute { value, attr, .. }) if matches!(value.as_ref(), Expr::Name(n) if n.id.as_str() == self_name) => {
+                        Some(attr.to_string())
+                    }
+                    _ => None,
+                }
+            };
+            let visibility = |name: &str| {
+                if name.starts_with('_') && !(name.starts_with("__") && name.ends_with("__")) {
+                    Visibility::Private
+                } else {
+                    Visibility::Public
+                }
+            };
+            for stmt in stmts {
+                match stmt {
+                    ast::Stmt::AnnAssign(ast::StmtAnnAssign {
+                        target, annotation, ..
+                    }) => {
+                        if let Some(name) = self_attr(target) {
+                            let type_annotation = match annotation.as_ref() {
+                                Expr::StringLiteral(l) => l.value.to_str().to_string(),
+                                other => checker.generator().expr(other),
+                            };
+                            out.push((
+                                Attribute {
+                                    visibility: visibility(&name),
+                                    name,
+                                    type_annotation,
+                                },
+                                Some(annotation.as_ref()),
+                            ));
+                        }
+                    }
+                    ast::Stmt::Assign(ast::StmtAssign { targets, value, .. }) => {
+                        for name in targets.iter().filter_map(self_attr) {
+                            let type_annotation = match value.as_ref() {
+                                Expr::Name(n) if param_types.contains_key(n.id.as_str()) => {
+                                    match param_types[n.id.as_str()] {
+                                        Expr::StringLiteral(l) => l.value.to_str().to_string(),
+                                        other => checker.generator().expr(other),
+                                    }
+                                }
+                                other => match ClassDiagram::infer_value_type(other) {
+                                    "" => "Any".to_owned(),
+                                    inferred => inferred.to_owned(),
+                                },
+                            };
+                            out.push((
+                                Attribute {
+                                    visibility: visibility(&name),
+                                    name,
+                                    type_annotation,
+                                },
+                                None,
+                            ));
+                        }
+                    }
+                    ast::Stmt::If(ast::StmtIf {
+                        body,
+                        elif_else_clauses,
+                        ..
+                    }) => {
+                        walk(checker, body, self_name, param_types, out);
+                        for clause in elif_else_clauses {
+                            walk(checker, &clause.body, self_name, param_types, out);
+                        }
+                    }
+                    ast::Stmt::With(ast::StmtWith { body, .. })
+                    | ast::Stmt::For(ast::StmtFor { body, .. })
+                    | ast::Stmt::While(ast::StmtWhile { body, .. }) => {
+                        walk(checker, body, self_name, param_types, out);
+                    }
+                    ast::Stmt::Try(ast::StmtTry {
+                        body,
+                        handlers,
+                        orelse,
+                        finalbody,
+                        ..
+                    }) => {
+                        walk(checker, body, self_name, param_types, out);
+                        for handler in handlers {
+                            let ast::ExceptHandler::ExceptHandler(h) = handler;
+                            walk(checker, &h.body, self_name, param_types, out);
+                        }
+                        walk(checker, orelse, self_name, param_types, out);
+                        walk(checker, finalbody, self_name, param_types, out);
+                    }
+                    _ => {}
+                }
+            }
+        }
+
+        let mut out = Vec::new();
+        for stmt in &class.body {
+            let ast::Stmt::FunctionDef(func) = stmt else {
+                continue;
+            };
+            if func.name.as_str() != "__init__" {
+                continue;
+            }
+            let Some(first) = func
+                .parameters
+                .posonlyargs
+                .iter()
+                .chain(&func.parameters.args)
+                .next()
+            else {
+                continue;
+            };
+            let param_types: HashMap<&str, &Expr> = func
+                .parameters
+                .iter_non_variadic_params()
+                .filter_map(|p| {
+                    p.parameter
+                        .annotation
+                        .as_deref()
+                        .map(|a| (p.parameter.name.as_str(), a))
+                })
+                .collect();
+            walk(
+                checker,
+                &func.body,
+                first.parameter.name.as_str(),
+                &param_types,
+                &mut out,
+            );
+        }
+        out
+    }
+
+    /// Cheap literal-based type inference for simple assignments.
+    fn infer_value_type(value: &Expr) -> &'static str {
+        match value {
+            Expr::BoolOp(_) | Expr::BooleanLiteral(_) => "bool",
+            Expr::BinOp(_) | Expr::UnaryOp(_) => "int",
+            Expr::Lambda(_) => "Callable",
+            Expr::DictComp(_) | Expr::Dict(_) => "dict",
+            Expr::Set(_) | Expr::SetComp(_) => "set",
+            Expr::FString(_) | Expr::StringLiteral(_) => "str",
+            Expr::NoneLiteral(_) => "None",
+            Expr::BytesLiteral(_) => "bytes",
+            Expr::EllipsisLiteral(_) => "...",
+            Expr::ListComp(_) | Expr::List(_) => "list",
+            Expr::Tuple(_) => "tuple",
+            Expr::NumberLiteral(inner) => match inner.value {
+                Number::Int(_) => "int",
+                Number::Float(_) => "float",
+                Number::Complex { .. } => "complex",
+            },
+            _ => "",
         }
     }
 
@@ -270,25 +524,7 @@ impl ClassDiagram {
 
             ast::Stmt::Assign(ast::StmtAssign { targets, value, .. }) => {
                 // Handle simple assignments (like enum members)
-                let value_type = match value.as_ref() {
-                    Expr::BoolOp(_) | Expr::BooleanLiteral(_) => "bool",
-                    Expr::BinOp(_) | Expr::UnaryOp(_) => "int",
-                    Expr::Lambda(_) => "Callable",
-                    Expr::DictComp(_) | Expr::Dict(_) => "dict",
-                    Expr::Set(_) | Expr::SetComp(_) => "set",
-                    Expr::FString(_) | Expr::StringLiteral(_) => "str",
-                    Expr::NoneLiteral(_) => "None",
-                    Expr::BytesLiteral(_) => "bytes",
-                    Expr::EllipsisLiteral(_) => "...",
-                    Expr::ListComp(_) | Expr::List(_) => "list",
-                    Expr::Tuple(_) => "tuple",
-                    Expr::NumberLiteral(inner) => match inner.value {
-                        Number::Int(_) => "int",
-                        Number::Float(_) => "float",
-                        Number::Complex { .. } => "complex",
-                    },
-                    _ => "",
-                };
+                let value_type = Self::infer_value_type(value.as_ref());
 
                 // For now, just handle the first target (typical for enums and simple assignments)
                 if let Some(Expr::Name(ast::ExprName { id: target, .. })) = targets.first() {
@@ -351,7 +587,8 @@ impl ClassDiagram {
                     }));
                 }
 
-                let mut param_gen = ParameterGenerator::new();
+                let render_expr = |expr: &Expr| checker.generator().expr(expr);
+                let mut param_gen = ParameterGenerator::new(&render_expr);
                 param_gen.unparse_parameters(parameters);
                 let params = param_gen.generate();
 
@@ -416,8 +653,12 @@ impl ClassDiagram {
         let qualified_name = checker.semantic().resolve_qualified_name(base);
 
         if qualified_name.as_ref().is_some_and(|name| {
-            matches!(name.segments(), ["typing", "Generic"])
+            matches!(name.segments(), ["typing" | "typing_extensions", "Generic"])
                 || matches!(name.segments(), ["" | "builtins", "object"])
+                || matches!(
+                    name.segments(),
+                    ["typing" | "typing_extensions", "NamedTuple" | "TypedDict"]
+                )
                 || is_abc_qualified_name(name)
                 || matches!(
                     name.segments(),
@@ -435,21 +676,19 @@ impl ClassDiagram {
             |base_name| base_name.normalize_name(),
         );
 
-        // Extract just the base class name without the generic specialization.
-        let base_display = base_name
+        // Extract just the base class name without the generic specialization,
+        // and quote it if it is not a valid bare Mermaid identifier (e.g. dotted names).
+        let plain = base_name
             .split('[')
             .next()
             .unwrap_or(&base_name)
             .trim_matches('`')
             .to_string();
-
-        // Check if the base class is abstract or a protocol (either built-in or user-defined).
-        let base_is_abstract_or_protocol = self.diagram.is_abstract_or_interface(&base_display)
-            || detector.is_stdlib_abstract_or_protocol(base);
+        let display = QualifiedName::user_defined(&plain).normalize_name();
 
         BaseKind::InheritanceTarget {
-            name: base_display,
-            is_abstract_or_protocol: base_is_abstract_or_protocol,
+            name: display,
+            is_stdlib_abstract_or_protocol: detector.is_stdlib_abstract_or_protocol(base),
         }
     }
 
@@ -488,13 +727,67 @@ impl ClassDiagram {
             .extend(parsed.syntax_errors.iter().cloned());
 
         self.add_classes_from_ast(&checker, &parsed.python_ast);
+        self.diagram.resolve_references();
+        self.diagram.finalize_relation_types();
     }
 
     fn add_classes_from_ast(&mut self, checker: &Checker, python_ast: &[ast::Stmt]) {
-        for stmt in python_ast {
-            if let ast::Stmt::ClassDef(class) = stmt {
-                // we only care about class definitions
-                self.add_class(checker, class, 1);
+        self.add_classes_in_scope(checker, python_ast, &mut Vec::new());
+    }
+
+    /// Walk statements looking for class definitions, descending into class bodies,
+    /// function bodies and compound statements. `scope` holds the enclosing
+    /// class/function names, outermost first.
+    fn add_classes_in_scope<'a>(
+        &mut self,
+        checker: &Checker,
+        stmts: &'a [ast::Stmt],
+        scope: &mut Vec<&'a str>,
+    ) {
+        for stmt in stmts {
+            match stmt {
+                ast::Stmt::ClassDef(class) => {
+                    self.add_class_in_scope(checker, class, scope);
+                    scope.push(class.name.as_str());
+                    self.add_classes_in_scope(checker, &class.body, scope);
+                    scope.pop();
+                }
+                ast::Stmt::FunctionDef(func) => {
+                    scope.push(func.name.as_str());
+                    self.add_classes_in_scope(checker, &func.body, scope);
+                    scope.pop();
+                }
+                ast::Stmt::If(ast::StmtIf {
+                    body,
+                    elif_else_clauses,
+                    ..
+                }) => {
+                    self.add_classes_in_scope(checker, body, scope);
+                    for clause in elif_else_clauses {
+                        self.add_classes_in_scope(checker, &clause.body, scope);
+                    }
+                }
+                ast::Stmt::With(ast::StmtWith { body, .. })
+                | ast::Stmt::For(ast::StmtFor { body, .. })
+                | ast::Stmt::While(ast::StmtWhile { body, .. }) => {
+                    self.add_classes_in_scope(checker, body, scope);
+                }
+                ast::Stmt::Try(ast::StmtTry {
+                    body,
+                    handlers,
+                    orelse,
+                    finalbody,
+                    ..
+                }) => {
+                    self.add_classes_in_scope(checker, body, scope);
+                    for handler in handlers {
+                        let ast::ExceptHandler::ExceptHandler(h) = handler;
+                        self.add_classes_in_scope(checker, &h.body, scope);
+                    }
+                    self.add_classes_in_scope(checker, orelse, scope);
+                    self.add_classes_in_scope(checker, finalbody, scope);
+                }
+                _ => {}
             }
         }
     }
