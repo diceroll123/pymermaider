@@ -14,7 +14,7 @@ use indexmap::IndexSet;
 use ruff_linter::source_kind::SourceKind;
 use ruff_linter::Locator;
 use ruff_python_ast::name::{QualifiedName, UnqualifiedName};
-use ruff_python_ast::{Expr, Number, PySourceType, PythonVersion};
+use ruff_python_ast::{Expr, Number, Operator, PySourceType, PythonVersion, UnaryOp};
 use ruff_python_codegen::Stylist;
 use ruff_python_parser::parse_unchecked_source;
 use ruff_python_semantic::analyze::visibility::{
@@ -472,8 +472,22 @@ impl ClassDiagram {
     /// Cheap literal-based type inference for simple assignments.
     fn infer_value_type(value: &Expr) -> &'static str {
         match value {
-            Expr::BoolOp(_) | Expr::BooleanLiteral(_) => "bool",
-            Expr::BinOp(_) | Expr::UnaryOp(_) => "int",
+            Expr::BooleanLiteral(_) => "bool",
+            // `a or b` evaluates to one of its operands, so the type is unknown.
+            Expr::BoolOp(_) => "",
+            Expr::UnaryOp(unary) => match unary.op {
+                UnaryOp::Not => "bool",
+                _ => Self::infer_value_type(&unary.operand),
+            },
+            Expr::BinOp(binop) => {
+                let left = Self::infer_value_type(&binop.left);
+                let right = Self::infer_value_type(&binop.right);
+                match binop.op {
+                    Operator::Div if matches!(left, "int" | "float") && left == right => "float",
+                    _ if left == right && matches!(left, "int" | "float" | "str" | "bytes") => left,
+                    _ => "",
+                }
+            }
             Expr::Lambda(_) => "Callable",
             Expr::DictComp(_) | Expr::Dict(_) => "dict",
             Expr::Set(_) | Expr::SetComp(_) => "set",
