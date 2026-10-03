@@ -10,8 +10,7 @@
       "groupSlug": "ruff",
       "automerge": true,
       "matchManagers": [
-        "cargo",
-        "cargo-lock"
+        "cargo"
       ],
       "matchDepNames": [
         "/^ruff_/",

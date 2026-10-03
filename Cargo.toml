@@ -51,7 +51,9 @@ console_error_panic_hook = { version = "0.1", optional = true }
 getrandom = { version = "0.4", features = ["wasm_js"] }
 uuid = { version = "1", features = ["v4", "js"] }
 
-# Real filesystem access for ty (venv and cross-file resolution); not available on wasm.
+# Real filesystem access for ty (venv and cross-file resolution). ruff_db's `os` feature does not
+# build for wasm32, hence the target table. Keep this tag equal to the `ruff_db` entry above;
+# Renovate bumps both with the other ruff crates, and a mismatch fails the build.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 ruff_db = { git = "https://github.com/astral-sh/ruff.git", tag = "0.16.10", default-features = false, features = ["os"], optional = true }
 
