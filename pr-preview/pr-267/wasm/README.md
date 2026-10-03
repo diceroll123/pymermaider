@@ -80,6 +80,9 @@ pymermaider [OPTIONS] <PATH>
 - `--hide-private-members`
   Hide private members (fields and methods with names starting with `_`) from the diagram.
 
+- `--python-version <X.Y>`
+  Target Python version. If omitted, detected by walking up from the input path to the nearest `pyproject.toml` (`project.requires-python`, lowest allowed version, same as ruff); falls back to the latest supported version.
+
 - `-h, --help`
   Display help information for the command.
 
