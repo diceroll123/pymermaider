@@ -132,6 +132,8 @@ impl Mermaider {
         };
         let mut diagram = ClassDiagram::new(options);
         diagram.set_python_version(self.python_version);
+        #[cfg(feature = "infer")]
+        diagram.set_infer(!self.args.no_infer);
         if let Some(root) = qualify_root {
             diagram.set_module_prefix(&Self::module_prefix(file, root));
         }
@@ -251,6 +253,8 @@ mod tests {
             no_title: false,
             hide_private_members: false,
             python_version: None,
+            #[cfg(feature = "infer")]
+            no_infer: false,
         }
     }
 

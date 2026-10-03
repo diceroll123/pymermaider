@@ -39,6 +39,10 @@ ruff_python_stdlib = { git = "https://github.com/astral-sh/ruff.git", tag = "0.1
 ruff_source_file = { git = "https://github.com/astral-sh/ruff.git", tag = "0.16.10" }
 ruff_text_size = { git = "https://github.com/astral-sh/ruff.git", tag = "0.16.10" }
 ruff_linter = { git = "https://github.com/astral-sh/ruff.git", tag = "0.16.10" }
+ruff_db = { git = "https://github.com/astral-sh/ruff.git", tag = "0.16.10", default-features = false, optional = true }
+ty_project = { git = "https://github.com/astral-sh/ruff.git", tag = "0.16.10", default-features = false, optional = true }
+ty_python_core = { git = "https://github.com/astral-sh/ruff.git", tag = "0.16.10", optional = true }
+ty_python_semantic = { git = "https://github.com/astral-sh/ruff.git", tag = "0.16.10", optional = true }
 globset = "0.4.18"
 wasm-bindgen = "0.2"
 console_error_panic_hook = { version = "0.1", optional = true }
@@ -59,7 +63,8 @@ name = "parse_render"
 harness = false
 
 [features]
-default = ["cli"]
+default = ["cli", "infer"]
+infer = ["dep:ruff_db", "dep:ty_project", "dep:ty_python_core", "dep:ty_python_semantic"]
 cli = ["clap", "env_logger", "ignore", "dep:rayon", "dep:ruff_workspace"]
 
 [profile.release]
