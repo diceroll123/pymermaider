@@ -874,7 +874,12 @@ class Config:
     fallback = None or "x"
     flag = not True
 "#;
-    let out = render_source(source);
+    // Exercise the syntactic path; ty would refine the `Any` cases.
+    let mut diagram = ClassDiagram::default();
+    #[cfg(feature = "infer")]
+    diagram.set_infer(false);
+    diagram.add_source(source);
+    let out = diagram.render().unwrap_or_default();
     assert!(out.contains("float ratio"), "{out}");
     assert!(out.contains("int total"), "{out}");
     assert!(out.contains("str name"), "{out}");
@@ -1412,4 +1417,101 @@ class Thing:
     assert!(!out.contains("protected"), "{out}");
     assert!(!out.contains("helper"), "{out}");
     assert!(out.contains("public"), "{out}");
+}
+
+#[cfg(feature = "infer")]
+mod infer {
+    use super::*;
+
+    #[test]
+    fn test_constructor_call_attribute_gets_type_and_composition() {
+        let source = "
+class Database:
+    pass
+
+class Service:
+    def __init__(self):
+        self.db = Database()
+";
+        let out = render_source(source);
+        assert!(out.contains("Database db"), "{out}");
+        assert!(out.contains("Service *-- Database"), "{out}");
+    }
+
+    #[test]
+    fn test_no_infer_keeps_syntactic_output() {
+        let source = "
+class Database:
+    pass
+
+class Service:
+    def __init__(self):
+        self.db = Database()
+";
+        let mut diagram = ClassDiagram::default();
+        diagram.set_infer(false);
+        diagram.add_source(source);
+        let out = diagram.render().unwrap_or_default();
+        assert!(out.contains("Any db"), "{out}");
+        assert!(!out.contains("Service *-- Database"), "{out}");
+    }
+
+    #[test]
+    fn test_optional_and_container_inference_is_aggregation() {
+        let source = "
+class Wheel:
+    pass
+
+class Car:
+    def __init__(self):
+        self.wheels = [Wheel(), Wheel()]
+        self.spare = Wheel() if self else None
+";
+        let out = render_source(source);
+        assert!(out.contains("Car o-- Wheel"), "{out}");
+    }
+
+    #[test]
+    fn test_class_level_assignment_is_inferred() {
+        let source = "
+class Config:
+    pass
+
+class App:
+    config = Config()
+";
+        let out = render_source(source);
+        assert!(out.contains("Config config"), "{out}");
+        assert!(out.contains("App *-- Config"), "{out}");
+    }
+
+    #[test]
+    fn test_unknown_types_stay_any() {
+        let source = "
+class Thing:
+    def __init__(self, data):
+        self.value = undefined_function()
+";
+        let out = render_source(source);
+        assert!(out.contains("Any value"), "{out}");
+    }
+}
+
+#[cfg(feature = "infer")]
+#[test]
+fn test_container_literal_is_parametrized_by_ty() {
+    let source = "
+class Wheel:
+    pass
+
+class Car:
+    def __init__(self):
+        self.wheels = [Wheel()]
+        self.empty = []
+";
+    let out = render_source(source);
+    assert!(out.contains("list~Wheel~ wheels"), "{out}");
+    assert!(out.contains("Car o-- Wheel"), "{out}");
+    // `list[Unknown]` is not informative, so the syntactic `list` is kept.
+    assert!(out.contains("list empty"), "{out}");
 }

@@ -29,8 +29,10 @@ jobs:
           cache-target: release
           bins: cargo-codspeed
 
+      # Without `infer` so the benchmarks keep measuring parsing and rendering (ty would add its
+      # own project setup per source) and the runner doesn't have to build ty with fat LTO.
       - name: Build benchmarks
-        run: cargo codspeed build
+        run: cargo codspeed build --no-default-features --features cli
 
       - name: Run benchmarks
         uses: CodSpeedHQ/action@v5

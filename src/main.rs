@@ -68,6 +68,8 @@ fn main() {
         };
         let mut diagram = class_diagram::ClassDiagram::new(options);
         diagram.set_python_version(mermaider.python_version());
+        #[cfg(feature = "infer")]
+        diagram.set_infer(!mermaider.args().no_infer);
         diagram.add_source(&source);
         for err in diagram.syntax_errors() {
             log::warn!("<stdin>: syntax error: {err}");

@@ -14,6 +14,8 @@ pub struct Checker<'a> {
     stylist: &'a Stylist<'a>,
     locator: &'a Locator<'a>,
     semantic: SemanticModel<'a>,
+    #[cfg(feature = "infer")]
+    inferer: Option<crate::analysis::ty_infer::TyInferer>,
 }
 
 impl<'a> Checker<'a> {
@@ -26,6 +28,30 @@ impl<'a> Checker<'a> {
             stylist,
             locator,
             semantic,
+            #[cfg(feature = "infer")]
+            inferer: None,
+        }
+    }
+
+    /// Attach ty-inferred types for the source being checked.
+    #[cfg(feature = "infer")]
+    pub fn set_inferer(&mut self, inferer: Option<crate::analysis::ty_infer::TyInferer>) {
+        self.inferer = inferer;
+    }
+
+    /// ty's inferred type for the assignment target spanning `range`, if inference is enabled
+    /// and produced something usable.
+    #[must_use]
+    #[cfg_attr(not(feature = "infer"), allow(clippy::unused_self))]
+    pub fn inferred_target_type(&self, range: TextRange) -> Option<&str> {
+        #[cfg(feature = "infer")]
+        {
+            self.inferer.as_ref()?.target_type(range)
+        }
+        #[cfg(not(feature = "infer"))]
+        {
+            let _ = range;
+            None
         }
     }
 

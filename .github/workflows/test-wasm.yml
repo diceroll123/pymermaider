@@ -34,6 +34,9 @@ jobs:
       - name: Check WASM library compilation
         run: cargo check --lib --target wasm32-unknown-unknown --no-default-features
 
+      - name: Check WASM library compilation with type inference
+        run: cargo check --lib --target wasm32-unknown-unknown --no-default-features --features infer
+
       - name: Run Rust tests
         run: cargo test --lib --no-default-features
 

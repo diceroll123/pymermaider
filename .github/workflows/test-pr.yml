@@ -67,7 +67,7 @@ jobs:
       - name: Build WASM module
         if: github.event.action != 'closed'
         run: |
-          wasm-pack build --target web --out-dir web/public/wasm --no-typescript
+          wasm-pack build --target web --out-dir web/public/wasm --no-typescript --no-default-features
           echo "WASM module built successfully"
           ls -lh web/public/wasm/
 
