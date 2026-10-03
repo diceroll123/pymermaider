@@ -7,7 +7,6 @@ use ruff_python_semantic::{
     BindingFlags, BindingId, BindingKind, FromImport, Import, SemanticModel, StarImport,
     SubmoduleImport,
 };
-use ruff_python_stdlib::builtins::{python_builtins, MAGIC_GLOBALS};
 use ruff_text_size::TextRange;
 
 /// Slimmed down version of the `Checker` struct from the `ruff_python_semantic` crate.
@@ -23,21 +22,10 @@ impl<'a> Checker<'a> {
         locator: &'a Locator<'a>,
         semantic: SemanticModel<'a>,
     ) -> Self {
-        let mut checker = Self {
+        Self {
             stylist,
             locator,
             semantic,
-        };
-        checker.bind_builtins();
-        checker
-    }
-
-    fn bind_builtins(&mut self) {
-        for builtin in python_builtins(u8::MAX, false).chain(MAGIC_GLOBALS.iter().copied()) {
-            // Add the builtin to the scope.
-            let binding_id = self.semantic.push_builtin();
-            let scope = self.semantic.global_scope_mut();
-            scope.add(builtin, binding_id);
         }
     }
 
@@ -78,7 +66,7 @@ impl<'a> Checker<'a> {
         };
 
         // Create the `Binding`.
-        let binding_id = self.semantic.push_binding(range, kind, flags);
+        let binding_id = self.semantic.push_binding(name, range, kind, flags);
 
         // If the name is private, mark is as such.
         if name.starts_with('_') {

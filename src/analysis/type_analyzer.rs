@@ -147,7 +147,7 @@ pub fn extract_generic_params(base: &Expr, checker: &Checker) -> Option<String> 
     }
 
     // Get the type string and extract just the parameter without Generic[]
-    let type_var = checker.locator().slice(base);
+    let type_var = checker.locator().to_source_code().slice(base);
 
     let start_idx = type_var.find('[').map(|idx| idx + 1)?;
     let end_idx = type_var.rfind(']')?;

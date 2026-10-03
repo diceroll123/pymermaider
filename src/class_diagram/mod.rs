@@ -14,7 +14,7 @@ use indexmap::IndexSet;
 use ruff_linter::source_kind::SourceKind;
 use ruff_linter::Locator;
 use ruff_python_ast::name::{QualifiedName, UnqualifiedName};
-use ruff_python_ast::{Expr, Number, PySourceType};
+use ruff_python_ast::{Expr, Number, PySourceType, PythonVersion};
 use ruff_python_codegen::Stylist;
 use ruff_python_parser::parse_unchecked_source;
 use ruff_python_semantic::analyze::visibility::{
@@ -169,7 +169,7 @@ impl ClassDiagram {
             },
             |params| {
                 // Explicit type parameters via [T] syntax (Python 3.12+)
-                let raw_params = checker.locator().slice(params.as_ref());
+                let raw_params = checker.locator().to_source_code().slice(params.as_ref());
                 // Remove the brackets to get just the type names
                 Some(
                     raw_params
@@ -664,7 +664,7 @@ impl ClassDiagram {
 
         let base_name = qualified_name.map_or_else(
             || {
-                let name = checker.locator().slice(base);
+                let name = checker.locator().to_source_code().slice(base);
                 QualifiedName::user_defined(name).normalize_name()
             },
             |base_name| base_name.normalize_name(),
@@ -715,6 +715,7 @@ impl ClassDiagram {
             &parsed.locator,
             &parsed.python_ast,
             module_kind,
+            source_type,
         );
         checker.see_imports(&parsed.python_ast);
         self.syntax_errors
@@ -826,6 +827,7 @@ impl ClassDiagram {
         locator: &'a Locator<'a>,
         python_ast: &'a [ast::Stmt],
         module_kind: ModuleKind,
+        source_type: PySourceType,
     ) -> Checker<'a> {
         // Use a static dummy path for the semantic model (it's only used for diagnostics)
         static DUMMY_PATH: &str = "";
@@ -837,7 +839,14 @@ impl ClassDiagram {
             python_ast,
             name: None,
         };
-        let semantic = SemanticModel::new(&[], dummy, module);
+        let semantic = SemanticModel::new(
+            &[],
+            &[],
+            PythonVersion::latest(),
+            source_type,
+            dummy,
+            module,
+        );
         Checker::new(stylist, locator, semantic)
     }
 }
