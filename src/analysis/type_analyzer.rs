@@ -75,6 +75,32 @@ fn is_aggregation_container(subscript_value: &Expr, checker: &Checker) -> bool {
     )
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum TypingWrapper {
+    /// `Literal[...]` holds values rather than types
+    Literal,
+    /// `Annotated[X, metadata...]` only has a type in its first element
+    Annotated,
+}
+
+fn typing_wrapper(subscript_value: &Expr, checker: &Checker) -> Option<TypingWrapper> {
+    let from_name = |name: &str| match name {
+        "Literal" => Some(TypingWrapper::Literal),
+        "Annotated" => Some(TypingWrapper::Annotated),
+        _ => None,
+    };
+    match checker.semantic().resolve_qualified_name(subscript_value) {
+        Some(qn) => match qn.segments() {
+            ["typing" | "typing_extensions", name] => from_name(name),
+            _ => None,
+        },
+        None => match subscript_value {
+            Expr::Name(n) => from_name(n.id.as_str()),
+            _ => None,
+        },
+    }
+}
+
 fn is_none_expr(expr: &Expr) -> bool {
     matches!(expr, Expr::NoneLiteral(_)) || matches!(expr, Expr::Name(n) if n.id.as_str() == "None")
 }
@@ -90,11 +116,24 @@ fn extract_inner(
             .unwrap_or_default(),
 
         Expr::Subscript(subscript) => {
+            let wrapper = typing_wrapper(&subscript.value, checker);
+            // Literal["x"] holds values, not types.
+            if wrapper == Some(TypingWrapper::Literal) {
+                return vec![];
+            }
             let agg = is_aggregation || is_aggregation_container(&subscript.value, checker);
             match subscript.slice.as_ref() {
-                Expr::Name(_) | Expr::BinOp(_) | Expr::StringLiteral(_) | Expr::Subscript(_) => {
-                    extract_inner(subscript.slice.as_ref(), checker, agg)
-                }
+                Expr::Name(_)
+                | Expr::BinOp(_)
+                | Expr::StringLiteral(_)
+                | Expr::Subscript(_)
+                | Expr::List(_) => extract_inner(subscript.slice.as_ref(), checker, agg),
+                // Annotated[X, metadata...]: only the first element is a type.
+                Expr::Tuple(tuple) if wrapper == Some(TypingWrapper::Annotated) => tuple
+                    .elts
+                    .first()
+                    .map(|elt| extract_inner(elt, checker, agg))
+                    .unwrap_or_default(),
                 Expr::Tuple(tuple) => tuple
                     .elts
                     .iter()
@@ -103,6 +142,13 @@ fn extract_inner(
                 _ => vec![],
             }
         }
+
+        // Callable[[A, B], R]: the parameter list
+        Expr::List(list) => list
+            .elts
+            .iter()
+            .flat_map(|elt| extract_inner(elt, checker, is_aggregation))
+            .collect(),
 
         Expr::BinOp(binop) => {
             let optional_union =

@@ -807,6 +807,82 @@ class Car:
     );
 }
 
+fn render_source(source: &str) -> String {
+    let mut diagram = ClassDiagram::default();
+    diagram.add_source(source);
+    diagram.render().unwrap_or_default()
+}
+
+#[test]
+fn test_literal_annotation_creates_no_relationship() {
+    let source = r#"
+from typing import Literal
+
+class Car:
+    mode: Literal["sport", "eco"]
+"#;
+    let out = render_source(source);
+    assert!(!out.contains("Car *-- sport"), "{out}");
+    assert!(!out.contains("Car *-- eco"), "{out}");
+    assert!(!out.contains("-- sport"), "{out}");
+}
+
+#[test]
+fn test_annotated_only_first_arg_is_a_type() {
+    let source = r#"
+from typing import Annotated
+
+class Engine:
+    pass
+
+class Car:
+    engine: Annotated[Engine, "metadata"]
+"#;
+    let out = render_source(source);
+    assert!(out.contains("Car *-- Engine"), "{out}");
+    assert!(!out.contains("metadata\n"), "{out}");
+    assert!(!out.contains("-- metadata"), "{out}");
+}
+
+#[test]
+fn test_callable_annotation_relationships() {
+    let source = r"
+from typing import Callable
+
+class Request:
+    pass
+
+class Response:
+    pass
+
+class Handler:
+    callback: Callable[[Request], Response]
+";
+    let out = render_source(source);
+    assert!(out.contains("Handler *-- Request"), "{out}");
+    assert!(out.contains("Handler *-- Response"), "{out}");
+}
+
+#[test]
+fn test_binop_and_boolop_value_types() {
+    let source = r#"
+class Config:
+    ratio = 1 / 2
+    total = 1 + 2
+    name = "a" + "b"
+    mixed = 1 + 2.0
+    fallback = None or "x"
+    flag = not True
+"#;
+    let out = render_source(source);
+    assert!(out.contains("float ratio"), "{out}");
+    assert!(out.contains("int total"), "{out}");
+    assert!(out.contains("str name"), "{out}");
+    assert!(out.contains("Any mixed"), "{out}");
+    assert!(out.contains("Any fallback"), "{out}");
+    assert!(out.contains("bool flag"), "{out}");
+}
+
 fn test_diagram(source: &str, expected_output: &str) {
     let mut diagram = ClassDiagram::default();
     diagram.add_source(source);
