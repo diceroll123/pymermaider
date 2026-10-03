@@ -5,7 +5,7 @@
 /// source range, which is identical in both parses of the same text.
 use std::collections::HashMap;
 
-use ruff_db::files::system_path_to_file;
+use ruff_db::files::{system_path_to_file, File};
 use ruff_db::parsed::parsed_module;
 use ruff_db::system::{InMemorySystem, SystemPath, SystemPathBuf};
 use ruff_python_ast::name::Name;
@@ -14,6 +14,50 @@ use ruff_python_ast::{AnyNodeRef, Expr, Stmt};
 use ruff_text_size::{Ranged, TextRange};
 use ty_project::{ProjectDatabase, ProjectMetadata};
 use ty_python_semantic::{Db as _, HasType, SemanticModel};
+
+/// A ty project rooted on the real filesystem, shared by every file in a run.
+///
+/// Unlike [`TyInferer::new`], ty can see sibling modules and the project's virtual environment
+/// (`VIRTUAL_ENV`, `.venv`, or the configured interpreter), so types from other files and
+/// third-party packages resolve. Not available on wasm, which has no filesystem.
+#[cfg(not(target_arch = "wasm32"))]
+pub struct TyProject {
+    db: std::sync::Mutex<ProjectDatabase>,
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+impl TyProject {
+    /// Discover the ty project for `root` (honoring `pyproject.toml` / `ty.toml`).
+    /// Returns `None` if discovery fails, in which case callers fall back to [`TyInferer::new`].
+    pub fn discover(root: &std::path::Path) -> Option<Self> {
+        use ruff_db::system::OsSystem;
+
+        let cwd = SystemPathBuf::from_path_buf(std::env::current_dir().ok()?).ok()?;
+        let mut root = std::path::absolute(root).ok()?;
+        // The CLI argument may be a single file; ty discovers projects from a directory.
+        if root.is_file() {
+            root.pop();
+        }
+        let root = SystemPathBuf::from_path_buf(root).ok()?;
+        let system = OsSystem::new(&cwd);
+        let mut metadata = ProjectMetadata::discover(&root, &system).ok()?;
+        metadata.apply_configuration_files(&system).ok()?;
+        let db = ProjectDatabase::fallible(metadata, system).ok()?;
+        Some(Self {
+            db: std::sync::Mutex::new(db),
+        })
+    }
+
+    /// Analyze the file at `path`, which must be saved on disk with the same text that is being
+    /// diagrammed.
+    pub fn infer_file(&self, path: &std::path::Path) -> Option<TyInferer> {
+        // Clones share ty's caches, so each thread gets its own handle on the same project.
+        let db = self.db.lock().ok()?.clone();
+        let path = SystemPathBuf::from_path_buf(std::path::absolute(path).ok()?).ok()?;
+        let file = system_path_to_file(&db, &path).ok()?;
+        TyInferer::analyze(&db, file)
+    }
+}
 
 const ROOT: &str = "/";
 const FILE: &str = "/source.py";
@@ -25,7 +69,9 @@ pub struct TyInferer {
 }
 
 impl TyInferer {
-    /// Analyze `source`. Returns `None` if ty could not be set up.
+    /// Analyze `source` on its own, in an in-memory project. Only the file itself and the
+    /// stdlib are visible, so imports from other modules stay unresolved. Returns `None` if ty
+    /// could not be set up.
     pub fn new(source: &str) -> Option<Self> {
         let system = InMemorySystem::default();
         let root = SystemPathBuf::from(ROOT);
@@ -35,11 +81,14 @@ impl TyInferer {
 
         let project = ProjectMetadata::new(Name::new_static("pymermaider"), root);
         let db = ProjectDatabase::fallible(project, system).ok()?;
-
         let file = system_path_to_file(&db, path).ok()?;
+        Self::analyze(&db, file)
+    }
+
+    fn analyze(db: &ProjectDatabase, file: File) -> Option<Self> {
         let program_file = db.program_file(file);
-        let model = SemanticModel::new(&db, program_file);
-        let parsed = parsed_module(&db, program_file.python_file(&db)).load(&db);
+        let model = SemanticModel::new(db, program_file);
+        let parsed = parsed_module(db, program_file.python_file(db)).load(db);
 
         // Types are rendered to strings eagerly so nothing borrows from `db` afterwards.
         let mut collector = Collector {
@@ -166,5 +215,25 @@ class Service:
             normalize("list[Foo] | None").as_deref(),
             Some("list[Foo] | None")
         );
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    #[test]
+    fn project_resolves_sibling_modules() {
+        let dir = tempfile::tempdir().unwrap();
+        std::fs::write(dir.path().join("models.py"), "class Database:\n    pass\n").unwrap();
+        let app = dir.path().join("app.py");
+        std::fs::write(
+            &app,
+            "from models import Database\n\nclass Service:\n    def __init__(self):\n        self.db = Database()\n",
+        )
+        .unwrap();
+
+        let project = TyProject::discover(dir.path()).expect("project should be discovered");
+        let inferer = project.infer_file(&app);
+        println!("{inferer:?}");
+        let inferer = inferer.expect("file should be analyzed");
+        let types: Vec<&str> = inferer.targets.values().map(String::as_str).collect();
+        assert_eq!(types, ["Database"]);
     }
 }

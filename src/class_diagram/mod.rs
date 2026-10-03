@@ -61,6 +61,9 @@ pub struct ClassDiagram {
     /// Use ty to infer types for unannotated attributes (requires the `infer` feature).
     #[cfg(feature = "infer")]
     infer: bool,
+    /// Project-wide ty session, so imports from other files and the venv resolve.
+    #[cfg(all(feature = "infer", not(target_arch = "wasm32")))]
+    ty_project: Option<std::sync::Arc<crate::analysis::ty_infer::TyProject>>,
 }
 
 impl Default for ClassDiagram {
@@ -82,6 +85,8 @@ impl ClassDiagram {
             python_version: PythonVersion::latest(),
             #[cfg(feature = "infer")]
             infer: true,
+            #[cfg(all(feature = "infer", not(target_arch = "wasm32")))]
+            ty_project: None,
         }
     }
 
@@ -89,6 +94,15 @@ impl ClassDiagram {
     #[cfg(feature = "infer")]
     pub const fn set_infer(&mut self, infer: bool) {
         self.infer = infer;
+    }
+
+    /// Share a project-wide ty session for files added with [`Self::add_file`].
+    #[cfg(all(feature = "infer", not(target_arch = "wasm32")))]
+    pub fn set_ty_project(
+        &mut self,
+        project: Option<std::sync::Arc<crate::analysis::ty_infer::TyProject>>,
+    ) {
+        self.ty_project = project;
     }
 
     /// Set the target Python version for sources added from now on.
@@ -785,14 +799,14 @@ impl ClassDiagram {
 
     /// Add source code to the diagram (for stdin/WASM - uses Python defaults)
     pub fn add_source(&mut self, source: &str) {
-        self.add_source_with_options(source, PySourceType::Python, ModuleKind::Module);
+        self.add_source_with_options(source, PySourceType::Python, ModuleKind::Module, None);
     }
 
     /// Add source code from a file path (infers source type and module kind)
     pub fn add_file(&mut self, source: &str, path: &Path) {
         let source_type = PySourceType::from(path);
         let module_kind = Self::module_kind_for_path(path);
-        self.add_source_with_options(source, source_type, module_kind);
+        self.add_source_with_options(source, source_type, module_kind, Some(path));
     }
 
     fn add_source_with_options(
@@ -800,7 +814,11 @@ impl ClassDiagram {
         source: &str,
         source_type: PySourceType,
         module_kind: ModuleKind,
+        path: Option<&Path>,
     ) {
+        // Only used to look the file up in the shared ty project.
+        #[cfg(not(feature = "infer"))]
+        let _ = path;
         let source_kind = SourceKind::Python {
             code: source.to_owned(),
             is_stub: false,
@@ -818,7 +836,7 @@ impl ClassDiagram {
         checker.see_imports(&parsed.python_ast);
         #[cfg(feature = "infer")]
         if self.infer {
-            checker.set_inferer(crate::analysis::ty_infer::TyInferer::new(source));
+            checker.set_inferer(self.infer_source(source, path));
         }
         self.syntax_errors
             .extend(parsed.syntax_errors.iter().cloned());
@@ -826,6 +844,23 @@ impl ClassDiagram {
         self.add_classes_from_ast(&checker, &parsed.python_ast);
         self.diagram.resolve_references();
         self.diagram.finalize_relation_types();
+    }
+
+    /// Infer types for `source`, using the shared project when the file is on disk.
+    #[cfg(feature = "infer")]
+    fn infer_source(
+        &self,
+        source: &str,
+        path: Option<&Path>,
+    ) -> Option<crate::analysis::ty_infer::TyInferer> {
+        #[cfg(not(target_arch = "wasm32"))]
+        if let (Some(project), Some(path)) = (&self.ty_project, path) {
+            if let Some(inferer) = project.infer_file(path) {
+                return Some(inferer);
+            }
+        }
+        let _ = path;
+        crate::analysis::ty_infer::TyInferer::new(source)
     }
 
     fn add_classes_from_ast(&mut self, checker: &Checker, python_ast: &[ast::Stmt]) {
