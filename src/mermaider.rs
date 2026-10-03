@@ -7,19 +7,30 @@ use pymermaider_wasm::render::output_format::OutputFormat;
 use globset::Candidate;
 use ignore::{types::TypesBuilder, WalkBuilder};
 use log::{debug, error, warn};
+use ruff_python_ast::PythonVersion;
 use std::path::{Path, PathBuf};
 
 pub struct Mermaider {
     args: Args,
     file_settings: FileResolverSettings,
+    python_version: PythonVersion,
 }
 
 impl Mermaider {
-    pub const fn new(args: Args, file_settings: FileResolverSettings) -> Self {
+    pub fn new(args: Args, file_settings: FileResolverSettings) -> Self {
+        let python_version = args.python_version.unwrap_or_else(|| {
+            crate::python_version::detect(&file_settings.project_root)
+                .unwrap_or_else(PythonVersion::latest)
+        });
         Self {
             args,
             file_settings,
+            python_version,
         }
+    }
+
+    pub const fn python_version(&self) -> PythonVersion {
+        self.python_version
     }
 
     pub const fn args(&self) -> &Args {
@@ -120,6 +131,7 @@ impl Mermaider {
             hide_private_members: self.args.hide_private_members,
         };
         let mut diagram = ClassDiagram::new(options);
+        diagram.set_python_version(self.python_version);
         if let Some(root) = qualify_root {
             diagram.set_module_prefix(&Self::module_prefix(file, root));
         }
@@ -238,6 +250,7 @@ mod tests {
             direction: DiagramDirection::default(),
             no_title: false,
             hide_private_members: false,
+            python_version: None,
         }
     }
 

@@ -2,6 +2,7 @@ use clap::Parser;
 
 use pymermaider_wasm::render::output_format::OutputFormat;
 use pymermaider_wasm::render::renderer::DiagramDirection;
+use ruff_python_ast::PythonVersion;
 
 #[derive(Parser, Debug)]
 #[command(version, about, long_about = None)]
@@ -73,4 +74,13 @@ pub struct Args {
     /// Hide private members (fields and methods with names starting with _) from the diagram.
     #[arg(long, verbatim_doc_comment, default_value = "false")]
     pub hide_private_members: bool,
+
+    /// Target Python version (e.g. 3.11). If omitted, it is detected from the project's
+    /// `pyproject.toml` (`requires-python`), falling back to the latest.
+    #[arg(long, verbatim_doc_comment, value_name = "X.Y", value_parser = parse_python_version)]
+    pub python_version: Option<PythonVersion>,
+}
+
+fn parse_python_version(s: &str) -> Result<PythonVersion, String> {
+    s.parse::<PythonVersion>().map_err(|e| e.to_string())
 }

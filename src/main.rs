@@ -1,5 +1,6 @@
 mod args;
 mod mermaider;
+mod python_version;
 mod settings;
 
 use std::path::PathBuf;
@@ -66,6 +67,7 @@ fn main() {
             hide_private_members: mermaider.args().hide_private_members,
         };
         let mut diagram = class_diagram::ClassDiagram::new(options);
+        diagram.set_python_version(mermaider.python_version());
         diagram.add_source(&source);
         for err in diagram.syntax_errors() {
             log::warn!("<stdin>: syntax error: {err}");
