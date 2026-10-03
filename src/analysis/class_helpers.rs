@@ -134,7 +134,7 @@ mod tests {
     use crate::analysis::checker::Checker;
     use ruff_linter::source_kind::SourceKind;
     use ruff_linter::Locator;
-    use ruff_python_ast::PySourceType;
+    use ruff_python_ast::{PySourceType, PythonVersion};
     use ruff_python_codegen::Stylist;
     use ruff_python_parser::parse_unchecked_source;
     use ruff_python_semantic::{Module, ModuleKind, ModuleSource, SemanticModel};
@@ -174,7 +174,14 @@ class Thing(ABC, Mixin): ...
             python_ast: &python_ast,
             name: None,
         };
-        let semantic = SemanticModel::new(&[], Path::new(&file), module);
+        let semantic = SemanticModel::new(
+            &[],
+            &[],
+            PythonVersion::latest(),
+            PySourceType::Python,
+            Path::new(&file),
+            module,
+        );
         let mut checker = Checker::new(&stylist, &locator, semantic);
         checker.see_imports(&python_ast);
 
@@ -206,7 +213,14 @@ class Thing(A, B): ...
             python_ast: &python_ast,
             name: None,
         };
-        let semantic = SemanticModel::new(&[], Path::new(&file), module);
+        let semantic = SemanticModel::new(
+            &[],
+            &[],
+            PythonVersion::latest(),
+            PySourceType::Python,
+            Path::new(&file),
+            module,
+        );
         let mut checker = Checker::new(&stylist, &locator, semantic);
         checker.see_imports(&python_ast);
 
@@ -238,7 +252,14 @@ class Thing(Mixin, metaclass=ABCMeta): ...
             python_ast: &python_ast,
             name: None,
         };
-        let semantic = SemanticModel::new(&[], Path::new(&file), module);
+        let semantic = SemanticModel::new(
+            &[],
+            &[],
+            PythonVersion::latest(),
+            PySourceType::Python,
+            Path::new(&file),
+            module,
+        );
         let mut checker = Checker::new(&stylist, &locator, semantic);
         checker.see_imports(&python_ast);
 
