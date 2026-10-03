@@ -14,7 +14,8 @@
         "cargo-lock"
       ],
       "matchDepNames": [
-        "/^ruff_/"
+        "/^ruff_/",
+        "/^ty_/"
       ]
     },
     {
