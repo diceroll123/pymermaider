@@ -51,6 +51,8 @@ pub struct ClassDiagram {
     syntax_errors: Vec<String>,
     /// Dotted module path prepended to every emitted class name (empty for none).
     module_prefix: String,
+    /// Target Python version used by the semantic model (latest unless detected or set).
+    python_version: PythonVersion,
 }
 
 impl Default for ClassDiagram {
@@ -69,7 +71,13 @@ impl ClassDiagram {
             show_title: true,
             syntax_errors: Vec::new(),
             module_prefix: String::new(),
+            python_version: PythonVersion::latest(),
         }
+    }
+
+    /// Set the target Python version for sources added from now on.
+    pub const fn set_python_version(&mut self, version: PythonVersion) {
+        self.python_version = version;
     }
 
     /// Whether `path` is rendered as the diagram title (it still names output files).
@@ -716,6 +724,7 @@ impl ClassDiagram {
             &parsed.python_ast,
             module_kind,
             source_type,
+            self.python_version,
         );
         checker.see_imports(&parsed.python_ast);
         self.syntax_errors
@@ -828,6 +837,7 @@ impl ClassDiagram {
         python_ast: &'a [ast::Stmt],
         module_kind: ModuleKind,
         source_type: PySourceType,
+        python_version: PythonVersion,
     ) -> Checker<'a> {
         // Use a static dummy path for the semantic model (it's only used for diagnostics)
         static DUMMY_PATH: &str = "";
@@ -839,14 +849,7 @@ impl ClassDiagram {
             python_ast,
             name: None,
         };
-        let semantic = SemanticModel::new(
-            &[],
-            &[],
-            PythonVersion::latest(),
-            source_type,
-            dummy,
-            module,
-        );
+        let semantic = SemanticModel::new(&[], &[], python_version, source_type, dummy, module);
         Checker::new(stylist, locator, semantic)
     }
 }
