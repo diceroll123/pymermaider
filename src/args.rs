@@ -79,6 +79,12 @@ pub struct Args {
     /// `pyproject.toml` (`requires-python`), falling back to the latest.
     #[arg(long, verbatim_doc_comment, value_name = "X.Y", value_parser = parse_python_version)]
     pub python_version: Option<PythonVersion>,
+
+    /// Disable ty-based type inference for unannotated attributes. Only the types written in the
+    /// source (annotations and literals) are used.
+    #[cfg(feature = "infer")]
+    #[arg(long, verbatim_doc_comment, default_value = "false")]
+    pub no_infer: bool,
 }
 
 fn parse_python_version(s: &str) -> Result<PythonVersion, String> {

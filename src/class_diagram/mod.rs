@@ -22,6 +22,7 @@ use ruff_python_semantic::analyze::visibility::{
 };
 use ruff_python_semantic::{Module, ModuleKind, ModuleSource, SemanticModel};
 use ruff_python_stdlib::typing::simple_magic_return_type;
+use ruff_text_size::Ranged as _;
 use std::collections::HashMap;
 use std::path::Path;
 
@@ -41,6 +42,10 @@ enum BaseKind {
     },
 }
 
+/// An attribute assigned through `self`, with its explicit annotation expression (if any) and
+/// whether its type text came from ty inference.
+type InstanceAttribute<'a> = (Attribute, Option<&'a Expr>, bool);
+
 pub struct ClassDiagram {
     diagram: Diagram,
     options: crate::render::mermaid_renderer::RenderOptions,
@@ -53,6 +58,12 @@ pub struct ClassDiagram {
     module_prefix: String,
     /// Target Python version used by the semantic model (latest unless detected or set).
     python_version: PythonVersion,
+    /// Use ty to infer types for unannotated attributes (requires the `infer` feature).
+    #[cfg(feature = "infer")]
+    infer: bool,
+    /// Project-wide ty session, so imports from other files and the venv resolve.
+    #[cfg(all(feature = "infer", not(target_arch = "wasm32")))]
+    ty_project: Option<std::sync::Arc<crate::analysis::ty_infer::TyProject>>,
 }
 
 impl Default for ClassDiagram {
@@ -72,7 +83,26 @@ impl ClassDiagram {
             syntax_errors: Vec::new(),
             module_prefix: String::new(),
             python_version: PythonVersion::latest(),
+            #[cfg(feature = "infer")]
+            infer: true,
+            #[cfg(all(feature = "infer", not(target_arch = "wasm32")))]
+            ty_project: None,
         }
+    }
+
+    /// Enable or disable ty-based type inference for sources added from now on.
+    #[cfg(feature = "infer")]
+    pub const fn set_infer(&mut self, infer: bool) {
+        self.infer = infer;
+    }
+
+    /// Share a project-wide ty session for files added with [`Self::add_file`].
+    #[cfg(all(feature = "infer", not(target_arch = "wasm32")))]
+    pub fn set_ty_project(
+        &mut self,
+        project: Option<std::sync::Arc<crate::analysis::ty_infer::TyProject>>,
+    ) {
+        self.ty_project = project;
     }
 
     /// Set the target Python version for sources added from now on.
@@ -199,16 +229,34 @@ impl ClassDiagram {
                 ));
             }
             if let Some(member) = Self::process_stmt_to_member(checker, stmt) {
+                if let (ast::Stmt::Assign(assign), ClassMember::Attribute(attr)) = (stmt, &member) {
+                    let syntactic = Self::infer_value_type(&assign.value);
+                    if assign.targets.first().is_some_and(|t| {
+                        Self::refine_with_ty(checker, syntactic, t.range()).is_some()
+                    }) {
+                        Self::extend_inferred_composition(
+                            checker,
+                            &attr.type_annotation,
+                            &mut composition_types,
+                        );
+                    }
+                }
                 members.insert(member);
             }
         }
 
         // Collect instance attributes assigned through `self` in `__init__`
-        for (attr, annotation) in Self::collect_instance_attributes(checker, class) {
+        for (attr, annotation, from_ty) in Self::collect_instance_attributes(checker, class) {
             if let Some(annotation) = annotation {
                 composition_types.extend(type_analyzer::extract_composition_types(
                     annotation, checker,
                 ));
+            } else if from_ty {
+                Self::extend_inferred_composition(
+                    checker,
+                    &attr.type_annotation,
+                    &mut composition_types,
+                );
             }
             let already_declared = members
                 .iter()
@@ -284,6 +332,20 @@ impl ClassDiagram {
         }
     }
 
+    /// Add relationships for a ty-inferred type, e.g. `Database` or `list[Database] | None`.
+    fn extend_inferred_composition(
+        checker: &Checker,
+        type_text: &str,
+        composition_types: &mut IndexSet<(String, bool)>,
+    ) {
+        if let Ok(parsed) = ruff_python_parser::parse_expression(type_text) {
+            composition_types.extend(type_analyzer::extract_composition_types(
+                parsed.expr(),
+                checker,
+            ));
+        }
+    }
+
     /// Class body statements, including those nested in `if`/`try`/`with` blocks
     /// (e.g. members defined under `if TYPE_CHECKING:` or `try: ... except ImportError:`).
     fn flatten_class_body(body: &[ast::Stmt]) -> Vec<&ast::Stmt> {
@@ -329,13 +391,13 @@ impl ClassDiagram {
     fn collect_instance_attributes<'a>(
         checker: &Checker,
         class: &'a ast::StmtClassDef,
-    ) -> Vec<(Attribute, Option<&'a Expr>)> {
+    ) -> Vec<InstanceAttribute<'a>> {
         fn walk<'a>(
             checker: &Checker,
             stmts: &'a [ast::Stmt],
             self_name: &str,
             param_types: &HashMap<&str, &'a Expr>,
-            out: &mut Vec<(Attribute, Option<&'a Expr>)>,
+            out: &mut Vec<InstanceAttribute<'a>>,
         ) {
             let self_attr = |target: &Expr| -> Option<String> {
                 match target {
@@ -369,11 +431,16 @@ impl ClassDiagram {
                                     type_annotation,
                                 },
                                 Some(annotation.as_ref()),
+                                false,
                             ));
                         }
                     }
                     ast::Stmt::Assign(ast::StmtAssign { targets, value, .. }) => {
-                        for name in targets.iter().filter_map(self_attr) {
+                        for (name, range) in targets
+                            .iter()
+                            .filter_map(|t| self_attr(t).map(|name| (name, t.range())))
+                        {
+                            let mut from_ty = false;
                             let type_annotation = match value.as_ref() {
                                 Expr::Name(n) if param_types.contains_key(n.id.as_str()) => {
                                     match param_types[n.id.as_str()] {
@@ -381,10 +448,17 @@ impl ClassDiagram {
                                         other => checker.generator().expr(other),
                                     }
                                 }
-                                other => match ClassDiagram::infer_value_type(other) {
-                                    "" => "Any".to_owned(),
-                                    inferred => inferred.to_owned(),
-                                },
+                                other => {
+                                    let syntactic = ClassDiagram::infer_value_type(other);
+                                    match ClassDiagram::refine_with_ty(checker, syntactic, range) {
+                                        Some(inferred) => {
+                                            from_ty = true;
+                                            inferred.to_owned()
+                                        }
+                                        None if syntactic.is_empty() => "Any".to_owned(),
+                                        None => syntactic.to_owned(),
+                                    }
+                                }
                             };
                             out.push((
                                 Attribute {
@@ -393,6 +467,7 @@ impl ClassDiagram {
                                     type_annotation,
                                 },
                                 None,
+                                from_ty,
                             ));
                         }
                     }
@@ -467,6 +542,18 @@ impl ClassDiagram {
             );
         }
         out
+    }
+
+    /// ty's inferred type for an assignment target, used where the syntactic guess is missing
+    /// (`""`) or only a bare container name (`list`, `dict`, ...) that ty can parametrize.
+    fn refine_with_ty<'c>(
+        checker: &'c Checker,
+        syntactic: &str,
+        range: ruff_text_size::TextRange,
+    ) -> Option<&'c str> {
+        matches!(syntactic, "" | "list" | "dict" | "set" | "tuple")
+            .then(|| checker.inferred_target_type(range))
+            .flatten()
     }
 
     /// Cheap literal-based type inference for simple assignments.
@@ -553,14 +640,16 @@ impl ClassDiagram {
                 let value_type = Self::infer_value_type(value.as_ref());
 
                 // For now, just handle the first target (typical for enums and simple assignments)
-                if let Some(Expr::Name(ast::ExprName { id: target, .. })) = targets.first() {
+                if let Some(first @ Expr::Name(ast::ExprName { id: target, .. })) = targets.first()
+                {
                     let target_name = target.to_string();
-                    let type_annotation = if value_type.is_empty() {
-                        "Any"
-                    } else {
-                        value_type
-                    }
-                    .to_owned();
+                    let type_annotation = Self::refine_with_ty(checker, value_type, first.range())
+                        .unwrap_or(if value_type.is_empty() {
+                            "Any"
+                        } else {
+                            value_type
+                        })
+                        .to_owned();
 
                     return Some(ClassMember::Attribute(Attribute {
                         name: target_name,
@@ -710,14 +799,14 @@ impl ClassDiagram {
 
     /// Add source code to the diagram (for stdin/WASM - uses Python defaults)
     pub fn add_source(&mut self, source: &str) {
-        self.add_source_with_options(source, PySourceType::Python, ModuleKind::Module);
+        self.add_source_with_options(source, PySourceType::Python, ModuleKind::Module, None);
     }
 
     /// Add source code from a file path (infers source type and module kind)
     pub fn add_file(&mut self, source: &str, path: &Path) {
         let source_type = PySourceType::from(path);
         let module_kind = Self::module_kind_for_path(path);
-        self.add_source_with_options(source, source_type, module_kind);
+        self.add_source_with_options(source, source_type, module_kind, Some(path));
     }
 
     fn add_source_with_options(
@@ -725,7 +814,11 @@ impl ClassDiagram {
         source: &str,
         source_type: PySourceType,
         module_kind: ModuleKind,
+        path: Option<&Path>,
     ) {
+        // Only used to look the file up in the shared ty project.
+        #[cfg(not(feature = "infer"))]
+        let _ = path;
         let source_kind = SourceKind::Python {
             code: source.to_owned(),
             is_stub: false,
@@ -741,12 +834,33 @@ impl ClassDiagram {
             self.python_version,
         );
         checker.see_imports(&parsed.python_ast);
+        #[cfg(feature = "infer")]
+        if self.infer {
+            checker.set_inferer(self.infer_source(source, path));
+        }
         self.syntax_errors
             .extend(parsed.syntax_errors.iter().cloned());
 
         self.add_classes_from_ast(&checker, &parsed.python_ast);
         self.diagram.resolve_references();
         self.diagram.finalize_relation_types();
+    }
+
+    /// Infer types for `source`, using the shared project when the file is on disk.
+    #[cfg(feature = "infer")]
+    fn infer_source(
+        &self,
+        source: &str,
+        path: Option<&Path>,
+    ) -> Option<crate::analysis::ty_infer::TyInferer> {
+        #[cfg(not(target_arch = "wasm32"))]
+        if let (Some(project), Some(path)) = (&self.ty_project, path) {
+            if let Some(inferer) = project.infer_file(path) {
+                return Some(inferer);
+            }
+        }
+        let _ = path;
+        crate::analysis::ty_infer::TyInferer::new(source)
     }
 
     fn add_classes_from_ast(&mut self, checker: &Checker, python_ast: &[ast::Stmt]) {

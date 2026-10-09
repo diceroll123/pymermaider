@@ -292,3 +292,79 @@ fn syntax_errors_are_reported_on_stderr() {
     // Valid parts are still rendered
     assert!(String::from_utf8_lossy(&output.stdout).contains("bad.A"));
 }
+
+/// Run pymermaider on `file` (stdout output) and return stdout.
+#[cfg(feature = "infer")]
+fn render(file: &std::path::Path, extra: &[&str]) -> String {
+    let output = Command::new(env!("CARGO_BIN_EXE_pymermaider"))
+        .arg(file)
+        .args(extra)
+        .args(["--output", "-"])
+        .output()
+        .expect("run pymermaider");
+    assert!(
+        output.status.success(),
+        "stderr={}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    String::from_utf8_lossy(&output.stdout).into_owned()
+}
+
+#[cfg(feature = "infer")]
+#[test]
+fn infers_types_from_sibling_modules() {
+    let dir = tempfile::TempDir::new().expect("temp dir");
+    std::fs::write(dir.path().join("models.py"), "class Database: ...\n").unwrap();
+    let app = dir.path().join("app.py");
+    std::fs::write(
+        &app,
+        "from models import Database\n\nclass Service:\n    def __init__(self):\n        self.db = Database()\n",
+    )
+    .unwrap();
+
+    let out = render(&app, &[]);
+    assert!(out.contains("Database db"), "{out}");
+    assert!(out.contains("Service *-- `models.Database`"), "{out}");
+
+    let out = render(&app, &["--no-infer"]);
+    assert!(out.contains("Any db"), "{out}");
+}
+
+#[cfg(feature = "infer")]
+#[test]
+fn infers_types_from_third_party_packages_in_a_venv() {
+    let dir = tempfile::TempDir::new().expect("temp dir");
+    let root = dir.path();
+    std::fs::write(
+        root.join("pyproject.toml"),
+        "[project]\nname = \"demo\"\nversion = \"0.0.1\"\n",
+    )
+    .unwrap();
+
+    // A minimal virtual environment with one installed package.
+    let venv = root.join(".venv");
+    let site_packages = venv.join("lib/python3.12/site-packages");
+    std::fs::create_dir_all(site_packages.join("fancylib")).unwrap();
+    std::fs::write(
+        venv.join("pyvenv.cfg"),
+        "home = /usr/bin\nversion = 3.12.0\n",
+    )
+    .unwrap();
+    std::fs::write(
+        site_packages.join("fancylib/__init__.py"),
+        "class Widget: ...\n",
+    )
+    .unwrap();
+
+    std::fs::create_dir_all(root.join("src")).unwrap();
+    let app = root.join("src/app.py");
+    std::fs::write(
+        &app,
+        "from fancylib import Widget\n\nclass Ui:\n    def __init__(self):\n        self.w = Widget()\n",
+    )
+    .unwrap();
+
+    let out = render(&app, &[]);
+    assert!(out.contains("Widget w"), "{out}");
+    assert!(out.contains("Ui *-- `fancylib.Widget`"), "{out}");
+}
