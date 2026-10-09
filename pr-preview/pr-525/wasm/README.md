@@ -54,7 +54,7 @@ pymermaider [OPTIONS] <PATH>
 ### Arguments
 
 - `<PATH>`
-  Path to a file or directory. Use '-' to read Python source from stdin.
+  Path to a `.py`/`.pyi` file or a directory. Use '-' to read Python source from stdin.
 
 ### Options
 
