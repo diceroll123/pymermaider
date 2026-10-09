@@ -17,6 +17,7 @@ import { MermaidCodeView } from "./diagram/MermaidCodeView";
 import { ResizableDivider } from "./diagram/ResizableDivider";
 import { FileExplorer } from "./diagram/FileExplorer";
 import { RepoLoader } from "./diagram/RepoLoader";
+import { isStubFile } from "./diagram/pythonFiles";
 
 const SIDEBAR_WIDTH = 260;
 
@@ -53,6 +54,7 @@ export default function DiagramEditor() {
   } = useMermaid({
     wasmRef,
     pythonCode,
+    isStub: isStubFile(selectedFile),
     isWasmLoaded,
     colorMode,
     themeMounted,

@@ -368,3 +368,22 @@ fn infers_types_from_third_party_packages_in_a_venv() {
     assert!(out.contains("Widget w"), "{out}");
     assert!(out.contains("Ui *-- `fancylib.Widget`"), "{out}");
 }
+
+#[cfg(feature = "infer")]
+#[test]
+fn renders_stub_files() {
+    let dir = tempfile::TempDir::new().expect("temp dir");
+    let stub = dir.path().join("models.pyi");
+    std::fs::write(
+        &stub,
+        "class Database: ...\n\nclass Service:\n    db: Database\n    def run(self) -> None: ...\n",
+    )
+    .unwrap();
+
+    let out = render(&stub, &[]);
+    assert!(out.contains("class Service"), "{out}");
+    assert!(out.contains("Database db"), "{out}");
+
+    let out = render(dir.path(), &[]);
+    assert!(out.contains("class `models.Service`"), "{out}");
+}

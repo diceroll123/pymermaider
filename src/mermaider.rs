@@ -493,6 +493,10 @@ mod tests {
             "pkg"
         );
         assert_eq!(
+            Mermaider::module_prefix(Path::new("/proj/pkg/__init__.pyi"), root),
+            "pkg"
+        );
+        assert_eq!(
             Mermaider::module_prefix(Path::new("/proj/test.py"), root),
             "test"
         );

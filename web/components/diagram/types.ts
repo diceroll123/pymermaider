@@ -1,7 +1,7 @@
 export type DiagramDirection = "TB" | "BT" | "LR" | "RL";
 
 export type PyMermaiderClass = {
-  processPythonCode(code: string): string;
+  processPythonCode(code: string, isStub?: boolean): string;
   setDirection(direction: DiagramDirection): void;
   getDirection(): DiagramDirection;
   setHidePrivateMembers(hide: boolean): void;
@@ -13,7 +13,7 @@ export interface FileNode {
   name: string;         // display name
   children?: FileNode[];
   content?: string;     // lazy-loaded for files
-  isPython?: boolean;   // true for .py files
+  isPython?: boolean;   // true for .py and .pyi files
   childrenCount?: number; // for lazy loading (GitHub)
 }
 

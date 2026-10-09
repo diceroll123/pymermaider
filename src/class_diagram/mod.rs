@@ -802,6 +802,11 @@ impl ClassDiagram {
         self.add_source_with_options(source, PySourceType::Python, ModuleKind::Module, None);
     }
 
+    /// Add stub (`.pyi`) source code to the diagram (for stdin/WASM)
+    pub fn add_stub_source(&mut self, source: &str) {
+        self.add_source_with_options(source, PySourceType::Stub, ModuleKind::Module, None);
+    }
+
     /// Add source code from a file path (infers source type and module kind)
     pub fn add_file(&mut self, source: &str, path: &Path) {
         let source_type = PySourceType::from(path);
@@ -821,7 +826,7 @@ impl ClassDiagram {
         let _ = path;
         let source_kind = SourceKind::Python {
             code: source.to_owned(),
-            is_stub: false,
+            is_stub: source_type.is_stub(),
         };
 
         let parsed = Self::parse_python(source_kind.source_code(), source_type);
@@ -836,7 +841,7 @@ impl ClassDiagram {
         checker.see_imports(&parsed.python_ast);
         #[cfg(feature = "infer")]
         if self.infer {
-            checker.set_inferer(self.infer_source(source, path));
+            checker.set_inferer(self.infer_source(source, path, source_type.is_stub()));
         }
         self.syntax_errors
             .extend(parsed.syntax_errors.iter().cloned());
@@ -852,6 +857,7 @@ impl ClassDiagram {
         &self,
         source: &str,
         path: Option<&Path>,
+        is_stub: bool,
     ) -> Option<crate::analysis::ty_infer::TyInferer> {
         #[cfg(not(target_arch = "wasm32"))]
         if let (Some(project), Some(path)) = (&self.ty_project, path) {
@@ -860,7 +866,7 @@ impl ClassDiagram {
             }
         }
         let _ = path;
-        crate::analysis::ty_infer::TyInferer::new(source)
+        crate::analysis::ty_infer::TyInferer::new(source, is_stub)
     }
 
     fn add_classes_from_ast(&mut self, checker: &Checker, python_ast: &[ast::Stmt]) {
@@ -925,7 +931,7 @@ impl ClassDiagram {
     }
 
     fn module_kind_for_path(path: &Path) -> ModuleKind {
-        if path.ends_with("__init__.py") {
+        if path.ends_with("__init__.py") || path.ends_with("__init__.pyi") {
             ModuleKind::Package
         } else {
             ModuleKind::Module

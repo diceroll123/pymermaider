@@ -5,6 +5,7 @@ import type { DiagramDirection, PyMermaiderClass } from "../types";
 interface UseMermaidProps {
   wasmRef: React.RefObject<PyMermaiderClass | null>;
   pythonCode: string;
+  isStub?: boolean;
   isWasmLoaded: boolean;
   colorMode: string | undefined;
   themeMounted: boolean;
@@ -15,6 +16,7 @@ interface UseMermaidProps {
 export function useMermaid({
   wasmRef,
   pythonCode,
+  isStub = false,
   isWasmLoaded,
   colorMode,
   themeMounted,
@@ -68,7 +70,7 @@ export function useMermaid({
       // Try to process the Python code
       let diagram: string;
       try {
-        diagram = wasmRef.current.processPythonCode(pythonCode);
+        diagram = wasmRef.current.processPythonCode(pythonCode, isStub);
       } catch {
         // Handle Python parsing/processing errors gracefully - show empty state instead of error
         setMermaidCode("");
@@ -135,7 +137,7 @@ export function useMermaid({
     } finally {
       setIsProcessing(false);
     }
-  }, [pythonCode, wasmRef, direction, hidePrivateMembers]);
+  }, [pythonCode, isStub, wasmRef, direction, hidePrivateMembers]);
 
   // Auto-generate on code change (debounced)
   useEffect(() => {

@@ -2,6 +2,7 @@
 
 import { useState, useCallback, useRef } from "react";
 import type { FileNode, RepoSource } from "../types";
+import { isPythonFile } from "../pythonFiles";
 
 interface GitHubContent {
   name: string;
@@ -97,7 +98,7 @@ export function useGitHubRepo(): UseGitHubRepoResult {
         continue;
       }
 
-      const isPython = item.name.endsWith(".py");
+      const isPython = isPythonFile(item.name);
 
       if (item.type === "file") {
         nodes.push({
