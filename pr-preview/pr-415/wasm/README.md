@@ -83,6 +83,9 @@ pymermaider [OPTIONS] <PATH>
 - `--python-version <X.Y>`
   Target Python version. If omitted, detected by walking up from the input path to the nearest `pyproject.toml` (`project.requires-python`, lowest allowed version, same as ruff); falls back to the latest supported version.
 
+- `--no-infer`
+  Disable type inference. By default, [ty](https://github.com/astral-sh/ty) infers types for attributes without annotations (for example `self.db = Database()` is shown as `Database` and gets a composition edge instead of `Any`). ty runs against the project (found from the nearest `pyproject.toml` / `ty.toml`), so types from other files and from packages installed in the project's virtual environment (`VIRTUAL_ENV` or `.venv`) resolve too. With this flag only annotations and literals are used.
+
 - `-h, --help`
   Display help information for the command.
 
