@@ -2,6 +2,7 @@
 
 import { useState, useCallback } from "react";
 import type { FileNode, RepoSource } from "../types";
+import { isPythonFile } from "../pythonFiles";
 
 interface FileSystemEntry {
   isFile: boolean;
@@ -68,7 +69,7 @@ async function processEntry(
   parentPath: string = ""
 ): Promise<FileNode | null> {
   const fullPath = parentPath ? `${parentPath}/${entry.name}` : entry.name;
-  const isPython = entry.name.endsWith(".py");
+  const isPython = isPythonFile(entry.name);
 
   if (entry.isFile) {
     // Store content for Python files
@@ -233,7 +234,7 @@ export function useFileSystem(): UseFileSystemResult {
         // Skip files in excluded directories
         if (parts.some(part => skipDirs.includes(part))) continue;
 
-        const isPython = file.name.endsWith(".py");
+        const isPython = isPythonFile(file.name);
         let content: string | undefined;
 
         // Read file content for Python files

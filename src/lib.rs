@@ -67,12 +67,20 @@ impl PyMermaider {
     /// # Errors
     /// Currently infallible; returns `Ok` in all cases. The `Result` type is retained for future compatibility.
     #[wasm_bindgen(js_name = processPythonCode)]
-    pub fn process_python_code(&mut self, source: &str) -> Result<String, JsValue> {
+    pub fn process_python_code(
+        &mut self,
+        source: &str,
+        is_stub: Option<bool>,
+    ) -> Result<String, JsValue> {
         // Reset the diagram for fresh processing (preserving options)
         self.diagram = ClassDiagram::new(self.options);
 
         // Add the source to the diagram
-        self.diagram.add_source(source);
+        if is_stub.unwrap_or(false) {
+            self.diagram.add_stub_source(source);
+        } else {
+            self.diagram.add_source(source);
+        }
 
         // Return the mermaid diagram as a string, or empty string if None
         Ok(self.diagram.render().unwrap_or_default())

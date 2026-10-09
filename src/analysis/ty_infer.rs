@@ -61,6 +61,7 @@ impl TyProject {
 
 const ROOT: &str = "/";
 const FILE: &str = "/source.py";
+const STUB_FILE: &str = "/source.pyi";
 
 /// Inferred types for assignment targets in a single source file.
 #[derive(Debug, Default)]
@@ -72,10 +73,10 @@ impl TyInferer {
     /// Analyze `source` on its own, in an in-memory project. Only the file itself and the
     /// stdlib are visible, so imports from other modules stay unresolved. Returns `None` if ty
     /// could not be set up.
-    pub fn new(source: &str) -> Option<Self> {
+    pub fn new(source: &str, is_stub: bool) -> Option<Self> {
         let system = InMemorySystem::default();
         let root = SystemPathBuf::from(ROOT);
-        let path = SystemPath::new(FILE);
+        let path = SystemPath::new(if is_stub { STUB_FILE } else { FILE });
         system.fs().create_directory_all(&root).ok()?;
         system.fs().write_file_all(path, source).ok()?;
 
@@ -193,10 +194,24 @@ class Service:
         self.db = Database()
         self.count = 0
 ";
-        let inferer = TyInferer::new(source).expect("ty should initialize");
+        let inferer = TyInferer::new(source, false).expect("ty should initialize");
         let mut found: Vec<&str> = inferer.targets.values().map(String::as_str).collect();
         found.sort_unstable();
         assert_eq!(found, ["Database", "int"]);
+    }
+
+    #[test]
+    fn infers_in_stub_source() {
+        let source = "\
+class Database: ...
+
+class Service:
+    def __init__(self) -> None:
+        self.db = Database()
+";
+        let inferer = TyInferer::new(source, true).expect("ty should initialize");
+        let found: Vec<&str> = inferer.targets.values().map(String::as_str).collect();
+        assert_eq!(found, ["Database"]);
     }
 
     #[test]

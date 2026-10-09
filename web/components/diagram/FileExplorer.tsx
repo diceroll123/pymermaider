@@ -5,6 +5,7 @@ import { Box, Text, TreeView, createTreeCollection, Link } from "@chakra-ui/reac
 import { LuExternalLink } from "react-icons/lu";
 import { LuFile, LuFileCode, LuFolder, LuFolderOpen, LuLoaderCircle } from "react-icons/lu";
 import type { FileNode, RepoSource } from "./types";
+import { isPythonFile } from "./pythonFiles";
 
 interface FileExplorerProps {
   files: FileNode[];
@@ -45,7 +46,7 @@ export function FileExplorer({
     const selected = details.selectedValue[0];
     if (selected) {
       // Only trigger file select for Python files (simple check by extension)
-      if (selected.endsWith(".py")) {
+      if (isPythonFile(selected)) {
         onFileSelect(selected);
       }
     }
