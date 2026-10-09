@@ -81,16 +81,17 @@ export class PyMermaider {
      * # Errors
      * Currently infallible; returns `Ok` in all cases. The `Result` type is retained for future compatibility.
      * @param {string} source
+     * @param {boolean | null} [is_stub]
      * @returns {string}
      */
-    processPythonCode(source) {
+    processPythonCode(source, is_stub) {
         let deferred3_0;
         let deferred3_1;
         try {
             const retptr = wasm.__wbindgen_add_to_stack_pointer(-16);
             const ptr0 = passStringToWasm0(source, wasm.__wbindgen_export2, wasm.__wbindgen_export3);
             const len0 = WASM_VECTOR_LEN;
-            wasm.pymermaider_processPythonCode(retptr, this.__wbg_ptr, ptr0, len0);
+            wasm.pymermaider_processPythonCode(retptr, this.__wbg_ptr, ptr0, len0, isLikeNone(is_stub) ? 0xFFFFFF : is_stub ? 1 : 0);
             var r0 = getDataViewMemory0().getInt32(retptr + 4 * 0, true);
             var r1 = getDataViewMemory0().getInt32(retptr + 4 * 1, true);
             var r2 = getDataViewMemory0().getInt32(retptr + 4 * 2, true);
@@ -215,6 +216,10 @@ let heap = new Array(1024).fill(undefined);
 heap.push(undefined, null, true, false);
 
 let heap_next = heap.length;
+
+function isLikeNone(x) {
+    return x === undefined || x === null;
+}
 
 function passStringToWasm0(arg, malloc, realloc) {
     if (realloc === undefined) {
