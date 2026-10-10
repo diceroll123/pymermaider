@@ -140,7 +140,7 @@ class Thing:
 
     let expected_output = "classDiagram
     class Thing {
-        + @classmethod async foo(cls, first, /, *second, kwarg: bool = True, **unpack_this) dict~str, str~
+        + @classmethod async foo(cls, first, /, *second, kwarg: bool = True, **unpack_this) dict#91;str, str#93;
     }
 ";
 
@@ -231,7 +231,7 @@ class Car:
 
     class Car {
         + Engine engine
-        + list~Wheel~ wheels
+        + list#91;Wheel#93; wheels
         + drive(self) None
     }
 
@@ -337,7 +337,7 @@ class User(UserBase):
     class User {
         + int id
         + bool is_active
-        + list~Item~ items
+        + list#91;Item#93; items
     }
 
     class UserCreate {
@@ -1172,9 +1172,12 @@ class Config:
     diagram.add_source(source);
     let out = diagram.render().unwrap_or_default();
 
-    assert!(out.contains("dict~str, list~int~~ mapping"), "{out}");
     assert!(
-        out.contains("Literal~#quot;a#quot;, #quot;b#quot;~ mode"),
+        out.contains("dict#91;str, list#91;int#93;#93; mapping"),
+        "{out}"
+    );
+    assert!(
+        out.contains("Literal#91;#quot;a#quot;, #quot;b#quot;#93; mode"),
         "{out}"
     );
     assert!(!out.contains('['), "{out}");
@@ -1510,7 +1513,7 @@ class Car:
         self.empty = []
 ";
     let out = render_source(source);
-    assert!(out.contains("list~Wheel~ wheels"), "{out}");
+    assert!(out.contains("list#91;Wheel#93; wheels"), "{out}");
     assert!(out.contains("Car o-- Wheel"), "{out}");
     // `list[Unknown]` is not informative, so the syntactic `list` is kept.
     assert!(out.contains("list empty"), "{out}");
