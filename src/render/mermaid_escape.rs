@@ -5,8 +5,9 @@ pub trait MermaidEscape {
     fn escape_underscores(&self) -> String;
 
     /// Escape a type annotation or parameter list for use inside a class body.
-    /// Mermaid uses `~` for generics and treats braces and quotes as syntax,
-    /// so `[`/`]` become `~` and `{`, `}`, `"` become entity codes.
+    /// Mermaid treats `~` as a generic delimiter (rendered as `<>`) and treats braces and
+    /// quotes as syntax, so `[`, `]`, `{`, `}`, `"` become entity codes. This keeps Python's
+    /// bracket syntax in the rendered diagram.
     fn escape_type(&self) -> String;
 }
 
@@ -28,7 +29,8 @@ impl MermaidEscape for str {
         let mut out = String::with_capacity(self.len());
         for c in self.chars() {
             match c {
-                '[' | ']' => out.push('~'),
+                '[' => out.push_str("#91;"),
+                ']' => out.push_str("#93;"),
                 '{' => out.push_str("#123;"),
                 '}' => out.push_str("#125;"),
                 '"' => out.push_str("#quot;"),
@@ -70,14 +72,25 @@ mod tests {
 
     #[test]
     fn test_escape_type_generics() {
-        assert_eq!("dict[str, list[int]]".escape_type(), "dict~str, list~int~~");
+        assert_eq!(
+            "dict[str, list[int]]".escape_type(),
+            "dict#91;str, list#91;int#93;#93;"
+        );
     }
 
     #[test]
     fn test_escape_type_braces_and_quotes() {
         assert_eq!(
             "Literal[\"a\"] | {}".escape_type(),
-            "Literal~#quot;a#quot;~ | #123;#125;"
+            "Literal#91;#quot;a#quot;#93; | #123;#125;"
+        );
+    }
+
+    #[test]
+    fn test_escape_type_nested_siblings() {
+        assert_eq!(
+            "tuple[tuple[int, int], tuple[int, int]]".escape_type(),
+            "tuple#91;tuple#91;int, int#93;, tuple#91;int, int#93;#93;"
         );
     }
 
