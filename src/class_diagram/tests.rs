@@ -1498,6 +1498,155 @@ class Thing:
         let out = render_source(source);
         assert!(out.contains("Any value"), "{out}");
     }
+
+    // --- Lazy-gate tests -------------------------------------------------
+    // The gate decides whether building the (expensive) ty project is worth it.
+    // It must be a superset of the assignments `refine_with_ty` could refine:
+    // whenever it is false, output with and without inference must be identical.
+
+    fn gate(source: &str) -> bool {
+        let parsed = ClassDiagram::parse_python(source, crate::ast::PySourceType::Python);
+        ClassDiagram::needs_ty_inference(&parsed.python_ast)
+    }
+
+    fn render_with_infer(source: &str, infer: bool) -> String {
+        let mut diagram = ClassDiagram::default();
+        diagram.set_infer(infer);
+        diagram.add_source(source);
+        diagram.render().unwrap_or_default()
+    }
+
+    #[test]
+    fn gate_false_sources_render_identically_with_and_without_infer() {
+        let sources: &[&str] = &[
+            // Literal values have known syntactic types.
+            "
+class A:
+    x = 5
+    y = 'hi'
+    def __init__(self):
+        self.a = True
+        self.b = None
+",
+            // Names bound to annotated parameters keep the parameter's type.
+            "
+class B:
+    def __init__(self, value: str, n: int):
+        self.value = value
+        self.n = n
+",
+            // No assignments at all.
+            "
+class C:
+    def do(self) -> None: ...
+",
+            // Known types nested in compound statements.
+            "
+class D:
+    if True:
+        flag = 1
+    def __init__(self):
+        try:
+            self.x = 2
+        except Exception:
+            pass
+",
+        ];
+        for source in sources {
+            assert!(!gate(source), "gate should be false:\n{source}");
+            assert_eq!(
+                render_with_infer(source, true),
+                render_with_infer(source, false)
+            );
+        }
+    }
+
+    #[test]
+    fn gate_true_sources_get_ty_inference() {
+        let sources: &[&str] = &[
+            // Call values in __init__.
+            "
+class Database: pass
+
+class Service:
+    def __init__(self):
+        self.db = Database()
+",
+            // Call values at class level.
+            "
+class Config: pass
+
+class App:
+    config = Config()
+",
+            // Bare container literals that ty can parametrize.
+            "
+class Wheel: pass
+
+class Car:
+    def __init__(self):
+        self.wheels = [Wheel()]
+",
+            // Class nested in a function.
+            "
+class Database: pass
+
+def factory():
+    class Service:
+        def __init__(self):
+            self.db = Database()
+",
+            // Class-level assignment in an if body.
+            "
+class Config: pass
+
+class App:
+    if True:
+        config = Config()
+",
+            // self-assignment in a try body inside __init__.
+            "
+class Database: pass
+
+class Service:
+    def __init__(self):
+        try:
+            self.db = Database()
+        except Exception:
+            pass
+",
+        ];
+        for source in sources {
+            assert!(gate(source), "gate should be true:\n{source}");
+            assert_ne!(
+                render_with_infer(source, true),
+                render_with_infer(source, false)
+            );
+        }
+    }
+
+    #[test]
+    fn gate_true_even_when_ty_finds_nothing() {
+        // The gate is a superset: it fires whenever ty *could* be consulted, even if
+        // inference ends up with nothing to say. Output is the same either way.
+        let sources: &[&str] = &[
+            "
+class Thing:
+    def __init__(self, data):
+        self.value = undefined_function()
+",
+            "
+class Thing:
+    def __init__(self, data):
+        self.value = data
+",
+        ];
+        for source in sources {
+            assert!(gate(source), "gate should be true:\n{source}");
+            let out = render_with_infer(source, true);
+            assert!(out.contains("Any value"), "{out}");
+        }
+    }
 }
 
 #[cfg(feature = "infer")]

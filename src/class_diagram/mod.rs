@@ -11,7 +11,6 @@ use crate::render::renderer::{
     RelationshipEdge, Visibility,
 };
 use indexmap::IndexSet;
-use ruff_linter::source_kind::SourceKind;
 use ruff_linter::Locator;
 use ruff_python_ast::name::{QualifiedName, UnqualifiedName};
 use ruff_python_ast::{Expr, Number, Operator, PySourceType, PythonVersion, UnaryOp};
@@ -45,6 +44,14 @@ enum BaseKind {
 /// An attribute assigned through `self`, with its explicit annotation expression (if any) and
 /// whether its type text came from ty inference.
 type InstanceAttribute<'a> = (Attribute, Option<&'a Expr>, bool);
+
+/// Syntactic types that ty inference can refine: an unknown type (`""`) or a bare
+/// container name (`list`, `dict`, ...) that ty can parametrize. Shared by the gate in
+/// [`ClassDiagram::needs_ty_inference`] and [`ClassDiagram::refine_with_ty`], so the two
+/// cannot drift.
+fn ty_refines(syntactic: &str) -> bool {
+    matches!(syntactic, "" | "list" | "dict" | "set" | "tuple")
+}
 
 pub struct ClassDiagram {
     diagram: Diagram,
@@ -312,8 +319,13 @@ impl ClassDiagram {
 
         // Add composition relationships
         // A type that is also held directly keeps only the stronger composition edge.
+        let strong_types: IndexSet<&String> = composition_types
+            .iter()
+            .filter(|(_, is_aggregation)| !*is_aggregation)
+            .map(|(comp_type, _)| comp_type)
+            .collect();
         for (comp_type, is_aggregation) in &composition_types {
-            if *is_aggregation && composition_types.contains(&(comp_type.clone(), false)) {
+            if *is_aggregation && strong_types.contains(comp_type) {
                 continue;
             }
             // Imported types keep their module path (backticked, e.g. `pathlib.Path`) so
@@ -551,9 +563,200 @@ impl ClassDiagram {
         syntactic: &str,
         range: ruff_text_size::TextRange,
     ) -> Option<&'c str> {
-        matches!(syntactic, "" | "list" | "dict" | "set" | "tuple")
+        ty_refines(syntactic)
             .then(|| checker.inferred_target_type(range))
             .flatten()
+    }
+
+    /// Whether ty inference could be consulted for this module, i.e. whether it is worth
+    /// paying to build a ty project. Mirrors the [`Self::refine_with_ty`] call sites:
+    /// a class-level `x = <expr>` (first target a name) or a `self.x = <expr>` in
+    /// `__init__` whose value is not an annotated parameter, where the syntactic type
+    /// of `<expr>` is unknown or a bare container.
+    #[cfg(feature = "infer")]
+    fn needs_ty_inference(stmts: &[ast::Stmt]) -> bool {
+        for stmt in stmts {
+            match stmt {
+                ast::Stmt::ClassDef(class) => {
+                    if Self::class_needs_ty_inference(class)
+                        || Self::needs_ty_inference(&class.body)
+                    {
+                        return true;
+                    }
+                }
+                ast::Stmt::FunctionDef(func) => {
+                    if Self::needs_ty_inference(&func.body) {
+                        return true;
+                    }
+                }
+                ast::Stmt::If(ast::StmtIf {
+                    body,
+                    elif_else_clauses,
+                    ..
+                }) => {
+                    if Self::needs_ty_inference(body)
+                        || elif_else_clauses
+                            .iter()
+                            .any(|c| Self::needs_ty_inference(&c.body))
+                    {
+                        return true;
+                    }
+                }
+                ast::Stmt::With(ast::StmtWith { body, .. })
+                | ast::Stmt::For(ast::StmtFor { body, .. })
+                | ast::Stmt::While(ast::StmtWhile { body, .. }) => {
+                    if Self::needs_ty_inference(body) {
+                        return true;
+                    }
+                }
+                ast::Stmt::Try(ast::StmtTry {
+                    body,
+                    handlers,
+                    orelse,
+                    finalbody,
+                    ..
+                }) if Self::needs_ty_inference(body)
+                    || handlers.iter().any(|h| {
+                        let ast::ExceptHandler::ExceptHandler(e) = h;
+                        Self::needs_ty_inference(&e.body)
+                    })
+                    || Self::needs_ty_inference(orelse)
+                    || Self::needs_ty_inference(finalbody) =>
+                {
+                    return true;
+                }
+                _ => {}
+            }
+        }
+        false
+    }
+
+    /// The class-level half of [`Self::needs_ty_inference`]: assignments in the flattened
+    /// body and `self.x = ...` in a top-level `__init__`.
+    #[cfg(feature = "infer")]
+    fn class_needs_ty_inference(class: &ast::StmtClassDef) -> bool {
+        for stmt in Self::flatten_class_body(&class.body) {
+            if let ast::Stmt::Assign(assign) = stmt {
+                if assign
+                    .targets
+                    .first()
+                    .is_some_and(|t| matches!(t, Expr::Name(_)))
+                    && ty_refines(Self::infer_value_type(&assign.value))
+                {
+                    return true;
+                }
+            }
+        }
+
+        for stmt in &class.body {
+            let ast::Stmt::FunctionDef(func) = stmt else {
+                continue;
+            };
+            if func.name.as_str() != "__init__" {
+                continue;
+            }
+            let Some(first) = func
+                .parameters
+                .posonlyargs
+                .iter()
+                .chain(&func.parameters.args)
+                .next()
+            else {
+                continue;
+            };
+            let annotated_params: std::collections::HashSet<&str> = func
+                .parameters
+                .iter_non_variadic_params()
+                .filter(|p| p.parameter.annotation.is_some())
+                .map(|p| p.parameter.name.as_str())
+                .collect();
+            if Self::init_body_needs_ty_inference(
+                &func.body,
+                first.parameter.name.as_str(),
+                &annotated_params,
+            ) {
+                return true;
+            }
+        }
+
+        false
+    }
+
+    /// The `__init__` half of [`Self::needs_ty_inference`]: a `self.x = <expr>` whose value
+    /// is not an annotated parameter and whose syntactic type needs refinement. Descends
+    /// exactly like [`Self::collect_instance_attributes`].
+    #[cfg(feature = "infer")]
+    fn init_body_needs_ty_inference(
+        stmts: &[ast::Stmt],
+        self_name: &str,
+        annotated_params: &std::collections::HashSet<&str>,
+    ) -> bool {
+        for stmt in stmts {
+            match stmt {
+                ast::Stmt::Assign(assign) => {
+                    for target in &assign.targets {
+                        let is_self_attr = matches!(
+                            target,
+                            Expr::Attribute(ast::ExprAttribute { value, .. })
+                                if matches!(value.as_ref(), Expr::Name(n) if n.id.as_str() == self_name)
+                        );
+                        if !is_self_attr {
+                            continue;
+                        }
+                        if let Expr::Name(n) = assign.value.as_ref() {
+                            if annotated_params.contains(n.id.as_str()) {
+                                continue;
+                            }
+                        }
+                        if ty_refines(Self::infer_value_type(&assign.value)) {
+                            return true;
+                        }
+                    }
+                }
+                ast::Stmt::If(ast::StmtIf {
+                    body,
+                    elif_else_clauses,
+                    ..
+                }) => {
+                    if Self::init_body_needs_ty_inference(body, self_name, annotated_params)
+                        || elif_else_clauses.iter().any(|c| {
+                            Self::init_body_needs_ty_inference(&c.body, self_name, annotated_params)
+                        })
+                    {
+                        return true;
+                    }
+                }
+                ast::Stmt::With(ast::StmtWith { body, .. })
+                | ast::Stmt::For(ast::StmtFor { body, .. })
+                | ast::Stmt::While(ast::StmtWhile { body, .. }) => {
+                    if Self::init_body_needs_ty_inference(body, self_name, annotated_params) {
+                        return true;
+                    }
+                }
+                ast::Stmt::Try(ast::StmtTry {
+                    body,
+                    handlers,
+                    orelse,
+                    finalbody,
+                    ..
+                }) if Self::init_body_needs_ty_inference(body, self_name, annotated_params)
+                    || handlers.iter().any(|h| {
+                        let ast::ExceptHandler::ExceptHandler(e) = h;
+                        Self::init_body_needs_ty_inference(&e.body, self_name, annotated_params)
+                    })
+                    || Self::init_body_needs_ty_inference(orelse, self_name, annotated_params)
+                    || Self::init_body_needs_ty_inference(
+                        finalbody,
+                        self_name,
+                        annotated_params,
+                    ) =>
+                {
+                    return true;
+                }
+                _ => {}
+            }
+        }
+        false
     }
 
     /// Cheap literal-based type inference for simple assignments.
@@ -824,12 +1027,7 @@ impl ClassDiagram {
         // Only used to look the file up in the shared ty project.
         #[cfg(not(feature = "infer"))]
         let _ = path;
-        let source_kind = SourceKind::Python {
-            code: source.to_owned(),
-            is_stub: source_type.is_stub(),
-        };
-
-        let parsed = Self::parse_python(source_kind.source_code(), source_type);
+        let parsed = Self::parse_python(source, source_type);
         let mut checker = Self::build_checker(
             &parsed.stylist,
             &parsed.locator,
@@ -839,8 +1037,10 @@ impl ClassDiagram {
             self.python_version,
         );
         checker.see_imports(&parsed.python_ast);
+        // Building the ty project is expensive, so only pay for it when this module has an
+        // assignment that could actually be refined by inference.
         #[cfg(feature = "infer")]
-        if self.infer {
+        if self.infer && Self::needs_ty_inference(&parsed.python_ast) {
             checker.set_inferer(self.infer_source(source, path, source_type.is_stub()));
         }
         self.syntax_errors
