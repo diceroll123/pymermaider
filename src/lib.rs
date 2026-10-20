@@ -5,7 +5,7 @@ pub(crate) mod analysis;
 pub mod class_diagram;
 pub mod render;
 
-#[cfg(all(feature = "infer", not(target_arch = "wasm32")))]
+#[cfg(not(target_arch = "wasm32"))]
 pub use analysis::ty_infer::TyProject;
 pub use render::mermaid_renderer::RenderOptions;
 pub use ruff_python_ast as ast;

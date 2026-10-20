@@ -65,11 +65,8 @@ pub struct ClassDiagram {
     module_prefix: String,
     /// Target Python version used by the semantic model (latest unless detected or set).
     python_version: PythonVersion,
-    /// Use ty to infer types for unannotated attributes (requires the `infer` feature).
-    #[cfg(feature = "infer")]
-    infer: bool,
     /// Project-wide ty session, so imports from other files and the venv resolve.
-    #[cfg(all(feature = "infer", not(target_arch = "wasm32")))]
+    #[cfg(not(target_arch = "wasm32"))]
     ty_project: Option<std::sync::Arc<crate::analysis::ty_infer::TyProject>>,
 }
 
@@ -90,21 +87,13 @@ impl ClassDiagram {
             syntax_errors: Vec::new(),
             module_prefix: String::new(),
             python_version: PythonVersion::latest(),
-            #[cfg(feature = "infer")]
-            infer: true,
-            #[cfg(all(feature = "infer", not(target_arch = "wasm32")))]
+            #[cfg(not(target_arch = "wasm32"))]
             ty_project: None,
         }
     }
 
-    /// Enable or disable ty-based type inference for sources added from now on.
-    #[cfg(feature = "infer")]
-    pub const fn set_infer(&mut self, infer: bool) {
-        self.infer = infer;
-    }
-
     /// Share a project-wide ty session for files added with [`Self::add_file`].
-    #[cfg(all(feature = "infer", not(target_arch = "wasm32")))]
+    #[cfg(not(target_arch = "wasm32"))]
     pub fn set_ty_project(
         &mut self,
         project: Option<std::sync::Arc<crate::analysis::ty_infer::TyProject>>,
@@ -573,7 +562,6 @@ impl ClassDiagram {
     /// a class-level `x = <expr>` (first target a name) or a `self.x = <expr>` in
     /// `__init__` whose value is not an annotated parameter, where the syntactic type
     /// of `<expr>` is unknown or a bare container.
-    #[cfg(feature = "infer")]
     fn needs_ty_inference(stmts: &[ast::Stmt]) -> bool {
         for stmt in stmts {
             match stmt {
@@ -633,7 +621,6 @@ impl ClassDiagram {
 
     /// The class-level half of [`Self::needs_ty_inference`]: assignments in the flattened
     /// body and `self.x = ...` in a top-level `__init__`.
-    #[cfg(feature = "infer")]
     fn class_needs_ty_inference(class: &ast::StmtClassDef) -> bool {
         for stmt in Self::flatten_class_body(&class.body) {
             if let ast::Stmt::Assign(assign) = stmt {
@@ -685,7 +672,6 @@ impl ClassDiagram {
     /// The `__init__` half of [`Self::needs_ty_inference`]: a `self.x = <expr>` whose value
     /// is not an annotated parameter and whose syntactic type needs refinement. Descends
     /// exactly like [`Self::collect_instance_attributes`].
-    #[cfg(feature = "infer")]
     fn init_body_needs_ty_inference(
         stmts: &[ast::Stmt],
         self_name: &str,
@@ -1024,9 +1010,6 @@ impl ClassDiagram {
         module_kind: ModuleKind,
         path: Option<&Path>,
     ) {
-        // Only used to look the file up in the shared ty project.
-        #[cfg(not(feature = "infer"))]
-        let _ = path;
         let parsed = Self::parse_python(source, source_type);
         let mut checker = Self::build_checker(
             &parsed.stylist,
@@ -1039,8 +1022,7 @@ impl ClassDiagram {
         checker.see_imports(&parsed.python_ast);
         // Building the ty project is expensive, so only pay for it when this module has an
         // assignment that could actually be refined by inference.
-        #[cfg(feature = "infer")]
-        if self.infer && Self::needs_ty_inference(&parsed.python_ast) {
+        if Self::needs_ty_inference(&parsed.python_ast) {
             checker.set_inferer(self.infer_source(source, path, source_type.is_stub()));
         }
         self.syntax_errors
@@ -1052,7 +1034,6 @@ impl ClassDiagram {
     }
 
     /// Infer types for `source`, using the shared project when the file is on disk.
-    #[cfg(feature = "infer")]
     fn infer_source(
         &self,
         source: &str,

@@ -874,17 +874,13 @@ class Config:
     fallback = None or "x"
     flag = not True
 "#;
-    // Exercise the syntactic path; ty would refine the `Any` cases.
-    let mut diagram = ClassDiagram::default();
-    #[cfg(feature = "infer")]
-    diagram.set_infer(false);
-    diagram.add_source(source);
-    let out = diagram.render().unwrap_or_default();
+    // `mixed` and `fallback` have no syntactic type, so they are refined by ty.
+    let out = render_source(source);
     assert!(out.contains("float ratio"), "{out}");
     assert!(out.contains("int total"), "{out}");
     assert!(out.contains("str name"), "{out}");
-    assert!(out.contains("Any mixed"), "{out}");
-    assert!(out.contains("Any fallback"), "{out}");
+    assert!(out.contains("float mixed"), "{out}");
+    assert!(out.contains("str fallback"), "{out}");
     assert!(out.contains("bool flag"), "{out}");
 }
 
@@ -1422,7 +1418,6 @@ class Thing:
     assert!(out.contains("public"), "{out}");
 }
 
-#[cfg(feature = "infer")]
 mod infer {
     use super::*;
 
@@ -1439,24 +1434,6 @@ class Service:
         let out = render_source(source);
         assert!(out.contains("Database db"), "{out}");
         assert!(out.contains("Service *-- Database"), "{out}");
-    }
-
-    #[test]
-    fn test_no_infer_keeps_syntactic_output() {
-        let source = "
-class Database:
-    pass
-
-class Service:
-    def __init__(self):
-        self.db = Database()
-";
-        let mut diagram = ClassDiagram::default();
-        diagram.set_infer(false);
-        diagram.add_source(source);
-        let out = diagram.render().unwrap_or_default();
-        assert!(out.contains("Any db"), "{out}");
-        assert!(!out.contains("Service *-- Database"), "{out}");
     }
 
     #[test]
@@ -1500,24 +1477,17 @@ class Thing:
     }
 
     // --- Lazy-gate tests -------------------------------------------------
-    // The gate decides whether building the (expensive) ty project is worth it.
-    // It must be a superset of the assignments `refine_with_ty` could refine:
-    // whenever it is false, output with and without inference must be identical.
+    // The gate decides whether building the (expensive) ty project is worth it. Inference
+    // always runs, so a false gate only saves time: `refine_with_ty` is only consulted for
+    // the assignments the gate checks, so skipping it cannot change output.
 
     fn gate(source: &str) -> bool {
         let parsed = ClassDiagram::parse_python(source, crate::ast::PySourceType::Python);
         ClassDiagram::needs_ty_inference(&parsed.python_ast)
     }
 
-    fn render_with_infer(source: &str, infer: bool) -> String {
-        let mut diagram = ClassDiagram::default();
-        diagram.set_infer(infer);
-        diagram.add_source(source);
-        diagram.render().unwrap_or_default()
-    }
-
     #[test]
-    fn gate_false_sources_render_identically_with_and_without_infer() {
+    fn gate_false_sources_skip_ty() {
         let sources: &[&str] = &[
             // Literal values have known syntactic types.
             "
@@ -1554,41 +1524,47 @@ class D:
         ];
         for source in sources {
             assert!(!gate(source), "gate should be false:\n{source}");
-            assert_eq!(
-                render_with_infer(source, true),
-                render_with_infer(source, false)
-            );
         }
     }
 
     #[test]
     fn gate_true_sources_get_ty_inference() {
-        let sources: &[&str] = &[
+        let sources: &[(&str, &str)] = &[
             // Call values in __init__.
-            "
+            (
+                "
 class Database: pass
 
 class Service:
     def __init__(self):
         self.db = Database()
 ",
+                "Database db",
+            ),
             // Call values at class level.
-            "
+            (
+                "
 class Config: pass
 
 class App:
     config = Config()
 ",
+                "Config config",
+            ),
             // Bare container literals that ty can parametrize.
-            "
+            (
+                "
 class Wheel: pass
 
 class Car:
     def __init__(self):
         self.wheels = [Wheel()]
 ",
+                "list#91;Wheel#93; wheels",
+            ),
             // Class nested in a function.
-            "
+            (
+                "
 class Database: pass
 
 def factory():
@@ -1596,16 +1572,22 @@ def factory():
         def __init__(self):
             self.db = Database()
 ",
+                "Database db",
+            ),
             // Class-level assignment in an if body.
-            "
+            (
+                "
 class Config: pass
 
 class App:
     if True:
         config = Config()
 ",
+                "Config config",
+            ),
             // self-assignment in a try body inside __init__.
-            "
+            (
+                "
 class Database: pass
 
 class Service:
@@ -1615,20 +1597,20 @@ class Service:
         except Exception:
             pass
 ",
+                "Database db",
+            ),
         ];
-        for source in sources {
+        for (source, expected) in sources {
             assert!(gate(source), "gate should be true:\n{source}");
-            assert_ne!(
-                render_with_infer(source, true),
-                render_with_infer(source, false)
-            );
+            let out = render_source(source);
+            assert!(out.contains(expected), "{out}");
         }
     }
 
     #[test]
     fn gate_true_even_when_ty_finds_nothing() {
         // The gate is a superset: it fires whenever ty *could* be consulted, even if
-        // inference ends up with nothing to say. Output is the same either way.
+        // inference ends up with nothing to say.
         let sources: &[&str] = &[
             "
 class Thing:
@@ -1643,13 +1625,12 @@ class Thing:
         ];
         for source in sources {
             assert!(gate(source), "gate should be true:\n{source}");
-            let out = render_with_infer(source, true);
+            let out = render_source(source);
             assert!(out.contains("Any value"), "{out}");
         }
     }
 }
 
-#[cfg(feature = "infer")]
 #[test]
 fn test_container_literal_is_parametrized_by_ty() {
     let source = "
