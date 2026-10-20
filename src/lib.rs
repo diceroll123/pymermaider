@@ -13,7 +13,7 @@ pub mod cli;
 #[cfg(all(feature = "python", not(target_arch = "wasm32")))]
 mod python;
 
-#[cfg(all(feature = "infer", not(target_arch = "wasm32")))]
+#[cfg(not(target_arch = "wasm32"))]
 pub use analysis::ty_infer::TyProject;
 pub use render::mermaid_renderer::RenderOptions;
 pub use ruff_python_ast as ast;

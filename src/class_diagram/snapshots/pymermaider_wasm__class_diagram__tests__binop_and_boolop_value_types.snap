@@ -7,7 +7,7 @@ classDiagram
         + float ratio
         + int total
         + str name
-        + Any mixed
-        + Any fallback
+        + float mixed
+        + str fallback
         + bool flag
     }
