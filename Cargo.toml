@@ -70,6 +70,11 @@ harness = false
 
 [features]
 default = ["cli", "infer"]
+# Type inference with [ty](https://github.com/astral-sh/ty): unannotated
+# assignments get their inferred type (e.g. `self.db = Database()` is shown as
+# `Database` instead of `Any`). On by default; disable with --no-default-features
+# (e.g. for WASM builds) or at runtime with the `--no-infer` CLI flag /
+# `ClassDiagram::set_infer(false)`.
 infer = ["dep:ruff_db", "dep:ty_project", "dep:ty_python_core", "dep:ty_python_semantic"]
 cli = ["clap", "env_logger", "ignore", "dep:rayon", "dep:ruff_workspace"]
 

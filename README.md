@@ -15,6 +15,7 @@
 
 - **Automatic Class Diagram Generation**: Generate detailed class diagrams from Python codebases with minimal configuration.
 - **Mermaid.js Compatibility**: Outputs diagrams in mermaid.js markdown syntax, ready to be embedded in your markdown documents or rendered using mermaid.js tools. GitHub supports this natively as you'll see below!
+- **Type Inference**: Unannotated attributes are typed with [ty](https://github.com/astral-sh/ty) (for example `self.db = Database()` is shown as `Database` instead of `Any`). Provided by the `infer` cargo feature, which is on by default; disable it at build time with `--no-default-features` (e.g. for WASM builds) or per run with [`--no-infer`](#options).
 
 ### What is supported
 
