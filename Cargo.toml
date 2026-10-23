@@ -62,7 +62,7 @@ tempfile = "3.23.0"
 anyhow = "1.0.100"
 ctor = "1.0.0"
 criterion = { version = "0.8", default-features = false }
-divan = { version = "5.0.0", package = "codspeed-divan-compat" }
+divan = { version = "6.0.0", package = "codspeed-divan-compat" }
 
 [[bench]]
 name = "parse_render"
