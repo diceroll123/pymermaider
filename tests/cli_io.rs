@@ -294,11 +294,9 @@ fn syntax_errors_are_reported_on_stderr() {
 }
 
 /// Run pymermaider on `file` (stdout output) and return stdout.
-#[cfg(feature = "infer")]
-fn render(file: &std::path::Path, extra: &[&str]) -> String {
+fn render(file: &std::path::Path) -> String {
     let output = Command::new(env!("CARGO_BIN_EXE_pymermaider"))
         .arg(file)
-        .args(extra)
         .args(["--output", "-"])
         .output()
         .expect("run pymermaider");
@@ -310,7 +308,6 @@ fn render(file: &std::path::Path, extra: &[&str]) -> String {
     String::from_utf8_lossy(&output.stdout).into_owned()
 }
 
-#[cfg(feature = "infer")]
 #[test]
 fn infers_types_from_sibling_modules() {
     let dir = tempfile::TempDir::new().expect("temp dir");
@@ -322,15 +319,11 @@ fn infers_types_from_sibling_modules() {
     )
     .unwrap();
 
-    let out = render(&app, &[]);
+    let out = render(&app);
     assert!(out.contains("Database db"), "{out}");
     assert!(out.contains("Service *-- `models.Database`"), "{out}");
-
-    let out = render(&app, &["--no-infer"]);
-    assert!(out.contains("Any db"), "{out}");
 }
 
-#[cfg(feature = "infer")]
 #[test]
 fn infers_types_from_third_party_packages_in_a_venv() {
     let dir = tempfile::TempDir::new().expect("temp dir");
@@ -364,12 +357,11 @@ fn infers_types_from_third_party_packages_in_a_venv() {
     )
     .unwrap();
 
-    let out = render(&app, &[]);
+    let out = render(&app);
     assert!(out.contains("Widget w"), "{out}");
     assert!(out.contains("Ui *-- `fancylib.Widget`"), "{out}");
 }
 
-#[cfg(feature = "infer")]
 #[test]
 fn renders_stub_files() {
     let dir = tempfile::TempDir::new().expect("temp dir");
@@ -380,10 +372,10 @@ fn renders_stub_files() {
     )
     .unwrap();
 
-    let out = render(&stub, &[]);
+    let out = render(&stub);
     assert!(out.contains("class Service"), "{out}");
     assert!(out.contains("Database db"), "{out}");
 
-    let out = render(dir.path(), &[]);
+    let out = render(dir.path());
     assert!(out.contains("class `models.Service`"), "{out}");
 }

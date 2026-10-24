@@ -15,6 +15,7 @@
 
 - **Automatic Class Diagram Generation**: Generate detailed class diagrams from Python codebases with minimal configuration.
 - **Mermaid.js Compatibility**: Outputs diagrams in mermaid.js markdown syntax, ready to be embedded in your markdown documents or rendered using mermaid.js tools. GitHub supports this natively as you'll see below!
+- **Type Inference**: Unannotated attributes are typed with [ty](https://github.com/astral-sh/ty) (for example `self.db = Database()` is shown as `Database` instead of `Any`). The CLI runs ty against the project (found from the nearest `pyproject.toml` / `ty.toml`), so types from other files and from packages installed in the project's virtual environment (`VIRTUAL_ENV` or `.venv`) resolve too; in the browser, inference runs in memory over just the pasted source.
 
 ### What is supported
 
@@ -82,9 +83,6 @@ pymermaider [OPTIONS] <PATH>
 
 - `--python-version <X.Y>`
   Target Python version. If omitted, detected by walking up from the input path to the nearest `pyproject.toml` (`project.requires-python`, lowest allowed version, same as ruff); falls back to the latest supported version.
-
-- `--no-infer`
-  Disable type inference. By default, [ty](https://github.com/astral-sh/ty) infers types for attributes without annotations (for example `self.db = Database()` is shown as `Database` and gets a composition edge instead of `Any`). ty runs against the project (found from the nearest `pyproject.toml` / `ty.toml`), so types from other files and from packages installed in the project's virtual environment (`VIRTUAL_ENV` or `.venv`) resolve too. With this flag only annotations and literals are used.
 
 - `-h, --help`
   Display help information for the command.

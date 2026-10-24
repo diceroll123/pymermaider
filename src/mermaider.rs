@@ -15,7 +15,6 @@ pub struct Mermaider {
     file_settings: FileResolverSettings,
     python_version: PythonVersion,
     /// One ty session for the whole run, shared by every file.
-    #[cfg(feature = "infer")]
     ty_project: Option<std::sync::Arc<pymermaider_wasm::TyProject>>,
 }
 
@@ -25,10 +24,7 @@ impl Mermaider {
             crate::python_version::detect(&file_settings.project_root)
                 .unwrap_or_else(PythonVersion::latest)
         });
-        #[cfg(feature = "infer")]
-        let ty_project = if args.no_infer {
-            None
-        } else {
+        let ty_project = {
             let project = pymermaider_wasm::TyProject::discover(&file_settings.project_root);
             if project.is_none() {
                 debug!("ty project discovery failed; inferring types per file");
@@ -39,7 +35,6 @@ impl Mermaider {
             args,
             file_settings,
             python_version,
-            #[cfg(feature = "infer")]
             ty_project,
         }
     }
@@ -147,9 +142,6 @@ impl Mermaider {
         };
         let mut diagram = ClassDiagram::new(options);
         diagram.set_python_version(self.python_version);
-        #[cfg(feature = "infer")]
-        diagram.set_infer(!self.args.no_infer);
-        #[cfg(feature = "infer")]
         diagram.set_ty_project(self.ty_project.clone());
         if let Some(root) = qualify_root {
             diagram.set_module_prefix(&Self::module_prefix(file, root));
@@ -270,8 +262,6 @@ mod tests {
             no_title: false,
             hide_private_members: false,
             python_version: None,
-            #[cfg(feature = "infer")]
-            no_infer: false,
         }
     }
 
