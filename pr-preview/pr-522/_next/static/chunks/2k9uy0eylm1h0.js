@@ -1,4 +1,4 @@
-(globalThis.TURBOPACK||(globalThis.TURBOPACK=[])).push(["object"==typeof document?document.currentScript:void 0,24420,e=>{"use strict";e.i(96288),e.i(61838);var t=e.i(48232);e.i(88361);let a=String.raw,r=a`\[\^?`,n=`c.? | C(?:-.?)?|${a`[pP]\{(?:\^?[-\x20_]*[A-Za-z][-\x20\w]*\})?`}|${a`x[89A-Fa-f]\p{AHex}(?:\\x[89A-Fa-f]\p{AHex})*`}|${a`u(?:\p{AHex}{4})? | x\{[^\}]*\}? | x\p{AHex}{0,2}`}|${a`o\{[^\}]*\}?`}|${a`\d{1,3}`}`;RegExp(a`
+(globalThis.TURBOPACK||(globalThis.TURBOPACK=[])).push(["object"==typeof document?document.currentScript:void 0,24420,e=>{"use strict";e.i(40668),e.i(61838);var t=e.i(48232);e.i(88361);let a=String.raw,r=a`\[\^?`,n=`c.? | C(?:-.?)?|${a`[pP]\{(?:\^?[-\x20_]*[A-Za-z][-\x20\w]*\})?`}|${a`x[89A-Fa-f]\p{AHex}(?:\\x[89A-Fa-f]\p{AHex})*`}|${a`u(?:\p{AHex}{4})? | x\{[^\}]*\}? | x\p{AHex}{0,2}`}|${a`o\{[^\}]*\}?`}|${a`\d{1,3}`}`;RegExp(a`
   \\ (?:
     ${n}
     | [gk]<[^>]*>?
