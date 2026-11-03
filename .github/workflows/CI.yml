@@ -83,25 +83,33 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target:
-          - x86_64-unknown-linux-gnu
-          - i686-unknown-linux-gnu
+        platform:
+          - target: x86_64-unknown-linux-gnu
+            arch: x86_64
+          - target: i686-unknown-linux-gnu
+            arch: x86
+            # 32-bit release builds OOM on the 7 GB ubuntu runner: ruff's ty_*
+            # crates are huge, and fat LTO + codegen-units=1 makes two of them
+            # compile in parallel exceed available memory. Thin LTO and more
+            # codegen units keep peak memory well under the limit.
+            maturin_docker_options: -e CARGO_PROFILE_RELEASE_LTO=thin -e CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16
     steps:
       - uses: actions/checkout@v7
       - uses: Swatinem/rust-cache@v2
         with:
-          key: ${{ matrix.target }}
+          key: ${{ matrix.platform.target }}
       - name: "Build wheels - linux"
         uses: PyO3/maturin-action@v1
         with:
-          target: ${{ matrix.target }}
+          target: ${{ matrix.platform.target }}
           manylinux: auto
           command: build
           args: --release --find-interpreter -o dist
+          docker-options: ${{ matrix.platform.maturin_docker_options }}
       - name: Upload wheels
         uses: actions/upload-artifact@v7
         with:
-          name: wheels-${{ matrix.target }}
+          name: wheels-${{ matrix.platform.target }}
           path: dist
 
   linux-cross:
@@ -145,24 +153,29 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        target:
-          - x86_64-unknown-linux-musl
-          - i686-unknown-linux-musl
+        platform:
+          - target: x86_64-unknown-linux-musl
+            arch: x86_64
+          - target: i686-unknown-linux-musl
+            arch: x86
+            # Same 32-bit OOM risk as the gnu build; see `linux` job above.
+            maturin_docker_options: -e CARGO_PROFILE_RELEASE_LTO=thin -e CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16
     steps:
       - uses: actions/checkout@v7
       - uses: Swatinem/rust-cache@v2
         with:
-          key: musl-${{ matrix.target }}
+          key: musl-${{ matrix.platform.target }}
       - name: "Build wheels - musllinux"
         uses: PyO3/maturin-action@v1
         with:
-          target: ${{ matrix.target }}
+          target: ${{ matrix.platform.target }}
           manylinux: musllinux_1_2
           args: --release --find-interpreter -o dist
+          docker-options: ${{ matrix.platform.maturin_docker_options }}
       - name: Upload wheels
         uses: actions/upload-artifact@v7
         with:
-          name: wheels-${{ matrix.target }}
+          name: wheels-${{ matrix.platform.target }}
           path: dist
 
   musllinux-cross:
