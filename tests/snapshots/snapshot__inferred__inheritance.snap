@@ -1,0 +1,22 @@
+---
+source: tests/snapshot.rs
+expression: rendered
+---
+classDiagram
+    class Animal {
+        + str name
+        + speak(self) str
+    }
+
+    class Dog {
+        + str breed
+        + speak(self) str
+    }
+
+    class Fish {
+        + speak(self) str
+    }
+
+    Dog --|> Animal
+
+    Fish --|> Animal

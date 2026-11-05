@@ -1,0 +1,28 @@
+---
+source: tests/snapshot.rs
+expression: rendered
+---
+classDiagram
+    class Engine {
+        + int horsepower
+    }
+
+    class TowHitch {
+        + int capacity
+    }
+
+    class Wheel {
+        + float radius
+    }
+
+    class Car {
+        + Engine engine
+        + list#91;Wheel#93; wheels
+        + Optional#91;TowHitch#93; tow_hitch
+    }
+
+    Car *-- Engine
+
+    Car o-- Wheel
+
+    Car o-- TowHitch

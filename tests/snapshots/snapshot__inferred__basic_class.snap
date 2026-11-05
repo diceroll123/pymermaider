@@ -1,0 +1,12 @@
+---
+source: tests/snapshot.rs
+expression: rendered
+---
+classDiagram
+    class Point {
+        + float x
+        + float y
+        + \_\_init__(self, x: float, y: float) None
+        + scale(self, factor: float) None
+        + is_origin(self) bool
+    }
