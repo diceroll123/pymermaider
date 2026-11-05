@@ -7,9 +7,12 @@
 - `--direction` flag to set class diagram direction (TB, BT, LR, RL).
 - `--no-title` flag to omit the title from diagram output.
 - `--hide-private-members` flag to omit private members from class diagrams.
+- Python API via a native (pyo3) module: `pymermaider.generate(source)` returns the raw Mermaid diagram and `pymermaider.to_markdown(source)` wraps it in a fenced ```` ```mermaid ```` block. Both accept `direction`, `hide_private_members`, `show_title`, `title` and `python_version` options.
 
 ### Changed
 - Property decorator handling: `@property` getters are now shown as attributes (e.g. `+ str name`) instead of methods. Property setters and deleters (`@name.setter`, `@name.deleter`) are omitted from the diagram.
+- The PyPI wheel now ships the Python API instead of the `pymermaider` CLI binary. Build the CLI from source with `cargo install --git https://github.com/diceroll123/pymermaider pymermaider`.
+- Dropped Python 3.8 support; the wheel now targets CPython 3.9+ via the stable ABI (abi3).
 
 ## [0.1.6] - 2025-12-27
 
