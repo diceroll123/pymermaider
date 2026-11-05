@@ -9,6 +9,7 @@
 - `--hide-private-members` flag to omit private members from class diagrams.
 
 ### Changed
+- Documented type inference differences between the native CLI (project-wide) and the web/WASM build (single-file, cross-module imports unresolved).
 - Property decorator handling: `@property` getters are now shown as attributes (e.g. `+ str name`) instead of methods. Property setters and deleters (`@name.setter`, `@name.deleter`) are omitted from the diagram.
 
 ## [0.1.6] - 2025-12-27
