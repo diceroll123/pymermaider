@@ -11,6 +11,7 @@
 - Web app: Export menu in the diagram editor header to copy the Mermaid code or download the diagram as `.mmd`, Markdown (`.md`), SVG, or PNG.
 
 ### Changed
+- Documented type inference differences between the native CLI (project-wide) and the web/WASM build (single-file, cross-module imports unresolved).
 - Property decorator handling: `@property` getters are now shown as attributes (e.g. `+ str name`) instead of methods. Property setters and deleters (`@name.setter`, `@name.deleter`) are omitted from the diagram.
 - The PyPI wheel now ships the Python API alongside the CLI. The `pymermaider` executable is a console script entry point into the native module (no separate binary in the wheel); `cargo install --git https://github.com/diceroll123/pymermaider pymermaider` still builds a standalone native binary.
 - Dropped Python 3.8 support; the wheel now targets CPython 3.9+ via the stable ABI (abi3).
