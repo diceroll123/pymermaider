@@ -19,6 +19,9 @@
 ### Fixed
 - Expanded the built-in type list used to filter composition/relationship edges with `bytearray`, `frozenset`, `complex`, `memoryview`, `object`, `type`, `slice`, and `range`, so annotations like `x: range` no longer create spurious relationship edges.
 
+### Fixed
+- Type-inference literal normalization: replaced a byte-index string slice with bounds-safe `str::get` (no behavior change).
+
 ## [0.1.6] - 2025-12-27
 
 ### Added
