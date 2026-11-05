@@ -1,0 +1,30 @@
+---
+source: tests/snapshot.rs
+expression: rendered
+---
+classDiagram
+    class Box ~T~ {
+        + get(self) T
+    }
+
+    class Database {
+        + str host
+    }
+
+    class Node {
+        + link(self, other: Node) #quot;Node#quot;
+    }
+
+    class Session {
+        + query(self, sql: str) None
+    }
+
+    class Service {
+        + Database db
+        + connect(self, database: Database) #quot;Session#quot;
+        + open_session(self) #quot;Session#quot;
+    }
+
+    Service *-- Database
+
+    Service ..> Session

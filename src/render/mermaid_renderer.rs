@@ -2,8 +2,8 @@ use std::fmt::Write as _;
 
 use super::mermaid_escape::MermaidEscape;
 use super::renderer::{
-    Attribute, ClassNode, ClassType, CompositionEdge, CompositionKind, Diagram, DiagramDirection,
-    MethodSignature, RelationType, RelationshipEdge, Visibility,
+    Attribute, ClassNode, ClassType, CompositionEdge, CompositionKind, DependencyEdge, Diagram,
+    DiagramDirection, MethodSignature, RelationType, RelationshipEdge, Visibility,
 };
 use indexmap::IndexSet;
 
@@ -237,6 +237,11 @@ pub fn render_composition(composition: &CompositionEdge) -> String {
     )
 }
 
+#[must_use]
+pub fn render_dependency(dependency: &DependencyEdge) -> String {
+    format!("{}{} ..> {}\n", indent(1), dependency.from, dependency.to)
+}
+
 /// Render a full Mermaid class diagram.
 #[must_use]
 pub fn render_diagram(
@@ -276,6 +281,21 @@ pub fn render_diagram(
         for (idx, comp) in unique_compositions.iter().enumerate() {
             output.push_str(&render_composition(comp));
             if idx + 1 < unique_compositions.len() {
+                output.push('\n');
+            }
+        }
+    }
+
+    // Dependencies (deduped; stable order)
+    let unique_dependencies: IndexSet<_> = diagram.dependencies.iter().collect();
+    if !unique_dependencies.is_empty() {
+        if !unique_relationships.is_empty() || !unique_compositions.is_empty() {
+            output.push('\n');
+        }
+
+        for (idx, dep) in unique_dependencies.iter().enumerate() {
+            output.push_str(&render_dependency(dep));
+            if idx + 1 < unique_dependencies.len() {
                 output.push('\n');
             }
         }
