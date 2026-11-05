@@ -1,0 +1,11 @@
+---
+source: src/render/renderer.rs
+expression: doubled
+---
+DiagramStats {
+    classes: 4,
+    inheritance: 2,
+    implementation: 2,
+    composition: 2,
+    dependency: 2,
+}

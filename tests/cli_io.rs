@@ -387,3 +387,38 @@ fn renders_stub_files() {
     let out = render(dir.path(), &[]);
     assert!(out.contains("class `models.Service`"), "{out}");
 }
+#[test]
+fn stats_flag_prints_counts_to_stderr() {
+    let exe = env!("CARGO_BIN_EXE_pymermaider");
+
+    let dir = tempfile::TempDir::new().expect("temp dir");
+    let file_path = dir.path().join("svc.py");
+    std::fs::write(
+        &file_path,
+        "class Database:\n    host: str\n\nclass Session:\n    def query(self, sql: str) -> None: ...\n\nclass Service:\n    db: Database\n\n    def connect(self, session: Session) -> None:\n        pass\n",
+    )
+    .expect("write svc.py");
+
+    let output = Command::new(exe)
+        .arg(file_path.to_string_lossy().to_string())
+        .arg("--output")
+        .arg("-")
+        .arg("--stats")
+        .output()
+        .expect("run pymermaider");
+
+    assert!(
+        output.status.success(),
+        "status={:?} stderr={}",
+        output.status.code(),
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    // The diagram still goes to stdout...
+    let stdout = String::from_utf8_lossy(&output.stdout);
+    assert!(stdout.contains("classDiagram"), "{stdout}");
+
+    // ...and the summary line goes to stderr.
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    insta::assert_snapshot!(stderr.trim());
+}

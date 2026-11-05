@@ -1,0 +1,11 @@
+---
+source: src/render/renderer.rs
+expression: diagram.stats()
+---
+DiagramStats {
+    classes: 2,
+    inheritance: 1,
+    implementation: 1,
+    composition: 1,
+    dependency: 1,
+}

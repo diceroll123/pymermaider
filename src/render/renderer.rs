@@ -169,6 +169,37 @@ pub struct Diagram {
     name_registry: std::collections::HashMap<String, (String, usize)>,
 }
 
+/// Aggregated class and edge counts for a diagram. Edges are de-duplicated the
+/// same way as at render time, so the counts match what is emitted.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct DiagramStats {
+    pub classes: usize,
+    pub inheritance: usize,
+    pub implementation: usize,
+    pub composition: usize,
+    pub dependency: usize,
+}
+
+impl std::ops::Add for DiagramStats {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self {
+        Self {
+            classes: self.classes + other.classes,
+            inheritance: self.inheritance + other.inheritance,
+            implementation: self.implementation + other.implementation,
+            composition: self.composition + other.composition,
+            dependency: self.dependency + other.dependency,
+        }
+    }
+}
+
+impl std::ops::AddAssign for DiagramStats {
+    fn add_assign(&mut self, other: Self) {
+        *self = *self + other;
+    }
+}
+
 impl Diagram {
     #[must_use]
     pub fn new() -> Self {
@@ -181,6 +212,33 @@ impl Diagram {
             && self.relationships.is_empty()
             && self.compositions.is_empty()
             && self.dependencies.is_empty()
+    }
+
+    /// Aggregated class and edge counts (edges de-duplicated, matching the render).
+    #[must_use]
+    pub fn stats(&self) -> DiagramStats {
+        use std::collections::HashSet;
+
+        let classes = self
+            .classes
+            .iter()
+            .map(|c| c.name.as_str())
+            .collect::<HashSet<_>>();
+        let relationships = self.relationships.iter().collect::<HashSet<_>>();
+
+        DiagramStats {
+            classes: classes.len(),
+            inheritance: relationships
+                .iter()
+                .filter(|rel| rel.relation_type == RelationType::Inheritance)
+                .count(),
+            implementation: relationships
+                .iter()
+                .filter(|rel| rel.relation_type == RelationType::Implementation)
+                .count(),
+            composition: self.compositions.iter().collect::<HashSet<_>>().len(),
+            dependency: self.dependencies.iter().collect::<HashSet<_>>().len(),
+        }
     }
 
     pub fn add_class(&mut self, class: ClassNode) {
@@ -437,5 +495,47 @@ mod tests {
 
         assert!(a.is_abstract_or_interface("B1"));
         assert!(!a.is_abstract_or_interface("A1"));
+    }
+
+    #[test]
+    fn test_stats_counts_deduplicated_edges() {
+        let mut diagram = Diagram::new();
+        for name in ["A", "B"] {
+            diagram.add_class(ClassNode {
+                name: name.to_string(),
+                type_params: None,
+                class_type: ClassType::Regular,
+                attributes: vec![],
+                methods: vec![],
+            });
+        }
+        diagram.add_relationship(RelationshipEdge {
+            from: "A".to_string(),
+            to: "B".to_string(),
+            relation_type: RelationType::Inheritance,
+            is_stdlib_abstract_or_protocol: false,
+        });
+        diagram.add_relationship(RelationshipEdge {
+            from: "A".to_string(),
+            to: "B".to_string(),
+            relation_type: RelationType::Implementation,
+            is_stdlib_abstract_or_protocol: false,
+        });
+        let composition = CompositionEdge {
+            container: "A".to_string(),
+            contained: "B".to_string(),
+            kind: CompositionKind::Composition,
+        };
+        diagram.add_composition(composition.clone());
+        diagram.add_composition(composition); // duplicate
+        diagram.add_dependency(DependencyEdge {
+            from: "A".to_string(),
+            to: "B".to_string(),
+        });
+
+        insta::assert_debug_snapshot!(diagram.stats());
+
+        let doubled = diagram.stats() + diagram.stats();
+        insta::assert_debug_snapshot!("doubled", doubled);
     }
 }

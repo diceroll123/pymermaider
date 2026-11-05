@@ -162,6 +162,22 @@ pub fn run(args: Vec<String>) -> i32 {
         eprintln!("Files written: {written}");
     }
 
+    if mermaider.args().stats {
+        let total = diagrams.iter().fold(
+            crate::render::renderer::DiagramStats::default(),
+            |acc, diagram| acc + diagram.stats(),
+        );
+        eprintln!(
+            "pymermaider: {} files, {} classes, {} inheritance, {} implementation, {} composition, {} dependency",
+            diagrams.len(),
+            total.classes,
+            total.inheritance,
+            total.implementation,
+            total.composition,
+            total.dependency
+        );
+    }
+
     0
 }
 
