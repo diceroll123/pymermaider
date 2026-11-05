@@ -107,6 +107,14 @@ pub struct CompositionEdge {
     pub kind: CompositionKind,
 }
 
+/// Represents a dependency relationship: a method signature references another class
+/// (return type or annotated parameter) without holding it as an attribute.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct DependencyEdge {
+    pub from: String,
+    pub to: String,
+}
+
 /// Class diagram direction.
 #[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
 pub enum DiagramDirection {
@@ -154,6 +162,7 @@ pub struct Diagram {
     pub classes: Vec<ClassNode>,
     pub relationships: Vec<RelationshipEdge>,
     pub compositions: Vec<CompositionEdge>,
+    pub dependencies: Vec<DependencyEdge>,
     abstract_or_interface_index: std::collections::HashMap<String, bool>,
     /// Maps a class's own (bare) name to its emitted name, plus the nesting depth
     /// it was registered at. Used to point references at nested/qualified classes.
@@ -168,7 +177,10 @@ impl Diagram {
 
     #[must_use]
     pub const fn is_empty(&self) -> bool {
-        self.classes.is_empty() && self.relationships.is_empty() && self.compositions.is_empty()
+        self.classes.is_empty()
+            && self.relationships.is_empty()
+            && self.compositions.is_empty()
+            && self.dependencies.is_empty()
     }
 
     pub fn add_class(&mut self, class: ClassNode) {
@@ -194,7 +206,7 @@ impl Diagram {
         }
     }
 
-    /// Rewrite relationship and composition targets that use a bare class name
+    /// Rewrite relationship, composition and dependency targets that use a bare class name
     /// so they match the emitted (qualified) name of the class.
     /// Names that are not registered (e.g. external bases) are left untouched.
     pub fn resolve_references(&mut self) {
@@ -212,6 +224,9 @@ impl Diagram {
         for comp in &mut self.compositions {
             resolve(&mut comp.contained);
         }
+        for dep in &mut self.dependencies {
+            resolve(&mut dep.to);
+        }
     }
 
     pub fn add_relationship(&mut self, relationship: RelationshipEdge) {
@@ -220,6 +235,10 @@ impl Diagram {
 
     pub fn add_composition(&mut self, composition: CompositionEdge) {
         self.compositions.push(composition);
+    }
+
+    pub fn add_dependency(&mut self, dependency: DependencyEdge) {
+        self.dependencies.push(dependency);
     }
 
     #[must_use]
@@ -254,6 +273,7 @@ impl Diagram {
         self.classes.extend(other.classes);
         self.relationships.extend(other.relationships);
         self.compositions.extend(other.compositions);
+        self.dependencies.extend(other.dependencies);
         for (local, (emitted, depth)) in other.name_registry {
             self.register_name(&local, &emitted, depth);
         }
@@ -265,8 +285,9 @@ impl Diagram {
         }
     }
 
-    /// Return classes in a deterministic topological order based on relationships and compositions,
-    /// without mutating the diagram. Classes are de-duplicated by name (first occurrence wins).
+    /// Return classes in a deterministic topological order based on relationships,
+    /// compositions and dependencies, without mutating the diagram. Classes are
+    /// de-duplicated by name (first occurrence wins).
     #[must_use]
     pub fn classes_topologically_sorted_unique(&self) -> Vec<&ClassNode> {
         use std::collections::{HashMap, HashSet};
@@ -300,7 +321,7 @@ impl Diagram {
             class_map.entry(class.name.as_str()).or_insert(class);
         }
 
-        // Build dependency graph from relationships and compositions.
+        // Build dependency graph from relationships, compositions and dependencies.
         let mut dependencies: HashMap<&str, HashSet<&str>> = HashMap::new();
 
         for relationship in &self.relationships {
@@ -315,6 +336,13 @@ impl Diagram {
                 .entry(composition.container.as_str())
                 .or_default()
                 .insert(composition.contained.as_str());
+        }
+
+        for dependency in &self.dependencies {
+            dependencies
+                .entry(dependency.from.as_str())
+                .or_default()
+                .insert(dependency.to.as_str());
         }
 
         let mut visited: HashSet<&str> = HashSet::new();

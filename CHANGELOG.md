@@ -7,7 +7,8 @@
 - `--direction` flag to set class diagram direction (TB, BT, LR, RL).
 - `--no-title` flag to omit the title from diagram output.
 - `--hide-private-members` flag to omit private members from class diagrams.
-- Snapshot tests (`insta`) over a Python corpus in `tests/corpus/`, pinning exact Mermaid output for common features (inheritance, protocols/ABCs, enums, dataclasses, generics, nested classes, composition/aggregation, decorators, forward references).
+- Method dependency edges (`..>`): types referenced in a method's return annotation or parameter annotations are linked to the class, unless an inheritance or composition edge already covers the pair.
+- Snapshot tests (`insta`) over a Python corpus in `tests/corpus/`, pinning exact Mermaid output for common features (inheritance, protocols/ABCs, enums, dataclasses, generics, nested classes, composition/aggregation, decorators, forward references, method dependency edges).
 
 ### Changed
 - Property decorator handling: `@property` getters are now shown as attributes (e.g. `+ str name`) instead of methods. Property setters and deleters (`@name.setter`, `@name.deleter`) are omitted from the diagram.
