@@ -75,6 +75,10 @@ pub struct Args {
     #[arg(long, verbatim_doc_comment, default_value = "false")]
     pub hide_private_members: bool,
 
+    /// Print summary statistics (files, classes and edge counts) to stderr.
+    #[arg(long, verbatim_doc_comment, default_value = "false")]
+    pub stats: bool,
+
     /// Target Python version (e.g. 3.11). If omitted, it is detected from the project's
     /// `pyproject.toml` (`requires-python`), falling back to the latest.
     #[arg(long, verbatim_doc_comment, value_name = "X.Y", value_parser = parse_python_version)]
