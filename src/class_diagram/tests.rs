@@ -278,6 +278,112 @@ class Car:
 }
 
 #[test]
+fn test_method_dependency_edges() {
+    let source = "
+class Database:
+    host: str
+
+class Service:
+    def connect(self, db: Database) -> None:
+        pass
+";
+
+    let expected_output = "classDiagram
+    class Database {
+        + str host
+    }
+
+    class Service {
+        + connect(self, db: Database) None
+    }
+
+    Service ..> Database
+";
+
+    test_diagram(source, expected_output);
+}
+
+#[test]
+fn test_method_dependency_suppressed_by_composition() {
+    let source = "
+class Database:
+    host: str
+
+class Service:
+    db: Database
+
+    def connect(self, database: Database) -> None:
+        pass
+";
+
+    let expected_output = "classDiagram
+    class Database {
+        + str host
+    }
+
+    class Service {
+        + Database db
+        + connect(self, database: Database) None
+    }
+
+    Service *-- Database
+";
+
+    test_diagram(source, expected_output);
+}
+
+#[test]
+fn test_method_dependency_suppressed_by_inheritance() {
+    let source = "
+class Animal:
+    name: str
+
+class Dog(Animal):
+    def groom(self, animal: Animal) -> None:
+        pass
+";
+
+    let expected_output = "classDiagram
+    class Animal {
+        + str name
+    }
+
+    class Dog {
+        + groom(self, animal: Animal) None
+    }
+
+    Dog --|> Animal
+";
+
+    test_diagram(source, expected_output);
+}
+
+#[test]
+fn test_method_dependencies_skip_self_and_generics() {
+    let source = "
+from typing import Generic, TypeVar
+
+T = TypeVar('T')
+
+class Box(Generic[T]):
+    def get(self) -> T:
+        pass
+
+    def wrap(self, other: Box) -> None:
+        pass
+";
+
+    let expected_output = "classDiagram
+    class Box ~T~ {
+        + get(self) T
+        + wrap(self, other: Box) None
+    }
+";
+
+    test_diagram(source, expected_output);
+}
+
+#[test]
 fn test_pydantic_example() {
     let source = "
 from pydantic import BaseModel

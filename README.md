@@ -23,6 +23,7 @@
 - `@property` getters (shown as attributes); setters and deleters are omitted
 - Inheritance (solid line) and abstract/protocol implementation (dotted line)
 - Composition from annotated attributes (`x: Foo`, `list[Foo]`, `Optional[Foo]`, `Foo | Bar`)
+- Dependencies from method signatures (return annotations and parameter annotations) as `..>` edges; suppressed when inheritance or composition already covers the pair
 - Class kinds: abstract (ABC), `Protocol`, `Enum`, dataclass, `@final`
 - Generics (`Generic[T]`, `[T]` syntax)
 - Visibility by convention: `_x` is protected (`#`), `__x` is private (`-`)
@@ -31,7 +32,6 @@
 
 - Resolving types across files: a base or annotation is matched by name
 - Runtime behavior such as dynamically created classes or attributes
-- Dependency or call relationships other than inheritance and composition
 
 ## Installation
 
