@@ -11,6 +11,9 @@
 ### Changed
 - Property decorator handling: `@property` getters are now shown as attributes (e.g. `+ str name`) instead of methods. Property setters and deleters (`@name.setter`, `@name.deleter`) are omitted from the diagram.
 
+### Fixed
+- Type-inference literal normalization: replaced a byte-index string slice with bounds-safe `str::get` (no behavior change).
+
 ## [0.1.6] - 2025-12-27
 
 ### Added
