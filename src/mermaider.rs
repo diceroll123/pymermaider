@@ -269,6 +269,7 @@ mod tests {
             direction: DiagramDirection::default(),
             no_title: false,
             hide_private_members: false,
+            stats: false,
             python_version: None,
             #[cfg(feature = "infer")]
             no_infer: false,

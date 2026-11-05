@@ -8,6 +8,7 @@
 - `--no-title` flag to omit the title from diagram output.
 - `--hide-private-members` flag to omit private members from class diagrams.
 - Method dependency edges (`..>`): types referenced in a method's return annotation or parameter annotations are linked to the class, unless an inheritance or composition edge already covers the pair.
+- `--stats` flag to print summary statistics (files, classes and edge counts) to stderr.
 - Snapshot tests (`insta`) over a Python corpus in `tests/corpus/`, pinning exact Mermaid output for common features (inheritance, protocols/ABCs, enums, dataclasses, generics, nested classes, composition/aggregation, decorators, forward references, method dependency edges).
 
 ### Changed

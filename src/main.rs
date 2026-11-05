@@ -143,6 +143,22 @@ fn main() {
 
         eprintln!("Files written: {written}");
     }
+
+    if mermaider.args().stats {
+        let total = diagrams.iter().fold(
+            pymermaider_wasm::render::renderer::DiagramStats::default(),
+            |acc, diagram| acc + diagram.stats(),
+        );
+        eprintln!(
+            "pymermaider: {} files, {} classes, {} inheritance, {} implementation, {} composition, {} dependency",
+            diagrams.len(),
+            total.classes,
+            total.inheritance,
+            total.implementation,
+            total.composition,
+            total.dependency
+        );
+    }
 }
 
 /// Turn a diagram path into a relative name that stays inside the output directory:

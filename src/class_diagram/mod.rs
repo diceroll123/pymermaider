@@ -136,6 +136,12 @@ impl ClassDiagram {
         self.diagram.is_empty()
     }
 
+    /// Aggregated class and edge counts for this diagram (edges de-duplicated, matching the render).
+    #[must_use]
+    pub fn stats(&self) -> crate::render::renderer::DiagramStats {
+        self.diagram.stats()
+    }
+
     pub fn merge(mut self, other: Self) -> Self {
         self.syntax_errors.extend(other.syntax_errors);
         self.diagram.extend(other.diagram);
