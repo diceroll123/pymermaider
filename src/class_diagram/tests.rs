@@ -1518,3 +1518,45 @@ class Car:
     // `list[Unknown]` is not informative, so the syntactic `list` is kept.
     assert!(out.contains("list empty"), "{out}");
 }
+
+#[test]
+fn test_render_source_with_options_defaults_have_no_title_or_direction() {
+    let source = "class A:\n    pass\n";
+    let out =
+        render_source_with_options(source, DiagramDirection::default(), false, true, None, None)
+            .unwrap();
+    assert!(out.starts_with("classDiagram\n"), "{out}");
+    assert!(!out.contains("title:"));
+    assert!(!out.contains("direction "));
+}
+
+#[test]
+fn test_render_source_with_options_renders_title_and_direction() {
+    let source = "class A:\n    pass\n";
+    let out = render_source_with_options(
+        source,
+        DiagramDirection::LR,
+        false,
+        true,
+        Some("My Title"),
+        None,
+    )
+    .unwrap();
+    assert!(
+        out.starts_with("---\ntitle: My Title\n---\nclassDiagram\n    direction LR\n"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_render_source_with_options_no_classes_returns_none() {
+    assert!(render_source_with_options(
+        "x = 1\n",
+        DiagramDirection::default(),
+        false,
+        true,
+        None,
+        None,
+    )
+    .is_none());
+}

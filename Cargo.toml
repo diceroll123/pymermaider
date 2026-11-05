@@ -50,6 +50,7 @@ console_error_panic_hook = { version = "0.1", optional = true }
 # Ensure getrandom and uuid work with WASM (0.4 required by uuid/rand)
 getrandom = { version = "0.4", features = ["wasm_js"] }
 uuid = { version = "1", features = ["v4", "js"] }
+pyo3 = { version = "0.30", optional = true, features = ["abi3-py39"] }
 
 # Real filesystem access for ty (venv and cross-file resolution). ruff_db's `os` feature does not
 # build for wasm32, hence the target table. Keep this tag equal to the `ruff_db` entry above;
@@ -72,6 +73,7 @@ harness = false
 default = ["cli", "infer"]
 infer = ["dep:ruff_db", "dep:ty_project", "dep:ty_python_core", "dep:ty_python_semantic"]
 cli = ["clap", "env_logger", "ignore", "dep:rayon", "dep:ruff_workspace"]
+python = ["dep:pyo3"]
 
 [profile.release]
 lto = "fat"
