@@ -244,6 +244,28 @@ class Car:
 }
 
 #[test]
+fn test_extended_builtins_do_not_create_relationships() {
+    let source = "
+class Car:
+    payload: bytearray
+    ratio: complex
+    window: slice
+    steps: range
+";
+
+    let expected_output = "classDiagram
+    class Car {
+        + bytearray payload
+        + complex ratio
+        + slice window
+        + range steps
+    }
+";
+
+    test_diagram(source, expected_output);
+}
+
+#[test]
 fn test_composition_relationships_union_types() {
     let source = "
 class Engine:
