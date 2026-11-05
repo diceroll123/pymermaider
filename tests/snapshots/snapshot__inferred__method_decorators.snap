@@ -1,0 +1,13 @@
+---
+source: tests/snapshot.rs
+expression: rendered
+---
+classDiagram
+    class Worker {
+        + @classmethod from_config(cls, config: str) #quot;Worker#quot;
+        + @staticmethod parse(value: int) str$
+        + @final commit(self) None
+        + @overload get(self, key: str) int
+        + @overload get(self, key: int) str
+        + async fetch(self, url: str) bytes
+    }

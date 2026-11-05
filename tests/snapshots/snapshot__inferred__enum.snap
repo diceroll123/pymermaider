@@ -1,0 +1,19 @@
+---
+source: tests/snapshot.rs
+expression: rendered
+---
+classDiagram
+    class Color {
+        <<enumeration>>
+        + int RED
+        + int GREEN
+        + auto BLUE
+    }
+
+    class Direction {
+        <<enumeration>>
+        + str NORTH
+        + str SOUTH
+    }
+
+    Color *-- `enum.auto`

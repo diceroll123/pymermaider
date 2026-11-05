@@ -1,0 +1,20 @@
+---
+source: tests/snapshot.rs
+expression: rendered
+---
+classDiagram
+    class Node {
+        + int value
+        + #quot;Node#quot; | None next
+        + \_\_init__(self, value: int) None
+        + link(self, other: Node) #quot;Node#quot;
+    }
+
+    class Graph {
+        + Node head
+        + add(self, node: Node) None
+    }
+
+    Node o-- Node
+
+    Graph *-- Node

@@ -1,0 +1,11 @@
+---
+source: tests/snapshot.rs
+expression: rendered
+---
+classDiagram
+    class Temperature {
+        + float fahrenheit
+        + Any label
+        - float \_celsius
+        + \_\_init__(self, celsius: float) None
+    }
