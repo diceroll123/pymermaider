@@ -7,6 +7,7 @@
 - `--direction` flag to set class diagram direction (TB, BT, LR, RL).
 - `--no-title` flag to omit the title from diagram output.
 - `--hide-private-members` flag to omit private members from class diagrams.
+- Web app: Export menu in the diagram editor header to copy the Mermaid code or download the diagram as `.mmd`, Markdown (`.md`), SVG, or PNG.
 
 ### Changed
 - Property decorator handling: `@property` getters are now shown as attributes (e.g. `+ str name`) instead of methods. Property setters and deleters (`@name.setter`, `@name.deleter`) are omitted from the diagram.
