@@ -7,8 +7,8 @@ use crate::analysis::parameter_generator::ParameterGenerator;
 use crate::analysis::type_analyzer;
 use crate::ast;
 use crate::render::renderer::{
-    Attribute, ClassNode, CompositionEdge, CompositionKind, Diagram, MethodSignature, RelationType,
-    RelationshipEdge, Visibility,
+    Attribute, ClassNode, CompositionEdge, CompositionKind, Diagram, DiagramDirection,
+    MethodSignature, RelationType, RelationshipEdge, Visibility,
 };
 use indexmap::IndexSet;
 use ruff_linter::source_kind::SourceKind;
@@ -986,6 +986,35 @@ impl ClassDiagram {
         let semantic = SemanticModel::new(&[], &[], python_version, source_type, dummy, module);
         Checker::new(stylist, locator, semantic)
     }
+}
+
+/// Render a Mermaid class diagram from a single Python source string.
+///
+/// Convenience wrapper around [`ClassDiagram`] for callers that do not need to
+/// accumulate multiple sources (e.g. the Python bindings). Returns `None` if
+/// the source contains no classes.
+#[must_use]
+pub fn render_source_with_options(
+    source: &str,
+    direction: DiagramDirection,
+    hide_private_members: bool,
+    show_title: bool,
+    title: Option<&str>,
+    python_version: Option<PythonVersion>,
+) -> Option<String> {
+    let mut diagram = ClassDiagram::new(crate::render::mermaid_renderer::RenderOptions {
+        direction,
+        hide_private_members,
+    });
+    if let Some(version) = python_version {
+        diagram.set_python_version(version);
+    }
+    diagram.set_show_title(show_title);
+    if let Some(title) = title {
+        title.clone_into(&mut diagram.path);
+    }
+    diagram.add_source(source);
+    diagram.render()
 }
 
 struct ParsedPython<'a> {
