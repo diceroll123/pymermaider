@@ -92,7 +92,9 @@ jobs:
             # crates are huge, and fat LTO + codegen-units=1 makes two of them
             # compile in parallel exceed available memory. Thin LTO and more
             # codegen units keep peak memory well under the limit.
-            maturin_docker_options: -e CARGO_PROFILE_RELEASE_LTO=thin -e CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16
+            # The 32-bit CentOS 7 image cannot resolve DNS under docker's default
+            # seccomp profile on current runners (yum install libatomic fails).
+            maturin_docker_options: -e CARGO_PROFILE_RELEASE_LTO=thin -e CARGO_PROFILE_RELEASE_CODEGEN_UNITS=16 --security-opt seccomp=unconfined
     steps:
       - uses: actions/checkout@v7
       - uses: Swatinem/rust-cache@v2
