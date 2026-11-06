@@ -145,6 +145,13 @@ pymermaider my_file.py --hide-private-members --output -
 
 - Some codebases are so massive that processing the directory into one file will result in mermaid code that's too large to render. By default, it's 50,000 characters. This is a good reason for the `-m` flag. You can break class diagrams apart more easily into multiple renderings.
 
+## Inference & environments
+
+Type inference (via `ty`) behaves differently depending on where pymermaider runs:
+
+- **Native CLI**: project-wide inference. Imports across your modules are resolved, and third-party types are picked up from your virtual environment when one is found.
+- **Web / WASM**: single-file, in-memory inference only. There is no file system or virtual environment, so cross-module and third-party imports are unresolved and inferred as `Any` unless the code annotates them explicitly. Add type annotations in the pasted snippet to get accurate relationships.
+
 ## Example
 
 Given a Python file `example.py` with the following content:
