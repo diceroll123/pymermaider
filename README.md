@@ -35,7 +35,7 @@
 
 ## Installation
 
-### Python API (pip)
+### pip (Python API and CLI)
 
 pymermaider is [available on PYPI](https://pypi.org/project/pymermaider/):
 
@@ -43,15 +43,19 @@ pymermaider is [available on PYPI](https://pypi.org/project/pymermaider/):
 pip install pymermaider
 ```
 
-### CLI (from source)
+This installs both the `pymermaider` Python module and the `pymermaider` command.
+The CLI is provided as a console script into the native module, so no separate
+binary ships in the wheel. `pipx install pymermaider` works too if you only want
+the command.
 
-The command-line tool is built from source with [cargo](https://doc.rust-lang.org/cargo/):
+### CLI (native binary from source)
+
+If you prefer a standalone native executable with no Python dependency, build it
+from source with [cargo](https://doc.rust-lang.org/cargo/):
 
 ```bash
 cargo install --git https://github.com/diceroll123/pymermaider pymermaider
 ```
-
-> **Note:** The PyPI wheel ships the Python API only; it no longer includes the `pymermaider` CLI binary.
 
 ## Python API
 

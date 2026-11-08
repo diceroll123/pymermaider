@@ -1,0 +1,198 @@
+//! Command-line interface, shared by the native binary (`src/main.rs`) and the
+//! pip console script (the `pymermaider` entry point into the Python module).
+
+mod args;
+mod mermaider;
+mod python_version;
+mod settings;
+
+use std::io::Read as _;
+use std::io::Write as _;
+use std::path::PathBuf;
+
+use clap::Parser;
+use log::info;
+
+use crate::class_diagram;
+use crate::render::mermaid_renderer::RenderOptions;
+
+use args::Args;
+use mermaider::Mermaider;
+use settings::FileResolverSettings;
+
+/// Run the CLI with `args` (all process arguments after the program name) and
+/// return its exit code.
+pub fn run(args: Vec<String>) -> i32 {
+    // Show warnings (unreadable files, syntax errors) by default; RUST_LOG still overrides.
+    // `try_init` so re-running the CLI in one process (e.g. via the Python entry point)
+    // does not panic on the second logger initialization.
+    let _ = env_logger::Builder::from_env(env_logger::Env::default().default_filter_or("warn"))
+        .try_init();
+
+    let mut args = match Args::try_parse_from(std::iter::once("pymermaider".to_owned()).chain(args))
+    {
+        Ok(parsed) => parsed,
+        Err(err) => {
+            let _ = err.print();
+            return err.exit_code();
+        }
+    };
+
+    // Special-case stdin input: `pymermaider -` reads Python source from stdin.
+    // For path normalization in exclude patterns, use the current working directory.
+    let is_stdin = args.path == "-";
+    let project_root = if is_stdin {
+        std::env::current_dir().unwrap_or_else(|_| PathBuf::from("."))
+    } else {
+        PathBuf::from(&args.path)
+    };
+    let output_dir_path = PathBuf::from(&args.output_dir);
+
+    // Take ownership of file selection patterns (Mermaider doesn't need them after FileResolverSettings is built)
+    let exclude_patterns = args.exclude.take();
+    let extend_exclude_patterns = args.extend_exclude.take();
+    let include_patterns = args.include.take();
+
+    let file_settings = match FileResolverSettings::new(
+        exclude_patterns,
+        extend_exclude_patterns,
+        include_patterns,
+        project_root,
+    ) {
+        Ok(settings) => settings,
+        Err(e) => {
+            eprintln!("error: invalid file pattern: {e}");
+            return 2;
+        }
+    };
+
+    let mermaider = Mermaider::new(args, file_settings);
+
+    let diagrams = if is_stdin {
+        if mermaider.args().multiple_files {
+            eprintln!("--multiple-files is not compatible with stdin input (PATH='-').");
+            return 2;
+        }
+
+        let mut source = String::new();
+        if let Err(e) = std::io::stdin().read_to_string(&mut source) {
+            eprintln!("error: failed to read stdin: {e}");
+            return 1;
+        }
+
+        let options = RenderOptions {
+            direction: mermaider.args().direction,
+            hide_private_members: mermaider.args().hide_private_members,
+        };
+        let mut diagram = class_diagram::ClassDiagram::new(options);
+        diagram.set_python_version(mermaider.python_version());
+        #[cfg(feature = "infer")]
+        diagram.set_infer(!mermaider.args().no_infer);
+        diagram.add_source(&source);
+        for err in diagram.syntax_errors() {
+            log::warn!("<stdin>: syntax error: {err}");
+        }
+
+        vec![diagram]
+    } else {
+        mermaider.generate_diagrams()
+    };
+
+    // If --output is provided, render a single diagram to stdout or a specific file.
+    // This is only valid when we're generating a single diagram (i.e. not multiple per-file outputs).
+    if let Some(ref output) = mermaider.args().output {
+        if diagrams.len() > 1 {
+            eprintln!("--output is not compatible with --multiple-files (it would produce multiple outputs). Use --output-dir instead.");
+            return 2;
+        }
+
+        let raw = diagrams
+            .first()
+            .and_then(class_diagram::ClassDiagram::render)
+            .unwrap_or_default();
+        let content = mermaider.format_output(&raw);
+
+        if output == "-" {
+            if let Err(e) = std::io::stdout().write_all(content.as_bytes()) {
+                eprintln!("error: failed to write stdout: {e}");
+                return 1;
+            }
+        } else if let Err(e) = std::fs::write(output, content) {
+            eprintln!("error: failed to write file {output:?}: {e}");
+            return 1;
+        }
+    } else {
+        let extension = mermaider.args().output_format.extension();
+        let output_dir = output_dir_path;
+
+        let mut written = 0usize;
+        for diagram in &diagrams {
+            if diagram.is_empty() {
+                info!("No classes found for {0:?}.", diagram.path);
+                continue;
+            }
+
+            let path = format!(
+                "{0}/{1}.{2}",
+                output_dir.to_string_lossy(),
+                safe_relative_name(&diagram.path),
+                extension
+            );
+
+            if let Some(parent_dir) = std::path::Path::new(&path).parent() {
+                if let Err(e) = std::fs::create_dir_all(parent_dir) {
+                    eprintln!(
+                        "error: failed to create directory {}: {e}",
+                        parent_dir.display()
+                    );
+                    return 1;
+                }
+            }
+
+            let raw = diagram.render().unwrap_or_default();
+            let content = mermaider.format_output(&raw);
+            if let Err(e) = std::fs::write(&path, content) {
+                eprintln!("error: failed to write file {path:?}: {e}");
+                return 1;
+            }
+            eprintln!("Mermaid file written to: {path:?}");
+            written += 1;
+        }
+
+        eprintln!("Files written: {written}");
+    }
+
+    0
+}
+
+/// Turn a diagram path into a relative name that stays inside the output directory:
+/// root, `.` and `..` components are dropped. Falls back to `diagram` if nothing remains.
+fn safe_relative_name(path: &str) -> String {
+    let name = std::path::Path::new(path)
+        .components()
+        .filter_map(|c| match c {
+            std::path::Component::Normal(part) => Some(part.to_string_lossy().into_owned()),
+            _ => None,
+        })
+        .collect::<Vec<_>>()
+        .join("/");
+    if name.is_empty() {
+        "diagram".to_owned()
+    } else {
+        name
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::safe_relative_name;
+
+    #[test]
+    fn test_safe_relative_name() {
+        assert_eq!(safe_relative_name("models/user.py"), "models/user.py");
+        assert_eq!(safe_relative_name("../../etc/passwd"), "etc/passwd");
+        assert_eq!(safe_relative_name("/abs/a.py"), "abs/a.py");
+        assert_eq!(safe_relative_name(""), "diagram");
+        assert_eq!(safe_relative_name(".."), "diagram");
+    }
+}

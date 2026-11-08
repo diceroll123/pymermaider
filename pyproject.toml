@@ -31,6 +31,12 @@ classifiers = [
 [project.urls]
 Repository = "https://github.com/diceroll123/pymermaider"
 
+# The CLI ships in the wheel as a console script into the native module
+# (maturin's recommended way to distribute a CLI with pyo3 bindings; a second
+# binary would double the wheel size).
+[project.scripts]
+pymermaider = "pymermaider.pymermaider:_cli"
+
 [tool.maturin]
 bindings = "pyo3"
 # Cargo's `[profile.release] strip = true` corrupts the cdylib's __LINKEDIT segment on
@@ -40,6 +46,7 @@ config = ["profile.release.strip=false"]
 module-name = "pymermaider"
 python-source = "python"
 # Build the wheel with the pyo3 bindings (the Rust lib alone has no Python surface).
+# cli is enabled so the `pymermaider` console script (see [project.scripts]) works.
 # extension-module is enabled at wheel-build time only, so `cargo test --features python`
 # still links libpython locally.
-features = ["python", "pyo3/extension-module"]
+features = ["python", "pyo3/extension-module", "cli"]

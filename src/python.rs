@@ -97,10 +97,25 @@ fn to_markdown(
     })
 }
 
+/// Run the `pymermaider` command-line interface with the current process
+/// arguments and return its exit code. This is the target of the `pymermaider`
+/// console script that pip installs alongside this module.
+#[cfg(feature = "cli")]
+#[pyfunction]
+fn _cli(py: Python<'_>) -> PyResult<i32> {
+    // The console script runs as `python <script> [args...]`, so the CLI args
+    // are sys.argv[1:] (std::env::args would include the interpreter and script).
+    let sys = py.import("sys")?;
+    let argv: Vec<String> = sys.getattr("argv")?.extract()?;
+    Ok(crate::cli::run(argv.into_iter().skip(1).collect()))
+}
+
 /// The pymermaider Python module.
 #[pymodule]
 fn pymermaider(module: &Bound<'_, PyModule>) -> PyResult<()> {
     module.add_function(wrap_pyfunction!(generate, module)?)?;
     module.add_function(wrap_pyfunction!(to_markdown, module)?)?;
+    #[cfg(feature = "cli")]
+    module.add_function(wrap_pyfunction!(_cli, module)?)?;
     Ok(())
 }

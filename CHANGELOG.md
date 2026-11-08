@@ -11,7 +11,7 @@
 
 ### Changed
 - Property decorator handling: `@property` getters are now shown as attributes (e.g. `+ str name`) instead of methods. Property setters and deleters (`@name.setter`, `@name.deleter`) are omitted from the diagram.
-- The PyPI wheel now ships the Python API instead of the `pymermaider` CLI binary. Build the CLI from source with `cargo install --git https://github.com/diceroll123/pymermaider pymermaider`.
+- The PyPI wheel now ships the Python API alongside the CLI. The `pymermaider` executable is a console script entry point into the native module (no separate binary in the wheel); `cargo install --git https://github.com/diceroll123/pymermaider pymermaider` still builds a standalone native binary.
 - Dropped Python 3.8 support; the wheel now targets CPython 3.9+ via the stable ABI (abi3).
 
 ## [0.1.6] - 2025-12-27

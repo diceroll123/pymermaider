@@ -71,6 +71,9 @@ jobs:
         run: |
           uv venv
           uv pip install dist/*.whl
+          # The wheel also installs the CLI as a console script.
+          uv run pymermaider --help > /dev/null
+          printf 'class A:\n    pass\n' | uv run pymermaider - --output - | grep -q classDiagram
           uv run python - <<'PY'
 import sys
 

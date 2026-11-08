@@ -1,8 +1,8 @@
-use crate::args::Args;
-use crate::settings::FileResolverSettings;
-use pymermaider_wasm::class_diagram::ClassDiagram;
-use pymermaider_wasm::render::mermaid_renderer::RenderOptions;
-use pymermaider_wasm::render::output_format::OutputFormat;
+use super::args::Args;
+use super::settings::FileResolverSettings;
+use crate::class_diagram::ClassDiagram;
+use crate::render::mermaid_renderer::RenderOptions;
+use crate::render::output_format::OutputFormat;
 
 use globset::Candidate;
 use ignore::{types::TypesBuilder, WalkBuilder};
@@ -16,20 +16,20 @@ pub struct Mermaider {
     python_version: PythonVersion,
     /// One ty session for the whole run, shared by every file.
     #[cfg(feature = "infer")]
-    ty_project: Option<std::sync::Arc<pymermaider_wasm::TyProject>>,
+    ty_project: Option<std::sync::Arc<crate::TyProject>>,
 }
 
 impl Mermaider {
     pub fn new(args: Args, file_settings: FileResolverSettings) -> Self {
         let python_version = args.python_version.unwrap_or_else(|| {
-            crate::python_version::detect(&file_settings.project_root)
+            super::python_version::detect(&file_settings.project_root)
                 .unwrap_or_else(PythonVersion::latest)
         });
         #[cfg(feature = "infer")]
         let ty_project = if args.no_infer {
             None
         } else {
-            let project = pymermaider_wasm::TyProject::discover(&file_settings.project_root);
+            let project = crate::TyProject::discover(&file_settings.project_root);
             if project.is_none() {
                 debug!("ty project discovery failed; inferring types per file");
             }
@@ -241,12 +241,12 @@ impl Mermaider {
 
 #[cfg(test)]
 mod tests {
-    use pymermaider_wasm::render::renderer::DiagramDirection;
+    use crate::render::renderer::DiagramDirection;
     use ruff_linter::settings::types::{FilePattern, FilePatternSet, GlobPath};
     use std::io::Write as _;
     use std::path::Path;
 
-    use crate::settings::DEFAULT_EXCLUDES;
+    use crate::cli::settings::DEFAULT_EXCLUDES;
 
     use super::*;
     use anyhow::Result;

@@ -5,6 +5,10 @@ pub(crate) mod analysis;
 pub mod class_diagram;
 pub mod render;
 
+/// Command-line interface, shared by this binary and the pip console script.
+#[cfg(all(feature = "cli", not(target_arch = "wasm32")))]
+pub mod cli;
+
 /// Python bindings (pyo3). Excluded from WASM builds, which use wasm-bindgen.
 #[cfg(all(feature = "python", not(target_arch = "wasm32")))]
 mod python;
