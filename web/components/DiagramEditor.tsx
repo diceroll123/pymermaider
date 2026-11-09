@@ -1,12 +1,13 @@
 "use client";
 
 import { useState, useRef, useCallback } from "react";
-import { Flex, VStack, Box, Text, Tabs, IconButton, Popover, SegmentGroup, Switch } from "@chakra-ui/react";
-import { LuPanelLeftClose, LuPanelLeft, LuSettings, LuArrowDown, LuArrowUp, LuArrowRight, LuArrowLeft } from "react-icons/lu";
+import { Flex, VStack, Box, Text, Tabs, IconButton, Popover, SegmentGroup, Switch, Menu, Button } from "@chakra-ui/react";
+import { LuPanelLeftClose, LuPanelLeft, LuSettings, LuArrowDown, LuArrowUp, LuArrowRight, LuArrowLeft, LuDownload, LuCheck } from "react-icons/lu";
 import { useColorMode } from "@/components/ui/color-mode";
 import { DEFAULT_PYTHON_CODE, DiagramDirection } from "./diagram/types";
 import { useWasm } from "./diagram/hooks/useWasm";
 import { useMermaid } from "./diagram/hooks/useMermaid";
+import { useExport } from "./diagram/hooks/useExport";
 import { useSyntaxHighlighter } from "./diagram/hooks/useSyntaxHighlighter";
 import { useResizablePanel } from "./diagram/hooks/useResizablePanel";
 import { useFileSystem } from "./diagram/hooks/useFileSystem";
@@ -31,6 +32,7 @@ export default function DiagramEditor() {
   const [selectedFile, setSelectedFile] = useState<string | null>(null);
   const [direction, setDirection] = useState<DiagramDirection>("TB");
   const [hidePrivateMembers, setHidePrivateMembers] = useState(false);
+  const [copied, setCopied] = useState(false);
 
   // Load WASM
   const { wasmRef, isWasmLoaded, error: wasmError } = useWasm();
@@ -61,6 +63,21 @@ export default function DiagramEditor() {
     direction,
     hidePrivateMembers,
   });
+
+  // Export the current diagram (Mermaid code, Markdown, SVG or PNG)
+  const { canExport, copyMermaid, exportMmd, exportMarkdown, exportSvg, exportPng } = useExport({
+    mermaidCode,
+    diagramSvg,
+    colorMode,
+    baseName: selectedFile,
+  });
+
+  const handleCopyMermaid = useCallback(async () => {
+    if (await copyMermaid()) {
+      setCopied(true);
+      setTimeout(() => setCopied(false), 1500);
+    }
+  }, [copyMermaid]);
 
   // Syntax highlighting for Python editor
   const { handleCodeChange, isHighlightingEnabled, lineCount } =
@@ -358,6 +375,39 @@ export default function DiagramEditor() {
                   </Tabs.Trigger>
                 </Tabs.List>
               </Tabs.Root>
+
+              {/* Export Menu */}
+              <Menu.Root>
+                <Menu.Trigger asChild>
+                  <Button size="xs" variant="outline" disabled={!canExport} data-icon={<LuDownload />}>
+                    Export
+                  </Button>
+                </Menu.Trigger>
+                <Menu.Positioner>
+                  <Menu.Content width="auto" minW="unset">
+                    <Menu.Item value="copy-mermaid" onSelect={handleCopyMermaid}>
+                      <Flex w="100%" align="center" justify="space-between">
+                        Copy Mermaid Code
+                        {copied && <LuCheck />}
+                      </Flex>
+                    </Menu.Item>
+                    <Menu.Separator />
+                    <Menu.Item value="mmd" onSelect={() => exportMmd()}>
+                      Mermaid (.mmd)
+                    </Menu.Item>
+                    <Menu.Item value="markdown" onSelect={() => exportMarkdown()}>
+                      Markdown (.md)
+                    </Menu.Item>
+                    <Menu.Separator />
+                    <Menu.Item value="svg" onSelect={() => exportSvg()}>
+                      SVG (.svg)
+                    </Menu.Item>
+                    <Menu.Item value="png" onSelect={() => void exportPng()}>
+                      PNG (.png)
+                    </Menu.Item>
+                  </Menu.Content>
+                </Menu.Positioner>
+              </Menu.Root>
             </Flex>
 
             <div style={{ position: "relative", flex: 1, minHeight: 0 }}>
