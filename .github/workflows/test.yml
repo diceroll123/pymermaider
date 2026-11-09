@@ -49,12 +49,12 @@ jobs:
           name: wheel
           path: dist/*.whl
 
-  python-build-and-help:
+  python-install-and-test:
     needs: build-python-wheel
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
     steps:
       - name: Install uv
         uses: astral-sh/setup-uv@v10.3.3
@@ -71,10 +71,38 @@ jobs:
         run: |
           uv venv
           uv pip install dist/*.whl
-          uv run pymermaider --help
+          # The wheel also installs the CLI as a console script.
+          uv run pymermaider --help > /dev/null
+          printf 'class A:\n    pass\n' | uv run pymermaider - --output - | grep -q classDiagram
+          uv run python - <<'PY'
+import sys
+
+import pymermaider
+
+diagram = pymermaider.generate(
+    "class A:\n    pass\n",
+    direction="LR",
+    title="Test",
+)
+assert diagram.startswith("---\ntitle: Test\n---\nclassDiagram"), diagram
+assert "class A" in diagram, diagram
+
+md = pymermaider.to_markdown("class B:\n    pass\n")
+assert md.startswith("```mermaid\n"), md
+
+try:
+    pymermaider.generate("class C:\n", direction="NOWHERE")
+except ValueError:
+    pass
+else:
+    raise AssertionError("expected ValueError for invalid direction")
+
+print(f"pymermaider {pymermaider.__version__} OK on Python "
+      f"{sys.version_info.major}.{sys.version_info.minor}")
+PY
 
   all-python-builds-pass:
-    needs: python-build-and-help
+    needs: python-install-and-test
     runs-on: ubuntu-latest
     steps:
       - name: Echo success
