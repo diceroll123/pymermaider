@@ -16,6 +16,9 @@
 - The PyPI wheel now ships the Python API alongside the CLI. The `pymermaider` executable is a console script entry point into the native module (no separate binary in the wheel); `cargo install --git https://github.com/diceroll123/pymermaider pymermaider` still builds a standalone native binary.
 - Dropped Python 3.8 support; the wheel now targets CPython 3.9+ via the stable ABI (abi3).
 
+### Fixed
+- Expanded the built-in type list used to filter composition/relationship edges with `bytearray`, `frozenset`, `complex`, `memoryview`, `object`, `type`, `slice`, and `range`, so annotations like `x: range` no longer create spurious relationship edges.
+
 ## [0.1.6] - 2025-12-27
 
 ### Added
