@@ -75,31 +75,31 @@ jobs:
           uv run pymermaider --help > /dev/null
           printf 'class A:\n    pass\n' | uv run pymermaider - --output - | grep -q classDiagram
           uv run python - <<'PY'
-import sys
+          import sys
 
-import pymermaider
+          import pymermaider
 
-diagram = pymermaider.generate(
-    "class A:\n    pass\n",
-    direction="LR",
-    title="Test",
-)
-assert diagram.startswith("---\ntitle: Test\n---\nclassDiagram"), diagram
-assert "class A" in diagram, diagram
+          diagram = pymermaider.generate(
+              "class A:\n    pass\n",
+              direction="LR",
+              title="Test",
+          )
+          assert diagram.startswith("---\ntitle: Test\n---\nclassDiagram"), diagram
+          assert "class A" in diagram, diagram
 
-md = pymermaider.to_markdown("class B:\n    pass\n")
-assert md.startswith("```mermaid\n"), md
+          md = pymermaider.to_markdown("class B:\n    pass\n")
+          assert md.startswith("```mermaid\n"), md
 
-try:
-    pymermaider.generate("class C:\n", direction="NOWHERE")
-except ValueError:
-    pass
-else:
-    raise AssertionError("expected ValueError for invalid direction")
+          try:
+              pymermaider.generate("class C:\n", direction="NOWHERE")
+          except ValueError:
+              pass
+          else:
+              raise AssertionError("expected ValueError for invalid direction")
 
-print(f"pymermaider {pymermaider.__version__} OK on Python "
-      f"{sys.version_info.major}.{sys.version_info.minor}")
-PY
+          print(f"pymermaider {pymermaider.__version__} OK on Python "
+                f"{sys.version_info.major}.{sys.version_info.minor}")
+          PY
 
   all-python-builds-pass:
     needs: python-install-and-test
