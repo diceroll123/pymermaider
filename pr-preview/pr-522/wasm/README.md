@@ -35,15 +35,60 @@
 
 ## Installation
 
+### pip (Python API and CLI)
+
 pymermaider is [available on PYPI](https://pypi.org/project/pymermaider/):
 
 ```bash
-# With pip.
 pip install pymermaider
-
-# With pipx.
-pipx install pymermaider
 ```
+
+This installs both the `pymermaider` Python module and the `pymermaider` command.
+The CLI is provided as a console script into the native module, so no separate
+binary ships in the wheel. `pipx install pymermaider` works too if you only want
+the command.
+
+### CLI (native binary from source)
+
+If you prefer a standalone native executable with no Python dependency, build it
+from source with [cargo](https://doc.rust-lang.org/cargo/):
+
+```bash
+cargo install --git https://github.com/diceroll123/pymermaider pymermaider
+```
+
+## Python API
+
+```python
+import pymermaider
+
+source = '''
+class Animal:
+    def __init__(self, name: str) -> None:
+        self.name = name
+
+class Dog(Animal):
+    pass
+'''
+
+# Raw Mermaid classDiagram text.
+mermaid = pymermaider.generate(source)
+
+# Or wrapped in a fenced ```mermaid block, ready for Markdown docs.
+markdown = pymermaider.to_markdown(source)
+```
+
+Both functions share the same options:
+
+| Parameter | Default | Description |
+| --- | --- | --- |
+| `direction` | `"TB"` | Diagram direction: `TB`, `BT`, `LR` or `RL`. |
+| `hide_private_members` | `False` | Omit members whose names start with `_`. |
+| `show_title` | `True` | Include a title header in the diagram. |
+| `title` | `None` | Title text, used when `show_title` is true. |
+| `python_version` | `None` | Target Python version for type inference, e.g. `"3.12"` (defaults to the latest). |
+
+Both return an empty string if the source contains no classes. Invalid `direction` or `python_version` values raise `ValueError`.
 
 ## Usage
 
