@@ -68,10 +68,14 @@ jobs:
       - uses: Swatinem/rust-cache@v2
         with:
           key: ${{ matrix.platform.target }}
+      # No --find-interpreter: the runner only has x86_64 Pythons, so
+      # interpreter discovery fails for the i686/aarch64 targets. That is fine
+      # because pyo3 >= 0.29 links raw-dylibs on Windows, so maturin builds the
+      # abi3 wheels without an interpreter (it auto-generates the import lib).
       - name: "Build wheels - windows"
         uses: PyO3/maturin-action@v1
         with:
-          args: --release --find-interpreter --out dist --target ${{ matrix.platform.target }}
+          args: --release --out dist --target ${{ matrix.platform.target }}
       - name: Upload wheels
         uses: actions/upload-artifact@v7
         with:
