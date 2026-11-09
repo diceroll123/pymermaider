@@ -35,6 +35,10 @@ GitHub Actions automatically builds WASM and deploys to GitHub Pages on every pu
 Your site will be available at: `https://<username>.github.io/<repo-name>/`
 This site is available at: https://diceroll123.github.io/pymermaider/
 
+## Inference Limits
+
+The web app runs type inference entirely in WebAssembly on a single in-memory file. Imports from other modules (and third-party packages) cannot be resolved, so those types are treated as `Any` unless they are explicitly annotated. The native CLI resolves them project-wide, including from your virtual environment. See the root README, "Inference & environments".
+
 ## Tech Stack
 
 - Next.js 15
