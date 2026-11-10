@@ -1,0 +1,45 @@
+---
+source: tests/snapshot.rs
+expression: rendered
+---
+classDiagram
+    class Base {
+        + run(self) None
+    }
+
+    class Cache {
+        + str key
+    }
+
+    class Database {
+        + str host
+    }
+
+    class Logger {
+        + str level
+    }
+
+    class Repository {
+        + Database db
+        + reconnect(self, db: Database) Database
+        + warm(self, cache: Cache) None
+    }
+
+    class Service {
+        + connect(self, db: Database) None
+        + log(self, logger: Logger) None
+    }
+
+    class Worker {
+        + clone_base(self, other: Base) Base
+    }
+
+    Worker --|> Base
+
+    Repository *-- Database
+
+    Service *-- Database
+
+    Repository ..> Cache
+
+    Service ..> Logger
