@@ -1,0 +1,15 @@
+---
+source: src/class_diagram/tests.rs
+expression: result
+---
+classDiagram
+    class Engine {
+        + int power
+    }
+
+    class Car {
+        + Engine engine
+        + list#91;Engine#93; engines
+    }
+
+    Car *-- Engine

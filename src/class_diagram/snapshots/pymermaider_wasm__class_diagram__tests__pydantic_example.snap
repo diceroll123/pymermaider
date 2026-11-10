@@ -1,0 +1,52 @@
+---
+source: src/class_diagram/tests.rs
+expression: render_source(source).trim()
+---
+classDiagram
+    class ItemBase {
+        + str title
+        + str | None description
+    }
+
+    class Item {
+        + int id
+        + int owner_id
+    }
+
+    class ItemCreate
+
+    class UserBase {
+        + str email
+    }
+
+    class User {
+        + int id
+        + bool is_active
+        + list#91;Item#93; items
+    }
+
+    class UserCreate {
+        + str password
+    }
+
+    class `Item.Config` {
+        + bool orm_mode
+    }
+
+    class `User.Config` {
+        + bool orm_mode
+    }
+
+    ItemBase --|> `pydantic.BaseModel`
+
+    ItemCreate --|> ItemBase
+
+    Item --|> ItemBase
+
+    UserBase --|> `pydantic.BaseModel`
+
+    UserCreate --|> UserBase
+
+    User --|> UserBase
+
+    User o-- Item

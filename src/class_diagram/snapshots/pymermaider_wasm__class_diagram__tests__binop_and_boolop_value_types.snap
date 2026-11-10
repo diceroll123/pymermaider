@@ -1,0 +1,13 @@
+---
+source: src/class_diagram/tests.rs
+expression: out
+---
+classDiagram
+    class Config {
+        + float ratio
+        + int total
+        + str name
+        + Any mixed
+        + Any fallback
+        + bool flag
+    }

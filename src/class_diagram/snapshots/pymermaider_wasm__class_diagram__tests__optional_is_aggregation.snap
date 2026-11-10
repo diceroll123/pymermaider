@@ -1,0 +1,14 @@
+---
+source: src/class_diagram/tests.rs
+expression: result
+---
+classDiagram
+    class Engine {
+        + int power
+    }
+
+    class Car {
+        + Optional#91;Engine#93; engine
+    }
+
+    Car o-- Engine

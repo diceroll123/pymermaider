@@ -1,0 +1,11 @@
+---
+source: src/class_diagram/tests.rs
+expression: render_source(source).trim()
+---
+classDiagram
+    class Person {
+        <<dataclass>>
+        + str name
+        + int age
+        + greet(self) str
+    }

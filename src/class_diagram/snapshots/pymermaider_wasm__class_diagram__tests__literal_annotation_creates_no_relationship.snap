@@ -1,0 +1,8 @@
+---
+source: src/class_diagram/tests.rs
+expression: out
+---
+classDiagram
+    class Car {
+        + Literal#91;#quot;sport#quot;, #quot;eco#quot;#93; mode
+    }

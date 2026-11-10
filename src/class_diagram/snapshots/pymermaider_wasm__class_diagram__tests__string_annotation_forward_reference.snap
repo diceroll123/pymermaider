@@ -1,0 +1,12 @@
+---
+source: src/class_diagram/tests.rs
+expression: out
+---
+classDiagram
+    class Engine
+
+    class Car {
+        + Engine engine
+    }
+
+    Car *-- Engine

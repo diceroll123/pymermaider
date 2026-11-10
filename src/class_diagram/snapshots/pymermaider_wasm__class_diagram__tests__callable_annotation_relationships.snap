@@ -1,0 +1,16 @@
+---
+source: src/class_diagram/tests.rs
+expression: out
+---
+classDiagram
+    class Request
+
+    class Response
+
+    class Handler {
+        + Callable#91;#91;Request#93;, Response#93; callback
+    }
+
+    Handler *-- Request
+
+    Handler *-- Response
