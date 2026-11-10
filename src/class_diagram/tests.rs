@@ -355,6 +355,35 @@ class Service:
 }
 
 #[test]
+fn test_method_dependency_suppressed_by_composition_in_redefined_class() {
+    let source = "
+class Database:
+    host: str
+
+class Service:
+    def connect(self, db: Database) -> None:
+        pass
+
+class Service:
+    db: Database
+";
+
+    let expected_output = "classDiagram
+    class Database {
+        + str host
+    }
+
+    class Service {
+        + connect(self, db: Database) None
+    }
+
+    Service *-- Database
+";
+
+    test_diagram(source, expected_output);
+}
+
+#[test]
 fn test_method_dependency_suppressed_by_inheritance() {
     let source = "
 class Animal:

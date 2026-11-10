@@ -345,26 +345,13 @@ impl ClassDiagram {
             self.diagram.add_composition(comp);
         }
 
-        // Add dependency relationships from method signatures. A type that is also a base
-        // class or held as an attribute keeps only the stronger inheritance/composition edge.
+        // Add dependency relationships from method signatures. Those also covered by an
+        // inheritance or composition edge are pruned in `Diagram::resolve_references`.
         for dep_type in &dependency_types {
-            let normalized = QualifiedName::user_defined(dep_type).normalize_name();
-            let covered = self
-                .diagram
-                .relationships
-                .iter()
-                .any(|rel| rel.from == class_name && rel.to == normalized)
-                || self
-                    .diagram
-                    .compositions
-                    .iter()
-                    .any(|comp| comp.container == class_name && comp.contained == normalized);
-            if !covered {
-                self.diagram.add_dependency(DependencyEdge {
-                    from: class_name.clone(),
-                    to: normalized,
-                });
-            }
+            self.diagram.add_dependency(DependencyEdge {
+                from: class_name.clone(),
+                to: QualifiedName::user_defined(dep_type).normalize_name(),
+            });
         }
     }
 

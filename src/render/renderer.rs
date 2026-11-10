@@ -227,6 +227,20 @@ impl Diagram {
         for dep in &mut self.dependencies {
             resolve(&mut dep.to);
         }
+
+        // A dependency is omitted when an inheritance or composition edge already covers the
+        // same ordered pair. Done here, once all edges are known, so it does not depend on the
+        // order (or number) of class definitions that produced them.
+        let relationships = &self.relationships;
+        let compositions = &self.compositions;
+        self.dependencies.retain(|dep| {
+            !relationships
+                .iter()
+                .any(|rel| rel.from == dep.from && rel.to == dep.to)
+                && !compositions
+                    .iter()
+                    .any(|comp| comp.container == dep.from && comp.contained == dep.to)
+        });
     }
 
     pub fn add_relationship(&mut self, relationship: RelationshipEdge) {
