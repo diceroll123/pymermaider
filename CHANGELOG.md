@@ -8,9 +8,20 @@
 - `--no-title` flag to omit the title from diagram output.
 - `--hide-private-members` flag to omit private members from class diagrams.
 - Snapshot tests (`insta`) over a Python corpus in `tests/corpus/`, pinning exact Mermaid output for common features (inheritance, protocols/ABCs, enums, dataclasses, generics, nested classes, composition/aggregation, decorators, forward references).
+- Python API via a native (pyo3) module: `pymermaider.generate(source)` returns the raw Mermaid diagram and `pymermaider.to_markdown(source)` wraps it in a fenced ```` ```mermaid ```` block. Both accept `direction`, `hide_private_members`, `show_title`, `title` and `python_version` options.
+- Web app: Export menu in the diagram editor header to copy the Mermaid code or download the diagram as `.mmd`, Markdown (`.md`), SVG, or PNG.
 
 ### Changed
+- Documented type inference differences between the native CLI (project-wide) and the web/WASM build (single-file, cross-module imports unresolved).
 - Property decorator handling: `@property` getters are now shown as attributes (e.g. `+ str name`) instead of methods. Property setters and deleters (`@name.setter`, `@name.deleter`) are omitted from the diagram.
+- The PyPI wheel now ships the Python API alongside the CLI. The `pymermaider` executable is a console script entry point into the native module (no separate binary in the wheel); `cargo install --git https://github.com/diceroll123/pymermaider pymermaider` still builds a standalone native binary.
+- Dropped Python 3.8 support; the wheel now targets CPython 3.9+ via the stable ABI (abi3).
+
+### Fixed
+- Expanded the built-in type list used to filter composition/relationship edges with `bytearray`, `frozenset`, `complex`, `memoryview`, `object`, `type`, `slice`, and `range`, so annotations like `x: range` no longer create spurious relationship edges.
+
+### Fixed
+- Type-inference literal normalization: replaced a byte-index string slice with bounds-safe `str::get` (no behavior change).
 
 ## [0.1.6] - 2025-12-27
 

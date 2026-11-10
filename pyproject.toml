@@ -9,14 +9,14 @@ description = "Mermaid diagram generator for Python code."
 authors = [{ name = "diceroll123" }]
 readme = "README.md"
 license = { file = "LICENSE" }
-requires-python = ">=3.8"
+requires-python = ">=3.9"
 classifiers = [
   "Environment :: Console",
   "Intended Audience :: Developers",
   "License :: OSI Approved :: MIT License",
   "Operating System :: OS Independent",
   "Programming Language :: Python",
-  "Programming Language :: Python :: 3.8",
+  "Programming Language :: Python :: 3",
   "Programming Language :: Python :: 3.9",
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
@@ -31,8 +31,22 @@ classifiers = [
 [project.urls]
 Repository = "https://github.com/diceroll123/pymermaider"
 
+# The CLI ships in the wheel as a console script into the native module
+# (maturin's recommended way to distribute a CLI with pyo3 bindings; a second
+# binary would double the wheel size).
+[project.scripts]
+pymermaider = "pymermaider.pymermaider:_cli"
+
 [tool.maturin]
-bindings = "bin"
-strip = true
+bindings = "pyo3"
+# Cargo's `[profile.release] strip = true` corrupts the cdylib's __LINKEDIT segment on
+# macOS arm64 ("mis-aligned LINKEDIT string pool") so dyld refuses to load the module.
+# Override it for wheel builds only; the CLI release profile is unchanged.
+config = ["profile.release.strip=false"]
 module-name = "pymermaider"
 python-source = "python"
+# Build the wheel with the pyo3 bindings (the Rust lib alone has no Python surface).
+# cli is enabled so the `pymermaider` console script (see [project.scripts]) works.
+# extension-module is enabled at wheel-build time only, so `cargo test --features python`
+# still links libpython locally.
+features = ["python", "pyo3/extension-module", "cli"]

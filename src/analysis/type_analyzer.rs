@@ -3,9 +3,28 @@ use super::checker::Checker;
 use ruff_python_ast::name::QualifiedName;
 use ruff_python_ast::Expr;
 
-// Built-in Python types that should not be treated as composition relationships
+// Built-in Python types that should not be treated as composition relationships.
+// This is the fallback for names the semantic model can't resolve; resolved names are
+// filtered separately via `builtins`/`typing` in `is_eligible_name`.
 const BUILTIN_TYPES: &[&str] = &[
-    "int", "str", "float", "bool", "bytes", "dict", "list", "tuple", "set", "None",
+    "int",
+    "str",
+    "float",
+    "bool",
+    "bytes",
+    "bytearray",
+    "dict",
+    "list",
+    "tuple",
+    "set",
+    "frozenset",
+    "complex",
+    "memoryview",
+    "object",
+    "type",
+    "slice",
+    "range",
+    "None",
 ];
 
 /// Extract type names from annotations for composition relationship detection.
@@ -220,8 +239,31 @@ mod tests {
 
     #[test]
     fn test_builtin_types_constant() {
-        assert!(BUILTIN_TYPES.contains(&"int"));
-        assert!(BUILTIN_TYPES.contains(&"str"));
+        for builtin in [
+            "int",
+            "str",
+            "float",
+            "bool",
+            "bytes",
+            "bytearray",
+            "dict",
+            "list",
+            "tuple",
+            "set",
+            "frozenset",
+            "complex",
+            "memoryview",
+            "object",
+            "type",
+            "slice",
+            "range",
+            "None",
+        ] {
+            assert!(
+                BUILTIN_TYPES.contains(&builtin),
+                "{builtin} should be a builtin"
+            );
+        }
         assert!(!BUILTIN_TYPES.contains(&"MyClass"));
     }
 }

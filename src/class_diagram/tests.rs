@@ -244,6 +244,28 @@ class Car:
 }
 
 #[test]
+fn test_extended_builtins_do_not_create_relationships() {
+    let source = "
+class Car:
+    payload: bytearray
+    ratio: complex
+    window: slice
+    steps: range
+";
+
+    let expected_output = "classDiagram
+    class Car {
+        + bytearray payload
+        + complex ratio
+        + slice window
+        + range steps
+    }
+";
+
+    test_diagram(source, expected_output);
+}
+
+#[test]
 fn test_composition_relationships_union_types() {
     let source = "
 class Engine:
@@ -1517,4 +1539,46 @@ class Car:
     assert!(out.contains("Car o-- Wheel"), "{out}");
     // `list[Unknown]` is not informative, so the syntactic `list` is kept.
     assert!(out.contains("list empty"), "{out}");
+}
+
+#[test]
+fn test_render_source_with_options_defaults_have_no_title_or_direction() {
+    let source = "class A:\n    pass\n";
+    let out =
+        render_source_with_options(source, DiagramDirection::default(), false, true, None, None)
+            .unwrap();
+    assert!(out.starts_with("classDiagram\n"), "{out}");
+    assert!(!out.contains("title:"));
+    assert!(!out.contains("direction "));
+}
+
+#[test]
+fn test_render_source_with_options_renders_title_and_direction() {
+    let source = "class A:\n    pass\n";
+    let out = render_source_with_options(
+        source,
+        DiagramDirection::LR,
+        false,
+        true,
+        Some("My Title"),
+        None,
+    )
+    .unwrap();
+    assert!(
+        out.starts_with("---\ntitle: My Title\n---\nclassDiagram\n    direction LR\n"),
+        "{out}"
+    );
+}
+
+#[test]
+fn test_render_source_with_options_no_classes_returns_none() {
+    assert!(render_source_with_options(
+        "x = 1\n",
+        DiagramDirection::default(),
+        false,
+        true,
+        None,
+        None,
+    )
+    .is_none());
 }

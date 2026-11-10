@@ -125,7 +125,12 @@ fn normalize(text: &str) -> Option<String> {
             match first.chars().next()? {
                 '0'..='9' | '-' => "int",
                 '"' | '\'' => "str",
-                'b' if first[1..].starts_with(['"', '\'']) => "bytes",
+                'b' if first
+                    .get(1..)
+                    .is_some_and(|rest| rest.starts_with(['"', '\''])) =>
+                {
+                    "bytes"
+                }
                 _ if first == "True" || first == "False" => "bool",
                 _ => return None,
             }
@@ -220,8 +225,10 @@ class Service:
         assert_eq!(normalize("Literal[1, 2]").as_deref(), Some("int"));
         assert_eq!(normalize("Literal[\"a\"]").as_deref(), Some("str"));
         assert_eq!(normalize("Literal[b\"a\"]").as_deref(), Some("bytes"));
+        assert_eq!(normalize("Literal[b\"abc\"]").as_deref(), Some("bytes"));
         assert_eq!(normalize("Literal[True]").as_deref(), Some("bool"));
         assert_eq!(normalize("Literal[Color.RED]"), None);
+        assert_eq!(normalize("Literal[b]"), None);
         assert_eq!(normalize("Literal[1] | None"), None);
         assert_eq!(normalize("list[Unknown]"), None);
         assert_eq!(normalize("<class 'Foo'>"), None);
