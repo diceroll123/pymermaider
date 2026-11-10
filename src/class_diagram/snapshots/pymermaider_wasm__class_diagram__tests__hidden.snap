@@ -1,0 +1,9 @@
+---
+source: src/class_diagram/tests.rs
+expression: out
+---
+classDiagram
+    class Thing {
+        + int \_\_dunder__
+        + int public
+    }

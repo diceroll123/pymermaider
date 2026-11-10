@@ -1,0 +1,11 @@
+---
+source: src/class_diagram/tests.rs
+expression: out
+---
+classDiagram
+    class Database
+
+    class Service {
+        + Any db
+        + \_\_init__(self) None
+    }

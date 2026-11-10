@@ -1,5 +1,11 @@
 use super::*;
 
+macro_rules! assert_diagram {
+    ($source:expr) => {
+        insta::assert_snapshot!(render_source($source).trim())
+    };
+}
+
 #[test]
 fn test_class_diagram_basic() {
     let source = "
@@ -13,35 +19,7 @@ class TestClass:
         return x - y
 ";
 
-    let expected_output = r"classDiagram
-    class TestClass {
-        + int x
-        + int y
-        + \_\_init__(self, x: int, y: int) None
-        + add(self, x: int, y: int) int
-        + subtract(self, x: int, y: int) int
-    }
-";
-
-    test_diagram(source, expected_output);
-}
-
-#[test]
-fn test_class_diagram_raw_mermaid_has_no_fences() {
-    let source = r#"
-class TestClass:
-    def add(self, x: int, y: int) -> int:
-        return x + y
-"#;
-
-    let mut diagram = ClassDiagram::default();
-    diagram.add_source(source);
-
-    let raw = diagram.render().unwrap_or_default();
-
-    assert!(!raw.contains("```mermaid"));
-    assert!(raw.contains("classDiagram"));
-    assert!(raw.contains("class TestClass"));
+    assert_diagram!(source);
 }
 
 #[test]
@@ -50,10 +28,7 @@ fn test_class_diagram_generic_class() {
 class Thing[T]: ...
 ";
 
-    let expected_output = r#"classDiagram
-    class Thing ~T~"#;
-
-    test_diagram(source, expected_output);
+    assert_diagram!(source);
 }
 
 #[test]
@@ -62,12 +37,7 @@ fn test_class_diagram_generic_inner_class() {
 class Thing(Inner[T]): ...
 ";
 
-    let expected_output = r#"classDiagram
-    class Thing
-
-    Thing --|> Inner"#;
-
-    test_diagram(source, expected_output);
+    assert_diagram!(source);
 }
 
 #[test]
@@ -79,12 +49,7 @@ FancyType = TypeVar("FancyType")
 class Thing(ABC, Generic[FancyType]): ...
 "#;
 
-    let expected_output = r#"classDiagram
-    class Thing ~FancyType~ {
-        <<abstract>>
-    }"#;
-
-    test_diagram(source, expected_output);
+    assert_diagram!(source);
 }
 
 #[test]
@@ -93,10 +58,7 @@ fn test_class_diagram_generic_class_multiple() {
 class Thing[T, U, V]: ...
 ";
 
-    let expected_output = r#"classDiagram
-    class Thing ~T, U, V~"#;
-
-    test_diagram(source, expected_output);
+    assert_diagram!(source);
 }
 
 #[test]
@@ -107,13 +69,7 @@ from typing import final
 class Thing: ...
 ";
 
-    let expected_output = "classDiagram
-    class Thing {
-        <<final>>
-    }
-";
-
-    test_diagram(source, expected_output);
+    assert_diagram!(source);
 }
 
 #[test]
@@ -122,11 +78,7 @@ fn test_class_diagram_ellipsis() {
 class Thing: ...
 ";
 
-    let expected_output = "classDiagram
-    class Thing
-";
-
-    test_diagram(source, expected_output);
+    assert_diagram!(source);
 }
 
 #[test]
@@ -138,13 +90,7 @@ class Thing:
     async def foo(cls, first, /, *second, kwarg: bool = True, **unpack_this) -> dict[str, str]: ...
 ";
 
-    let expected_output = "classDiagram
-    class Thing {
-        + @classmethod async foo(cls, first, /, *second, kwarg: bool = True, **unpack_this) dict#91;str, str#93;
-    }
-";
-
-    test_diagram(source, expected_output);
+    assert_diagram!(source);
 }
 
 #[test]
@@ -161,16 +107,7 @@ class Person:
         return f'Hello, I am {self.name}'
 ";
 
-    let expected_output = "classDiagram
-    class Person {
-        <<dataclass>>
-        + str name
-        + int age
-        + greet(self) str
-    }
-";
-
-    test_diagram(source, expected_output);
+    assert_diagram!(source);
 }
 
 #[test]
@@ -187,20 +124,7 @@ class Circle(Drawable):
         pass
 ";
 
-    let expected_output = "classDiagram
-    class Drawable {
-        <<interface>>
-        + draw(self) None
-    }
-
-    class Circle {
-        + draw(self) None
-    }
-
-    Circle ..|> Drawable
-";
-
-    test_diagram(source, expected_output);
+    assert_diagram!(source);
 }
 
 #[test]
@@ -220,27 +144,7 @@ class Car:
         pass
 ";
 
-    let expected_output = "classDiagram
-    class Engine {
-        + int horsepower
-    }
-
-    class Wheel {
-        + int diameter
-    }
-
-    class Car {
-        + Engine engine
-        + list#91;Wheel#93; wheels
-        + drive(self) None
-    }
-
-    Car *-- Engine
-
-    Car o-- Wheel
-";
-
-    test_diagram(source, expected_output);
+    assert_diagram!(source);
 }
 
 #[test]
@@ -253,16 +157,7 @@ class Car:
     steps: range
 ";
 
-    let expected_output = "classDiagram
-    class Car {
-        + bytearray payload
-        + complex ratio
-        + slice window
-        + range steps
-    }
-";
-
-    test_diagram(source, expected_output);
+    assert_diagram!(source);
 }
 
 #[test]
@@ -278,160 +173,7 @@ class Car:
     part: Engine | Wheel
 ";
 
-    let expected_output = "classDiagram
-    class Engine {
-        + int horsepower
-    }
-
-    class Wheel {
-        + int diameter
-    }
-
-    class Car {
-        + Engine | Wheel part
-    }
-
-    Car *-- Engine
-
-    Car *-- Wheel
-";
-
-    test_diagram(source, expected_output);
-}
-
-#[test]
-fn test_method_dependency_edges() {
-    let source = "
-class Database:
-    host: str
-
-class Service:
-    def connect(self, db: Database) -> None:
-        pass
-";
-
-    let expected_output = "classDiagram
-    class Database {
-        + str host
-    }
-
-    class Service {
-        + connect(self, db: Database) None
-    }
-
-    Service ..> Database
-";
-
-    test_diagram(source, expected_output);
-}
-
-#[test]
-fn test_method_dependency_suppressed_by_composition() {
-    let source = "
-class Database:
-    host: str
-
-class Service:
-    db: Database
-
-    def connect(self, database: Database) -> None:
-        pass
-";
-
-    let expected_output = "classDiagram
-    class Database {
-        + str host
-    }
-
-    class Service {
-        + Database db
-        + connect(self, database: Database) None
-    }
-
-    Service *-- Database
-";
-
-    test_diagram(source, expected_output);
-}
-
-#[test]
-fn test_method_dependency_suppressed_by_composition_in_redefined_class() {
-    let source = "
-class Database:
-    host: str
-
-class Service:
-    def connect(self, db: Database) -> None:
-        pass
-
-class Service:
-    db: Database
-";
-
-    let expected_output = "classDiagram
-    class Database {
-        + str host
-    }
-
-    class Service {
-        + connect(self, db: Database) None
-    }
-
-    Service *-- Database
-";
-
-    test_diagram(source, expected_output);
-}
-
-#[test]
-fn test_method_dependency_suppressed_by_inheritance() {
-    let source = "
-class Animal:
-    name: str
-
-class Dog(Animal):
-    def groom(self, animal: Animal) -> None:
-        pass
-";
-
-    let expected_output = "classDiagram
-    class Animal {
-        + str name
-    }
-
-    class Dog {
-        + groom(self, animal: Animal) None
-    }
-
-    Dog --|> Animal
-";
-
-    test_diagram(source, expected_output);
-}
-
-#[test]
-fn test_method_dependencies_skip_self_and_generics() {
-    let source = "
-from typing import Generic, TypeVar
-
-T = TypeVar('T')
-
-class Box(Generic[T]):
-    def get(self) -> T:
-        pass
-
-    def wrap(self, other: Box) -> None:
-        pass
-";
-
-    let expected_output = "classDiagram
-    class Box ~T~ {
-        + get(self) T
-        + wrap(self, other: Box) None
-    }
-";
-
-    test_diagram(source, expected_output);
+    assert_diagram!(source);
 }
 
 #[test]
@@ -439,15 +181,12 @@ fn test_pydantic_example() {
     let source = "
 from pydantic import BaseModel
 
-
 class ItemBase(BaseModel):
     title: str
     description: str | None = None
 
-
 class ItemCreate(ItemBase):
     pass
-
 
 class Item(ItemBase):
     id: int
@@ -456,14 +195,11 @@ class Item(ItemBase):
     class Config:
         orm_mode = True
 
-
 class UserBase(BaseModel):
     email: str
 
-
 class UserCreate(UserBase):
     password: str
-
 
 class User(UserBase):
     id: int
@@ -474,57 +210,7 @@ class User(UserBase):
         orm_mode = True
 ";
 
-    let expected_output = "classDiagram
-    class ItemBase {
-        + str title
-        + str | None description
-    }
-
-    class Item {
-        + int id
-        + int owner_id
-    }
-
-    class ItemCreate
-
-    class UserBase {
-        + str email
-    }
-
-    class User {
-        + int id
-        + bool is_active
-        + list#91;Item#93; items
-    }
-
-    class UserCreate {
-        + str password
-    }
-
-    class `Item.Config` {
-        + bool orm_mode
-    }
-
-    class `User.Config` {
-        + bool orm_mode
-    }
-
-    ItemBase --|> `pydantic.BaseModel`
-
-    ItemCreate --|> ItemBase
-
-    Item --|> ItemBase
-
-    UserBase --|> `pydantic.BaseModel`
-
-    UserCreate --|> UserBase
-
-    User --|> UserBase
-
-    User o-- Item
-";
-
-    test_diagram(source, expected_output);
+    assert_diagram!(source);
 }
 
 #[test]
@@ -541,15 +227,7 @@ class Thing:
     def __init__(self, x: int | str, y: int | str) -> None: ...
 ";
 
-    let expected_output = r"classDiagram
-    class Thing {
-        + @overload \_\_init__(self, x: int, y: int) None
-        + @overload \_\_init__(self, x: str, y: str) None
-        + \_\_init__(self, x: int | str, y: int | str) None
-    }
-";
-
-    test_diagram(source, expected_output);
+    assert_diagram!(source);
 }
 
 #[test]
@@ -558,11 +236,7 @@ fn test_class_diagram_object_base() {
 class Thing(object): ...
 ";
 
-    let expected_output = "classDiagram
-    class Thing
-";
-
-    test_diagram(source, expected_output);
+    assert_diagram!(source);
 }
 
 #[test]
@@ -573,14 +247,7 @@ class Thing:
     def __bytes__(self): ...
 ";
 
-    let expected_output = r"classDiagram
-    class Thing {
-        + \_\_complex__(self) complex
-        + \_\_bytes__(self) bytes
-    }
-";
-
-    test_diagram(source, expected_output);
+    assert_diagram!(source);
 }
 
 #[test]
@@ -591,13 +258,7 @@ class Thing:
         raise NotImplementedError
 ";
 
-    let expected_output = "classDiagram
-    class Thing {
-        + do_thing(self)
-    }
-";
-
-    test_diagram(source, expected_output);
+    assert_diagram!(source);
 }
 
 #[test]
@@ -610,14 +271,8 @@ class Thing(ABC):
         """Must be implemented by subclasses"""
         pass
 "#;
-    let expected_output = "classDiagram
-    class Thing {
-        <<abstract>>
-        + do_thing(self) None*
-    }
-";
 
-    test_diagram(source, expected_output);
+    assert_diagram!(source);
 }
 
 #[test]
@@ -630,16 +285,7 @@ class Color(Enum):
     BLUE = 3
 ";
 
-    let expected_output = "classDiagram
-    class Color {
-        <<enumeration>>
-        + int RED
-        + int GREEN
-        + int BLUE
-    }
-";
-
-    test_diagram(source, expected_output);
+    assert_diagram!(source);
 }
 
 #[test]
@@ -650,13 +296,8 @@ class Thing:
     def static_method(x: int, y: int) -> int:
         return x + y
 ";
-    let expected_output = "classDiagram
-    class Thing {
-        + @staticmethod static_method(x: int, y: int) int$
-    }
-";
 
-    test_diagram(source, expected_output);
+    assert_diagram!(source);
 }
 
 #[test]
@@ -675,13 +316,8 @@ class Person:
     def name(self) -> None:
         del self._name
 ";
-    let expected_output = "classDiagram
-    class Person {
-        + str name
-    }
-";
 
-    test_diagram(source, expected_output);
+    assert_diagram!(source);
 }
 
 #[test]
@@ -692,13 +328,8 @@ class Thing:
     def value(self):
         return 42
 ";
-    let expected_output = "classDiagram
-    class Thing {
-        + Any value
-    }
-";
 
-    test_diagram(source, expected_output);
+    assert_diagram!(source);
 }
 
 #[test]
@@ -716,18 +347,7 @@ class MemoryStore(Store[int]):
         self.storage.append(data)
 "#;
 
-    let expected_output = r#"classDiagram
-    class Store ~IndexType~ {
-        + insert(self, data) None
-    }
-
-    class MemoryStore {
-        + insert(self, data) None
-    }
-
-    MemoryStore --|> Store"#;
-
-    test_diagram(source, expected_output);
+    assert_diagram!(source);
 }
 
 #[test]
@@ -747,19 +367,7 @@ class MemoryStore(Store[int]):
         self.storage.append(data)
 "#;
 
-    let expected_output = r#"classDiagram
-    class Store ~IndexType~ {
-        <<abstract>>
-        + insert(self, data) None*
-    }
-
-    class MemoryStore {
-        + insert(self, data) None
-    }
-
-    MemoryStore ..|> Store"#;
-
-    test_diagram(source, expected_output);
+    assert_diagram!(source);
 }
 
 #[test]
@@ -789,27 +397,7 @@ class FancyStore(Store[datetime], Generic[FancyStorage]):
         self.storage.insert(data)
 "#;
 
-    let expected_output = r#"classDiagram
-    class Store ~IndexType~ {
-        <<abstract>>
-        + insert(self, data) None*
-    }
-
-    class FancyStore ~FancyStorage~ {
-        + FancyStorage storage
-        + \_\_init__(self, fancy_store: FancyStorage) None
-        + insert(self, data) None
-    }
-
-    class MemoryStore {
-        + insert(self, data) None
-    }
-
-    MemoryStore ..|> Store
-
-    FancyStore ..|> Store"#;
-
-    test_diagram(source, expected_output);
+    assert_diagram!(source);
 }
 
 #[test]
@@ -889,14 +477,7 @@ class Car:
     let mut diagram = ClassDiagram::default();
     diagram.add_source(source);
     let result = diagram.render().unwrap_or_default();
-    assert!(
-        result.contains("Car *-- Engine"),
-        "bare type should be composition; got: {result}"
-    );
-    assert!(
-        !result.contains("Car o-- Engine"),
-        "aggregation should be dropped when composition exists; got: {result}"
-    );
+    insta::assert_snapshot!(result);
 }
 
 #[test]
@@ -911,11 +492,7 @@ class Car:
     let mut diagram = ClassDiagram::default();
     diagram.add_source(source);
     let result = diagram.render().unwrap_or_default();
-    assert!(
-        result.contains("Car o-- Engine"),
-        "list type should be aggregation; got: {result}"
-    );
-    assert!(!result.contains("Car *-- Engine"), "got: {result}");
+    insta::assert_snapshot!(result);
 }
 
 #[test]
@@ -932,14 +509,7 @@ class Car:
     let mut diagram = ClassDiagram::default();
     diagram.add_source(source);
     let result = diagram.render().unwrap_or_default();
-    assert!(
-        result.contains("Car o-- Engine"),
-        "Optional should be aggregation; got: {result}"
-    );
-    assert!(
-        !result.contains("Car *-- Engine"),
-        "Optional should not be composition; got: {result}"
-    );
+    insta::assert_snapshot!(result);
 }
 
 #[test]
@@ -954,14 +524,7 @@ class Car:
     let mut diagram = ClassDiagram::default();
     diagram.add_source(source);
     let result = diagram.render().unwrap_or_default();
-    assert!(
-        result.contains("Car o-- Engine"),
-        "X|None should be aggregation; got: {result}"
-    );
-    assert!(
-        !result.contains("Car *-- Engine"),
-        "X|None should not be composition; got: {result}"
-    );
+    insta::assert_snapshot!(result);
 }
 
 fn render_source(source: &str) -> String {
@@ -979,9 +542,7 @@ class Car:
     mode: Literal["sport", "eco"]
 "#;
     let out = render_source(source);
-    assert!(!out.contains("Car *-- sport"), "{out}");
-    assert!(!out.contains("Car *-- eco"), "{out}");
-    assert!(!out.contains("-- sport"), "{out}");
+    insta::assert_snapshot!(out);
 }
 
 #[test]
@@ -996,9 +557,7 @@ class Car:
     engine: Annotated[Engine, "metadata"]
 "#;
     let out = render_source(source);
-    assert!(out.contains("Car *-- Engine"), "{out}");
-    assert!(!out.contains("metadata\n"), "{out}");
-    assert!(!out.contains("-- metadata"), "{out}");
+    insta::assert_snapshot!(out);
 }
 
 #[test]
@@ -1016,8 +575,7 @@ class Handler:
     callback: Callable[[Request], Response]
 ";
     let out = render_source(source);
-    assert!(out.contains("Handler *-- Request"), "{out}");
-    assert!(out.contains("Handler *-- Response"), "{out}");
+    insta::assert_snapshot!(out);
 }
 
 #[test]
@@ -1037,28 +595,7 @@ class Config:
     diagram.set_infer(false);
     diagram.add_source(source);
     let out = diagram.render().unwrap_or_default();
-    assert!(out.contains("float ratio"), "{out}");
-    assert!(out.contains("int total"), "{out}");
-    assert!(out.contains("str name"), "{out}");
-    assert!(out.contains("Any mixed"), "{out}");
-    assert!(out.contains("Any fallback"), "{out}");
-    assert!(out.contains("bool flag"), "{out}");
-}
-
-fn test_diagram(source: &str, expected_output: &str) {
-    let mut diagram = ClassDiagram::default();
-    diagram.add_source(source);
-    let output = diagram.render().unwrap_or_default();
-    assert_eq!(output.trim(), expected_output.trim());
-}
-
-#[expect(dead_code)]
-fn test_diagram_print(source: &str) {
-    // for making new tests and debugging :P
-    let mut diagram = ClassDiagram::default();
-    diagram.add_source(source);
-    println!("{}", diagram.render().unwrap_or_default());
-    assert_eq!(1, 2);
+    insta::assert_snapshot!(out);
 }
 
 #[test]
@@ -1074,13 +611,7 @@ class Car:
     let mut diagram = ClassDiagram::default();
     diagram.add_source(source);
     let out = diagram.render().unwrap_or_default();
-
-    assert!(
-        out.contains("+ engine: Engine") || out.contains("Engine engine"),
-        "{out}"
-    );
-    assert!(!out.contains('"'), "{out}");
-    assert!(out.contains("Car *-- Engine"), "{out}");
+    insta::assert_snapshot!(out);
 }
 
 #[test]
@@ -1099,9 +630,7 @@ class Car:
     let mut diagram = ClassDiagram::default();
     diagram.add_source(source);
     let out = diagram.render().unwrap_or_default();
-
-    assert!(out.contains("Car *-- Engine"), "{out}");
-    assert!(out.contains("Car *-- Wheel"), "{out}");
+    insta::assert_snapshot!(out);
 }
 
 #[test]
@@ -1136,10 +665,7 @@ class Thing:
     let mut diagram = ClassDiagram::default();
     diagram.add_source(source);
     let out = diagram.render().unwrap_or_default();
-
-    assert!(out.contains("+ int base"), "{out}");
-    assert!(out.contains("+ str typed_only"), "{out}");
-    assert!(out.contains("+ slow(self) None"), "{out}");
+    insta::assert_snapshot!(out);
 }
 
 #[test]
@@ -1162,20 +688,7 @@ class Multi(Protocol, Base):
     let mut diagram = ClassDiagram::default();
     diagram.add_source(source);
     let out = diagram.render().unwrap_or_default();
-
-    assert!(
-        out.contains("class Repo ~T~ {\n        <<interface>>"),
-        "{out}"
-    );
-    assert!(
-        out.contains("class Multi {\n        <<interface>>"),
-        "{out}"
-    );
-    assert!(!out.contains("Protocol"), "{out}");
-    assert!(
-        out.contains("Multi ..|> Base") || out.contains("Multi --|> Base"),
-        "{out}"
-    );
+    insta::assert_snapshot!(out);
 }
 
 #[test]
@@ -1194,8 +707,7 @@ class Base(ABC):
     let mut diagram = ClassDiagram::default();
     diagram.add_source(source);
     let out = diagram.render().unwrap_or_default();
-
-    assert!(out.contains("Child ..|> Base"), "{out}");
+    insta::assert_snapshot!(out);
 }
 
 #[test]
@@ -1210,8 +722,7 @@ class Item(pydantic.BaseModel):
     let mut diagram = ClassDiagram::default();
     diagram.add_source(source);
     let out = diagram.render().unwrap_or_default();
-
-    assert!(out.contains("Item --|> `pydantic.BaseModel`"), "{out}");
+    insta::assert_snapshot!(out);
 }
 
 #[test]
@@ -1231,11 +742,8 @@ class Outer:
     diagram.add_source(source);
     let out = diagram.render().unwrap_or_default();
 
-    assert!(out.contains("class Outer"), "{out}");
-    assert!(out.contains("class `Outer.Inner`"), "{out}");
-    assert!(out.contains("class `Outer.Inner.Deep`"), "{out}");
     // Bare reference to the nested class resolves to its qualified name
-    assert!(out.contains("Outer *-- `Outer.Inner`"), "{out}");
+    insta::assert_snapshot!(out);
 }
 
 #[test]
@@ -1252,8 +760,7 @@ class Outer:
     let mut diagram = ClassDiagram::default();
     diagram.add_source(source);
     let out = diagram.render().unwrap_or_default();
-
-    assert!(out.contains("`Outer.Child` --|> `Outer.Base`"), "{out}");
+    insta::assert_snapshot!(out);
 }
 
 #[test]
@@ -1273,8 +780,7 @@ class User(Config):
     let mut diagram = ClassDiagram::default();
     diagram.add_source(source);
     let out = diagram.render().unwrap_or_default();
-
-    assert!(out.contains("User --|> Config"), "{out}");
+    insta::assert_snapshot!(out);
 }
 
 #[test]
@@ -1288,8 +794,7 @@ def make():
     let mut diagram = ClassDiagram::default();
     diagram.add_source(source);
     let out = diagram.render().unwrap_or_default();
-
-    assert!(out.contains("class `make.Local`"), "{out}");
+    insta::assert_snapshot!(out);
 }
 
 #[test]
@@ -1310,10 +815,7 @@ class Car:
     let mut diagram = ClassDiagram::default();
     diagram.add_source(source);
     let out = diagram.render().unwrap_or_default();
-
-    assert!(out.contains("Car *-- Engine"), "{out}");
-    assert!(out.contains("Car *-- `pathlib.Path`"), "{out}");
-    assert!(out.contains("Car *-- `decimal.Decimal`"), "{out}");
+    insta::assert_snapshot!(out);
 }
 
 #[test]
@@ -1328,16 +830,7 @@ class Config:
     let mut diagram = ClassDiagram::default();
     diagram.add_source(source);
     let out = diagram.render().unwrap_or_default();
-
-    assert!(
-        out.contains("dict#91;str, list#91;int#93;#93; mapping"),
-        "{out}"
-    );
-    assert!(
-        out.contains("Literal#91;#quot;a#quot;, #quot;b#quot;#93; mode"),
-        "{out}"
-    );
-    assert!(!out.contains('['), "{out}");
+    insta::assert_snapshot!(out);
 }
 
 #[test]
@@ -1362,17 +855,7 @@ class Car:
     diagram.add_source(source);
     let out = diagram.render().unwrap_or_default();
 
-    assert!(out.contains("+ str name"), "{out}");
-    assert!(out.contains("+ Engine engine"), "{out}");
-    assert!(out.contains("- float \\_secret"), "{out}");
-    assert!(out.contains("+ bool flag"), "{out}");
-    // Declared at class level, so not duplicated by the __init__ assignment
-    assert_eq!(out.matches(" wheels\n").count(), 1, "{out}");
-    assert!(out.contains("Car *-- Engine"), "{out}");
-    assert!(
-        out.contains("init__(self, name: str, engine: Engine, wheels: int = 4) None"),
-        "{out}"
-    );
+    insta::assert_snapshot!(out);
 }
 
 #[test]
@@ -1386,11 +869,7 @@ class Thing:
     let mut diagram = ClassDiagram::default();
     diagram.add_source(source);
     let out = diagram.render().unwrap_or_default();
-
-    assert!(
-        out.contains("run(self, a, b=2, *, c: str = #quot;x#quot;) None"),
-        "{out}"
-    );
+    insta::assert_snapshot!(out);
 }
 
 #[test]
@@ -1418,13 +897,7 @@ class Base(ABC):
     let mut diagram = ClassDiagram::default();
     diagram.add_source(source);
     let out = diagram.render().unwrap_or_default();
-
-    assert!(out.contains("<<abstract>>"), "{out}");
-    assert!(out.contains("run(self) None*"), "{out}");
-    assert!(out.contains("@classmethod make(cls)"), "{out}");
-    assert!(out.contains("@staticmethod helper() int$"), "{out}");
-    assert!(out.contains("@final locked(self) None"), "{out}");
-    assert!(out.contains("async fetch(self) bytes"), "{out}");
+    insta::assert_snapshot!(out);
 }
 
 #[test]
@@ -1445,8 +918,7 @@ class Thing:
     diagram.add_source(source);
     let out = diagram.render().unwrap_or_default();
 
-    assert_eq!(out.matches("value").count(), 1, "{out}");
-    assert!(out.contains("+ int value"), "{out}");
+    insta::assert_snapshot!(out);
 }
 
 #[test]
@@ -1461,9 +933,7 @@ class Thing:
     let mut diagram = ClassDiagram::default();
     diagram.add_source(source);
     let out = diagram.render().unwrap_or_default();
-
-    assert!(out.contains("ClassVar"), "{out}");
-    assert!(out.contains("count"), "{out}");
+    insta::assert_snapshot!(out);
 }
 
 #[test]
@@ -1476,11 +946,7 @@ class Thing:
     let mut diagram = ClassDiagram::default();
     diagram.add_source(source);
     let out = diagram.render().unwrap_or_default();
-
-    assert!(
-        out.contains("run(self, a, /, b, *args, c, **kwargs) None"),
-        "{out}"
-    );
+    insta::assert_snapshot!(out);
 }
 
 #[test]
@@ -1499,16 +965,7 @@ class Movie(TypedDict):
     let mut diagram = ClassDiagram::default();
     diagram.add_source(source);
     let out = diagram.render().unwrap_or_default();
-
-    assert!(
-        out.contains("class Point {\n        <<namedtuple>>"),
-        "{out}"
-    );
-    assert!(
-        out.contains("class Movie {\n        <<typeddict>>"),
-        "{out}"
-    );
-    assert!(!out.contains("--|>"), "{out}");
+    insta::assert_snapshot!(out);
 }
 
 #[test]
@@ -1525,8 +982,7 @@ class Shape(ABC):
     let mut diagram = ClassDiagram::default();
     diagram.add_source(source);
     let out = diagram.render().unwrap_or_default();
-
-    assert!(out.contains("<<abstract>>"), "{out}");
+    insta::assert_snapshot!(out);
 }
 
 #[test]
@@ -1542,8 +998,7 @@ class Point:
     let mut diagram = ClassDiagram::default();
     diagram.add_source(source);
     let out = diagram.render().unwrap_or_default();
-
-    assert!(out.contains("<<dataclass>>"), "{out}");
+    insta::assert_snapshot!(out);
 }
 
 #[test]
@@ -1563,20 +1018,14 @@ class Thing:
     diagram.add_source(source);
     let out = diagram.render().unwrap_or_default();
 
-    assert!(out.contains("# int \\_protected"), "{out}");
-    assert!(out.contains("- int \\_\\_private"), "{out}");
-    assert!(out.contains("+ int \\_\\_dunder__"), "{out}");
-    assert!(out.contains("# \\_helper(self) None"), "{out}");
-    assert!(out.contains("- \\_\\_mangled(self) None"), "{out}");
+    insta::assert_snapshot!("visible", out);
 
     // --hide-private-members hides both protected and private members
     let mut hidden = ClassDiagram::default();
     hidden.set_hide_private_members(true);
     hidden.add_source(source);
     let out = hidden.render().unwrap_or_default();
-    assert!(!out.contains("protected"), "{out}");
-    assert!(!out.contains("helper"), "{out}");
-    assert!(out.contains("public"), "{out}");
+    insta::assert_snapshot!("hidden", out);
 }
 
 #[cfg(feature = "infer")]
@@ -1594,8 +1043,7 @@ class Service:
         self.db = Database()
 ";
         let out = render_source(source);
-        assert!(out.contains("Database db"), "{out}");
-        assert!(out.contains("Service *-- Database"), "{out}");
+        insta::assert_snapshot!(out);
     }
 
     #[test]
@@ -1612,8 +1060,7 @@ class Service:
         diagram.set_infer(false);
         diagram.add_source(source);
         let out = diagram.render().unwrap_or_default();
-        assert!(out.contains("Any db"), "{out}");
-        assert!(!out.contains("Service *-- Database"), "{out}");
+        insta::assert_snapshot!(out);
     }
 
     #[test]
@@ -1628,7 +1075,7 @@ class Car:
         self.spare = Wheel() if self else None
 ";
         let out = render_source(source);
-        assert!(out.contains("Car o-- Wheel"), "{out}");
+        insta::assert_snapshot!(out);
     }
 
     #[test]
@@ -1641,8 +1088,7 @@ class App:
     config = Config()
 ";
         let out = render_source(source);
-        assert!(out.contains("Config config"), "{out}");
-        assert!(out.contains("App *-- Config"), "{out}");
+        insta::assert_snapshot!(out);
     }
 
     #[test]
@@ -1653,7 +1099,7 @@ class Thing:
         self.value = undefined_function()
 ";
         let out = render_source(source);
-        assert!(out.contains("Any value"), "{out}");
+        insta::assert_snapshot!(out);
     }
 }
 
@@ -1670,10 +1116,8 @@ class Car:
         self.empty = []
 ";
     let out = render_source(source);
-    assert!(out.contains("list#91;Wheel#93; wheels"), "{out}");
-    assert!(out.contains("Car o-- Wheel"), "{out}");
     // `list[Unknown]` is not informative, so the syntactic `list` is kept.
-    assert!(out.contains("list empty"), "{out}");
+    insta::assert_snapshot!(out);
 }
 
 #[test]

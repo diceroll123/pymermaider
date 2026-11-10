@@ -1,0 +1,8 @@
+---
+source: src/class_diagram/tests.rs
+expression: out
+---
+classDiagram
+    class Item
+
+    Item --|> `pydantic.BaseModel`

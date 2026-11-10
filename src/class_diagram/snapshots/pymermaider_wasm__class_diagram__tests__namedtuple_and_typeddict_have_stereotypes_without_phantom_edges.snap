@@ -1,0 +1,15 @@
+---
+source: src/class_diagram/tests.rs
+expression: out
+---
+classDiagram
+    class Movie {
+        <<typeddict>>
+        + str title
+    }
+
+    class Point {
+        <<namedtuple>>
+        + int x
+        + int y
+    }

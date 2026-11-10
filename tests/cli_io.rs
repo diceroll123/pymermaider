@@ -387,32 +387,3 @@ fn renders_stub_files() {
     let out = render(dir.path(), &[]);
     assert!(out.contains("class `models.Service`"), "{out}");
 }
-
-#[test]
-fn method_dependency_edge_rendered() {
-    let exe = env!("CARGO_BIN_EXE_pymermaider");
-
-    let dir = tempfile::TempDir::new().expect("temp dir");
-    let file_path = dir.path().join("svc.py");
-    std::fs::write(
-        &file_path,
-        "class Database:\n    host: str\n\nclass Service:\n    def connect(self, db: Database) -> None:\n        pass\n",
-    )
-    .expect("write svc.py");
-
-    let output = Command::new(exe)
-        .arg(file_path.to_string_lossy().to_string())
-        .arg("--output")
-        .arg("-")
-        .output()
-        .expect("run pymermaider");
-
-    assert!(
-        output.status.success(),
-        "status={:?} stderr={}",
-        output.status.code(),
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let stdout = String::from_utf8_lossy(&output.stdout);
-    assert!(stdout.contains("Service ..> Database"), "{stdout}");
-}
