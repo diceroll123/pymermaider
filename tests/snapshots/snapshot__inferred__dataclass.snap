@@ -1,0 +1,16 @@
+---
+source: tests/snapshot.rs
+expression: rendered
+---
+classDiagram
+    class Coordinate {
+        + float x
+        + float y
+    }
+
+    class User {
+        <<dataclass>>
+        + int id
+        + str name
+        + list#91;str#93; tags
+    }

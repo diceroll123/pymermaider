@@ -1,0 +1,28 @@
+---
+source: tests/snapshot.rs
+expression: rendered
+---
+classDiagram
+    class `Outer.Inner` {
+        + int value
+    }
+
+    class Outer {
+        + Inner inner
+    }
+
+    class `Service.Config` {
+        + bool debug
+    }
+
+    class Service {
+        + Config config
+    }
+
+    class `Outer.Inner.Deep` {
+        + bool flag
+    }
+
+    Outer *-- `Outer.Inner`
+
+    Service *-- `Service.Config`

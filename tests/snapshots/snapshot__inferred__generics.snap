@@ -1,0 +1,21 @@
+---
+source: tests/snapshot.rs
+expression: rendered
+---
+classDiagram
+    class Box ~T~ {
+        + T value
+        + get(self) T
+    }
+
+    class Pair ~A, B~ {
+        + A first
+        + B second
+        + describe(self) str
+    }
+
+    Box *-- T
+
+    Pair *-- A
+
+    Pair *-- B

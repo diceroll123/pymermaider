@@ -7,6 +7,7 @@
 - `--direction` flag to set class diagram direction (TB, BT, LR, RL).
 - `--no-title` flag to omit the title from diagram output.
 - `--hide-private-members` flag to omit private members from class diagrams.
+- Snapshot tests (`insta`) over a Python corpus in `tests/corpus/`, pinning exact Mermaid output for common features (inheritance, protocols/ABCs, enums, dataclasses, generics, nested classes, composition/aggregation, decorators, forward references).
 - Python API via a native (pyo3) module: `pymermaider.generate(source)` returns the raw Mermaid diagram and `pymermaider.to_markdown(source)` wraps it in a fenced ```` ```mermaid ```` block. Both accept `direction`, `hide_private_members`, `show_title`, `title` and `python_version` options.
 - Web app: Export menu in the diagram editor header to copy the Mermaid code or download the diagram as `.mmd`, Markdown (`.md`), SVG, or PNG.
 

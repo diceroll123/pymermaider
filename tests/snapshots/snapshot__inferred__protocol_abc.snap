@@ -1,0 +1,28 @@
+---
+source: tests/snapshot.rs
+expression: rendered
+---
+classDiagram
+    class Drawable {
+        <<interface>>
+        + draw(self) None
+    }
+
+    class Canvas {
+        + int width
+        + draw(self) None
+    }
+
+    class Shape {
+        <<abstract>>
+        + area(self) float*
+    }
+
+    class Circle {
+        + float radius
+        + area(self) float
+    }
+
+    Circle ..|> Shape
+
+    Canvas ..|> Drawable
