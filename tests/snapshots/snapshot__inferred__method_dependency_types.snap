@@ -1,0 +1,30 @@
+---
+source: tests/snapshot.rs
+expression: rendered
+---
+classDiagram
+    class Middleware
+
+    class Request {
+        + str path
+    }
+
+    class Response {
+        + int status
+    }
+
+    class Handler {
+        + handle(self, request: Request) Response
+        + maybe(self, request: Optional#91;Request#93;) #quot;list#91;Response#93; | None#quot;
+        + configure(self, middleware: Middleware, /, *, request: Request) None
+        + @classmethod build(cls, middleware: Middleware) #quot;Handler#quot;
+        + @staticmethod parse(raw: str) Response$
+        + async fetch(self, request: Request) Response
+        + plain(self, a: int, b: str, c) bool
+    }
+
+    Handler ..> Response
+
+    Handler ..> Request
+
+    Handler ..> Middleware

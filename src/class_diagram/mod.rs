@@ -7,8 +7,8 @@ use crate::analysis::parameter_generator::ParameterGenerator;
 use crate::analysis::type_analyzer;
 use crate::ast;
 use crate::render::renderer::{
-    Attribute, ClassNode, CompositionEdge, CompositionKind, Diagram, DiagramDirection,
-    MethodSignature, RelationType, RelationshipEdge, Visibility,
+    Attribute, ClassNode, CompositionEdge, CompositionKind, DependencyEdge, Diagram,
+    DiagramDirection, MethodSignature, RelationType, RelationshipEdge, Visibility,
 };
 use indexmap::IndexSet;
 use ruff_linter::source_kind::SourceKind;
@@ -266,6 +266,20 @@ impl ClassDiagram {
             }
         }
 
+        // Collect types referenced by method signatures (return annotations and annotated
+        // parameters) for dependency edges. The class itself, `Self` and its own generic
+        // type parameters are not dependencies.
+        let mut dependency_types = Self::extract_method_dependency_types(checker, &class.body);
+        let generic_params: IndexSet<&str> = generic_type_var
+            .as_deref()
+            .map(|raw| raw.split(',').map(str::trim).collect())
+            .unwrap_or_default();
+        dependency_types.retain(|name| {
+            name.as_str() != local_name
+                && name.as_str() != "Self"
+                && !generic_params.contains(name.as_str())
+        });
+
         // Detect class type using ClassTypeDetector
         let detector = ClassTypeDetector::new(checker);
         let class_type = detector.detect_type(class);
@@ -330,6 +344,15 @@ impl ClassDiagram {
             };
             self.diagram.add_composition(comp);
         }
+
+        // Add dependency relationships from method signatures. Those also covered by an
+        // inheritance or composition edge are pruned in `Diagram::resolve_references`.
+        for dep_type in &dependency_types {
+            self.diagram.add_dependency(DependencyEdge {
+                from: class_name.clone(),
+                to: QualifiedName::user_defined(dep_type).normalize_name(),
+            });
+        }
     }
 
     /// Add relationships for a ty-inferred type, e.g. `Database` or `list[Database] | None`.
@@ -381,6 +404,53 @@ impl ClassDiagram {
                     out.extend(Self::flatten_class_body(body));
                 }
                 other => out.push(other),
+            }
+        }
+        out
+    }
+
+    /// Type names referenced by a method's signature (return annotation and annotated
+    /// parameters), for dependency edge detection. The implicit `self`/`cls` first parameter
+    /// is skipped; builtins and typing wrappers are filtered by the analyzer.
+    fn extract_method_dependency_types(checker: &Checker, body: &[ast::Stmt]) -> IndexSet<String> {
+        let mut out = IndexSet::new();
+        for stmt in Self::flatten_class_body(body) {
+            let ast::Stmt::FunctionDef(func) = stmt else {
+                continue;
+            };
+
+            let mut annotations: Vec<&Expr> = func.returns.as_deref().into_iter().collect();
+            let mut first_positional = true;
+            for param in func
+                .parameters
+                .posonlyargs
+                .iter()
+                .chain(&func.parameters.args)
+            {
+                let arg = &param.parameter;
+                if first_positional {
+                    // The implicit `self`/`cls` of a method is not a dependency.
+                    first_positional = false;
+                    if matches!(arg.name.as_str(), "self" | "cls") {
+                        continue;
+                    }
+                }
+                if let Some(annotation) = &arg.annotation {
+                    annotations.push(annotation);
+                }
+            }
+            for param in &func.parameters.kwonlyargs {
+                if let Some(annotation) = &param.parameter.annotation {
+                    annotations.push(annotation);
+                }
+            }
+
+            for annotation in annotations {
+                out.extend(
+                    type_analyzer::extract_composition_types(annotation, checker)
+                        .into_iter()
+                        .map(|(name, _)| name),
+                );
             }
         }
         out
