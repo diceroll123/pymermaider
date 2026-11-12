@@ -1,0 +1,5 @@
+---
+source: tests/cli_io.rs
+expression: stderr.trim()
+---
+pymermaider: 1 files, 3 classes, 0 inheritance, 0 implementation, 1 composition, 1 dependency
