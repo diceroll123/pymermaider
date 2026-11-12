@@ -1,4 +1,4 @@
-/// ty-backed type inference (feature `infer`).
+/// ty-backed type inference.
 ///
 /// ty infers types on its own parsed AST, so nodes from our parse can't be passed in. Instead the
 /// source is analyzed once and the inferred type of every assignment target is recorded by its

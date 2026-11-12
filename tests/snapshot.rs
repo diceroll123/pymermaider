@@ -2,12 +2,10 @@
 //!
 //! These pin the *exact* rendered Mermaid output for representative features so that
 //! rendering regressions show up as readable snapshot diffs. Snapshots are taken with the
-//! default settings (ty inference enabled), matching what the CLI produces out of the box;
-//! they are gated on the `infer` feature because without it the inferred attribute types in
-//! the snapshots would not be reproducible. To update snapshots after an intentional change,
+//! default settings (ty inference enabled), matching what the CLI produces out of the box.
+//! To update snapshots after an intentional change,
 //! review them with `cargo insta review` (or `INSTA_UPDATE=always cargo test`).
 
-#[cfg(feature = "infer")]
 mod inferred {
     use std::path::PathBuf;
 
