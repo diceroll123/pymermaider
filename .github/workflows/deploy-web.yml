@@ -27,8 +27,11 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: '24'
-          cache: 'npm'
-          cache-dependency-path: web/package-lock.json
+
+      - name: Setup Bun
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4'
 
       - name: Setup Rust
         uses: dtolnay/rust-toolchain@stable
@@ -52,13 +55,21 @@ jobs:
             ${{ runner.os }}-${{ steps.rust_version.outputs.rustc }}-wasm32-unknown-unknown-
             ${{ runner.os }}-
 
-      - name: Install npm dependencies
+      - name: Cache web dependencies
+        uses: actions/cache@v6
+        with:
+          path: web/node_modules
+          key: ${{ runner.os }}-bun-${{ hashFiles('web/bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install web dependencies
         working-directory: ./web
-        run: npm ci
+        run: bun install --frozen-lockfile
 
       - name: Build (WASM + Next.js)
         working-directory: ./web
-        run: npm run build
+        run: bun run build
         env:
           NODE_ENV: production
           NEXT_PUBLIC_BASE_PATH: /pymermaider

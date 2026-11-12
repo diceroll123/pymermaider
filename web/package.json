@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "build:wasm": "wasm-pack build .. --target web --out-dir web/public/wasm --no-typescript --no-default-features",
-    "prebuild": "npm run build:wasm",
+    "prebuild": "bun run build:wasm",
     "build": "next build . && touch out/.nojekyll",
     "dev": "next dev .",
     "start": "next start .",
@@ -35,5 +35,9 @@
     "eslint-config-next": "16.3.8",
     "typescript": "^6.0.0",
     "wasm-pack": "^0.15.0"
-  }
+  },
+  "trustedDependencies": [
+    "unrs-resolver",
+    "wasm-pack"
+  ]
 }

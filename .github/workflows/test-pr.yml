@@ -29,8 +29,12 @@ jobs:
         uses: actions/setup-node@v7
         with:
           node-version: '24'
-          cache: 'npm'
-          cache-dependency-path: web/package-lock.json
+
+      - name: Setup Bun
+        if: github.event.action != 'closed'
+        uses: oven-sh/setup-bun@v2
+        with:
+          bun-version: '1.4'
 
       - name: Setup Rust
         if: github.event.action != 'closed'
@@ -71,15 +75,24 @@ jobs:
           echo "WASM module built successfully"
           ls -lh web/public/wasm/
 
-      - name: Install npm dependencies
+      - name: Cache web dependencies
+        if: github.event.action != 'closed'
+        uses: actions/cache@v6
+        with:
+          path: web/node_modules
+          key: ${{ runner.os }}-bun-${{ hashFiles('web/bun.lock') }}
+          restore-keys: |
+            ${{ runner.os }}-bun-
+
+      - name: Install web dependencies
         if: github.event.action != 'closed'
         working-directory: ./web
-        run: npm ci
+        run: bun install --frozen-lockfile
 
       - name: Build Next.js application
         if: github.event.action != 'closed'
         working-directory: ./web
-        run: npm run build
+        run: bun run build
         env:
           NODE_ENV: production
           NEXT_PUBLIC_BASE_PATH: /pymermaider/pr-preview/pr-${{ github.event.pull_request.number }}
