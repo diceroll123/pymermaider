@@ -6,19 +6,19 @@ default:
 
 # Build WASM module for web
 build-wasm:
-    cd web && npm run build:wasm
+    cd web && bun run build:wasm
 
 # Install web dependencies
 web-install:
-    cd web && npm install
+    cd web && bun install
 
 # Run web dev server (requires WASM to be built first)
 web-dev port="3000":
-    cd web && npm run dev -- -p {{port}}
+    cd web && bun run dev -- -p {{port}}
 
 # Build web app for production (static export)
 web-build:
-    cd web && npm run build
+    cd web && bun run build
     @echo "Static site generated in web/out/"
 
 # Serve the built site locally (for testing)
@@ -61,7 +61,7 @@ lint:
 
 # Run web linting
 lint-web:
-    cd web && npm ci && npm run lint
+    cd web && bun install --frozen-lockfile && bun run lint
 
 # Format Rust code
 fmt:
@@ -91,6 +91,8 @@ verify:
     @cargo --version
     @echo "Checking wasm32 target..."
     @rustup target list | grep "wasm32-unknown-unknown (installed)"
+    @echo "Checking Bun..."
+    @bun --version
     @echo "Checking Node.js..."
     @node --version
     @echo "✅ All checks passed!"
